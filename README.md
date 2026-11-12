@@ -16,9 +16,9 @@ Le site public est servi par un Worker de fichiers statiques. Le fichier
 servir les ressources sans invoquer de code Worker. Le dossier `api/` contient
 un second Worker, indépendant, pour la connexion Google Drive des applications.
 
-Dans Cloudflare **Workers & Pages**, créer une application Worker liée au dépôt
-`sinikebe/siniverse`, avec la racine du dépôt comme répertoire de travail, la
-branche `main`, la commande de build `node --test test/site.test.mjs` et la
+Dans Cloudflare **Workers & Pages**, utiliser le Worker existant `siniverse`
+lié au dépôt `sinikebe/siniverse`, avec la racine du dépôt comme répertoire de
+travail, la branche `main`, la commande de build `node --test test/site.test.mjs` et la
 commande de déploiement `npx wrangler deploy`. Aucun
 outil n'est nécessaire sur l'ordinateur personnel : cette commande s'exécute
 dans la construction Cloudflare. Aucun secret n'est nécessaire au site public.
