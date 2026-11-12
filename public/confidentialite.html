@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Comment Finapp et Garapp protègent vos données locales et leurs sauvegardes facultatives sur Google Drive.">
+  <meta name="theme-color" content="#f7f7f2">
+  <link rel="canonical" href="https://siniverse.cc/confidentialite.html">
+  <link rel="icon" href="/assets/siniverse.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/site.css">
+  <title>Confidentialité - Siniverse</title>
+</head>
+<body>
+  <a class="skip-link" href="#main">Aller au contenu</a>
+  <header class="site-header container">
+    <a class="brand" href="/" aria-label="Siniverse, accueil">
+      <img src="/assets/siniverse.svg" width="37" height="37" alt="">
+      <span>siniverse<span class="brand-dot">.</span></span>
+    </a>
+    <nav class="main-nav" aria-label="Navigation principale">
+      <a href="/#applications">Les applications</a>
+    </nav>
+  </header>
+
+  <main class="privacy-page container" id="main">
+    <p class="eyebrow">VOS DONNÉES, VOS CHOIX</p>
+    <h1>Confidentialité</h1>
+    <p class="privacy-intro">Cette page explique le fonctionnement de <a href="https://finapp.siniverse.cc">Finapp</a> et de <a href="https://garapp.siniverse.cc">Garapp</a>, les deux applications de Siniverse. La sauvegarde Google Drive est facultative : les applications restent utilisables sans compte Google.</p>
+    <p class="privacy-updated">Mise à jour le 12 novembre 2026.</p>
+
+    <section aria-labelledby="privacy-local">
+      <h2 id="privacy-local">Les données dans les applications</h2>
+      <p>Vos scénarios financiers dans Finapp, vos informations de véhicules et vos documents dans Garapp sont enregistrés sur votre appareil. Vous pouvez les exporter depuis chaque application. Le site Siniverse ne reçoit pas ces données lorsque vous utilisez uniquement le stockage local.</p>
+    </section>
+
+    <section aria-labelledby="privacy-drive">
+      <h2 id="privacy-drive">Sauvegarde Google Drive</h2>
+      <p>Si vous choisissez de connecter Drive, l'application demande votre autorisation pour le droit Google <code>drive.file</code>. Elle utilise cet accès pour créer, retrouver et lire ses sauvegardes dans <strong>votre propre Google Drive</strong>. Elle lit aussi le nom et l'adresse e-mail associés au compte Drive pour afficher le compte connecté. Finapp et Garapp ont chacun leur propre autorisation Google.</p>
+      <p>Les sauvegardes sont transférées directement entre votre navigateur et l'API Google Drive, puis conservées dans votre Drive. Le serveur Siniverse ne stocke pas vos sauvegardes, vos documents, vos données financières ou vos informations de véhicule. Il ne reçoit pas votre mot de passe Google.</p>
+    </section>
+
+    <section aria-labelledby="privacy-session">
+      <h2 id="privacy-session">Rester connecté</h2>
+      <p>Pour éviter de redemander la connexion à chaque ouverture, le service <code>api.siniverse.cc</code> conserve chez Cloudflare un identifiant de session sous forme d'empreinte, les dates d'expiration et les jetons Google nécessaires à la connexion. Les jetons de renouvellement et les éventuels jetons d'accès temporaires conservés côté serveur sont chiffrés. Le navigateur reçoit un cookie de session protégé (<code>Secure</code>, <code>HttpOnly</code>, <code>SameSite=Lax</code>) valable jusqu'à 30 jours après la dernière utilisation de la session.</p>
+      <p>Un jeton d'accès court est aussi utilisé en mémoire par l'application pendant les échanges directs avec Drive. Il n'est pas enregistré durablement dans le stockage du navigateur. Les autorisations de Finapp et Garapp restent séparées.</p>
+      <p>Les sessions expirées sont supprimées de la base active. Cloudflare conserve toutefois un historique technique de sa base D1 pouvant permettre une restauration pendant 30 jours ; les jetons présents dans cet historique restent chiffrés. <a href="https://developers.cloudflare.com/d1/reference/time-travel/">En savoir plus sur cet historique</a>.</p>
+    </section>
+
+    <section aria-labelledby="privacy-choices">
+      <h2 id="privacy-choices">Gérer ou supprimer l'accès</h2>
+      <p>Le bouton « Se déconnecter » de chaque application met fin à sa session sur cet appareil. Il ne supprime pas les sauvegardes déjà présentes sur votre Drive. Vous pouvez gérer ces fichiers dans Google Drive et retirer à tout moment l'autorisation de l'application depuis <a href="https://support.google.com/accounts/answer/13533235?hl=fr">les connexions tierces de votre compte Google</a>. Une nouvelle autorisation sera nécessaire si la session expire ou si Google retire l'accès.</p>
+      <p>Les données locales restent sur votre appareil tant que vous ne les effacez pas dans l'application ou dans les paramètres du navigateur.</p>
+    </section>
+
+    <section aria-labelledby="privacy-services">
+      <h2 id="privacy-services">Services et contact</h2>
+      <p>Cloudflare héberge les sites et le service de connexion ; Google fournit la sauvegarde Drive. Leurs traitements techniques sont également décrits dans leurs <a href="https://www.cloudflare.com/privacypolicy/">règles de confidentialité</a> et <a href="https://policies.google.com/privacy">règles de confidentialité</a> respectives. Siniverse n'intègre actuellement aucune publicité ni traceur publicitaire.</p>
+      <p>Pour contacter le projet, consultez son <a href="https://github.com/sinikebe/siniverse">dépôt GitHub</a> ou l'adresse d'assistance indiquée sur l'écran d'autorisation Google. Ne publiez pas de données personnelles ou de sauvegardes dans un espace public.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer container">
+    <a class="footer-brand" href="/">siniverse.</a>
+    <p>Des idées, des outils, votre quotidien.</p>
+    <a class="footer-privacy" href="/confidentialite.html" aria-current="page">Confidentialité</a>
+    <a href="https://github.com/sinikebe">Imaginé et développé par <span>sinikebe</span></a>
+  </footer>
+</body>
+</html>
