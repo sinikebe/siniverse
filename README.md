@@ -6,6 +6,7 @@ La page d’accueil de **[siniverse.cc](https://siniverse.cc)** : un point d’e
 | --- | --- | --- |
 | Finapp | Comparer des scénarios financiers, projeter son budget et son patrimoine. | [finapp.siniverse.cc](https://finapp.siniverse.cc) |
 | Garapp | Suivre ses véhicules, interventions, composants, carburant, assurance et dépenses. | [garapp.siniverse.cc](https://garapp.siniverse.cc) |
+| Branchlab | Représenter ses appareils, ports et câbles pour comprendre les compatibilités et les limites des connexions vidéo directes. | [branchlab.siniverse.cc](https://branchlab.siniverse.cc) |
 
 Site statique en français, responsive et utilisable sans JavaScript. Aucune installation de dépendances, aucun compte, aucun traceur, aucune police externe. Les illustrations de la page sont des exemples fictifs, pas des captures de données utilisateur.
 
@@ -43,9 +44,9 @@ Ouvrir [127.0.0.1:4175](http://127.0.0.1:4175). `npm start` et `npm run dev` lan
 
 - `public/index.html` : contenu, liens et cartes des applications. Ajouter un nouvel `<article class="project-card">` dans `.project-grid` pour présenter un autre projet ; la grille s’adapte au nombre de cartes.
 - `public/assets/site.css` : mise en page, couleurs et affichage mobile. Chaque carte peut définir `--accent`, `--tint` et `--accent-light` pour son identité.
-- `public/assets/` : logos SVG locaux. Les logos Finapp et Garapp reprennent ceux de leurs applications.
+- `public/assets/` : logos SVG locaux. Les logos Finapp et Garapp reprennent ceux de leurs applications ; Branchlab possède une icône de branchement.
 - `public/_headers` : politique de contenu et en-têtes servis par Cloudflare Pages. La page ne charge pas de scripts ni de ressources externes ; réviser cette politique si ces besoins changent.
 - `public/404.html` : page d’erreur. Sa présence conserve le comportement 404 de Pages pour les chemins inconnus.
 - `public/robots.txt` et `public/sitemap.xml` : découverte par les moteurs de recherche.
 
-Conserver des liens HTTPS vers les versions de production et ne jamais ajouter de données personnelles, de sauvegardes, de jetons ou de secrets dans ce dépôt.
+Conserver des liens HTTPS vers les versions de production et ne jamais ajouter de données personnelles, de sauvegardes, de jetons ou de secrets dans ce dépôt. Pour un projet sans adresse publique confirmée, afficher « En préparation » sans lien d’accès ni lien vers un dépôt privé. La section des principes présente les fonctions disponibles dans Finapp et Garapp.
