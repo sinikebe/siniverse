@@ -10,25 +10,42 @@ La page d’accueil de **[siniverse.cc](https://siniverse.cc)** : un point d’e
 
 Site statique en français, responsive et utilisable sans JavaScript. Aucune installation de dépendances, aucun compte, aucun traceur, aucune police externe. Les illustrations de la page sont des exemples fictifs, pas des captures de données utilisateur.
 
-## Déploiement sur Cloudflare Pages
+## Déploiement sur Cloudflare Workers
 
-Dans **Workers & Pages → Create application → Pages → Import an existing Git repository**, sélectionner `sinikebe/siniverse`.
+Le site public est servi par un Worker de fichiers statiques. Le fichier
+`wrangler.jsonc` limite les fichiers publiés à `public/` et laisse Cloudflare
+servir les ressources sans invoquer de code Worker. Le dossier `api/` contient
+un second Worker, indépendant, pour la connexion Google Drive des applications.
 
-| Réglage | Valeur |
-| --- | --- |
-| Nom du projet | `siniverse` (ou un nom disponible) |
-| Branche de production | `main` |
-| Framework preset | `None` |
-| Build command | `exit 0` |
-| Build output directory | `public` |
-| Root directory | Laisser vide (racine du dépôt) |
-| Variables d’environnement | Aucune |
+Dans Cloudflare **Workers & Pages**, utiliser le Worker existant `siniverse`
+lié au dépôt `sinikebe/siniverse`, avec la racine du dépôt comme répertoire de
+travail, la branche `main`, la commande de build `node --test test/site.test.mjs` et la
+commande de déploiement `npx wrangler deploy`. Aucun
+outil n'est nécessaire sur l'ordinateur personnel : cette commande s'exécute
+dans la construction Cloudflare. Aucun secret n'est nécessaire au site public.
 
-Le dossier `public` contient directement les fichiers à servir. Le déploiement n’utilise pas de commande npm, de compilation, de Worker ou de Pages Function. Avec l’intégration Git, les nouveaux commits sur `main` sont déployés automatiquement.
+Tester d'abord l'adresse `workers.dev`, puis transférer le domaine personnalisé
+`siniverse.cc` du projet Pages vers le Worker. Garder le projet Pages disponible
+pendant la vérification pour faciliter un retour arrière. Le Worker API a sa
+propre configuration et son propre domaine `api.siniverse.cc` : voir son guide
+dans `api/` avant d'activer la connexion persistante dans les applications.
 
-Après le premier déploiement, ouvrir le projet Pages puis **Custom domains → Set up a domain**, saisir `siniverse.cc` et suivre la validation Cloudflare. Le domaine racine doit appartenir à une zone Cloudflare sur ce compte. Passer par cet écran associe le domaine au projet et configure l’enregistrement DNS nécessaire ; un enregistrement DNS ajouté seul ne suffit pas.
+Après avoir retiré le domaine du projet Pages et l'avoir attaché au Worker,
+déclarer durablement ce domaine dans `wrangler.jsonc` avec
+`"routes": [{"pattern":"siniverse.cc","custom_domain":true}]`, puis
+redéployer. La route n'est pas encore dans le dépôt pour permettre au nouveau
+Worker de se déployer et d'être testé avant la bascule du projet Pages.
 
-Références officielles : [déployer un site HTML statique](https://developers.cloudflare.com/pages/framework-guides/deploy-anything/), [domaines personnalisés](https://developers.cloudflare.com/pages/configuration/custom-domains/), [en-têtes HTTP](https://developers.cloudflare.com/pages/configuration/headers/).
+## Retour arrière
+
+Le projet Pages actuel peut rester disponible pendant la vérification du
+nouveau Worker. Un seul projet doit porter `siniverse.cc` à la fois : en cas de
+problème, retirer le domaine personnalisé du Worker et le réassocier au projet
+Pages. Ne supprimer l'ancien projet qu'après validation des applications et
+de leurs liens depuis la page d'accueil.
+
+Références : [migration Pages vers Workers](https://developers.cloudflare.com/workers/static-assets/migration-guides/migrate-from-pages/),
+[domaines personnalisés Workers](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/).
 
 ## Aperçu local
 
@@ -45,8 +62,9 @@ Ouvrir [127.0.0.1:4175](http://127.0.0.1:4175). `npm start` et `npm run dev` lan
 - `public/index.html` : contenu, liens et cartes des applications. Ajouter un nouvel `<article class="project-card">` dans `.project-grid` pour présenter un autre projet ; la grille s’adapte au nombre de cartes.
 - `public/assets/site.css` : mise en page, couleurs et affichage mobile. Chaque carte peut définir `--accent`, `--tint` et `--accent-light` pour son identité.
 - `public/assets/` : logos SVG locaux. Les logos Finapp et Garapp reprennent ceux de leurs applications ; Branchlab possède une icône de branchement.
-- `public/_headers` : politique de contenu et en-têtes servis par Cloudflare Pages. La page ne charge pas de scripts ni de ressources externes ; réviser cette politique si ces besoins changent.
-- `public/404.html` : page d’erreur. Sa présence conserve le comportement 404 de Pages pour les chemins inconnus.
+- `public/_headers` : politique de contenu et en-têtes servis par Workers Static Assets. La page ne charge pas de scripts ni de ressources externes ; réviser cette politique si ces besoins changent.
+- `public/404.html` : page d'erreur pour les chemins inconnus.
+- `public/confidentialite.html` : politique de confidentialité des applications et de la connexion facultative à Google Drive.
 - `public/robots.txt` et `public/sitemap.xml` : découverte par les moteurs de recherche.
 
 Conserver des liens HTTPS vers les versions de production et ne jamais ajouter de données personnelles, de sauvegardes, de jetons ou de secrets dans ce dépôt. Pour un projet sans adresse publique confirmée, afficher « En préparation » sans lien d’accès ni lien vers un dépôt privé. La section des principes présente les fonctions disponibles dans Finapp et Garapp.

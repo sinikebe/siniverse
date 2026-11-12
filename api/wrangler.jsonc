@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json.schemastore.org/wrangler.json",
+  "name": "siniverse-api",
+  "main": "./src/worker.js",
+  "compatibility_date": "2026-11-12",
+  "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "api.siniverse.cc",
+      "custom_domain": true
+    }
+  ],
+  "triggers": {
+    "crons": ["0 3 * * *"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB"
+    }
+  ]
+}
