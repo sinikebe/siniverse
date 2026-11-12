@@ -1,0 +1,19 @@
+{
+  "name": "siniverse",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "La page d’accueil des applications Siniverse.",
+  "homepage": "https://siniverse.cc",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sinikebe/siniverse.git"
+  },
+  "scripts": {
+    "dev": "node tools/serve.mjs",
+    "start": "node tools/serve.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
