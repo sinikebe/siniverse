@@ -43,7 +43,7 @@
       <h2 id="privacy-session">Rester connecté</h2>
       <p>Pour éviter de redemander la connexion à chaque ouverture, le service <code>api.siniverse.cc</code> conserve chez Cloudflare un identifiant de session sous forme d'empreinte, les dates d'expiration et les jetons Google nécessaires à la connexion. Les jetons de renouvellement et les éventuels jetons d'accès temporaires conservés côté serveur sont chiffrés. Le navigateur reçoit un cookie de session protégé (<code>Secure</code>, <code>HttpOnly</code>, <code>SameSite=Lax</code>) valable jusqu'à 30 jours après la dernière utilisation de la session.</p>
       <p>Un jeton d'accès court est aussi utilisé en mémoire par l'application pendant les échanges directs avec Drive. Il n'est pas enregistré durablement dans le stockage du navigateur. Les autorisations de Finapp et Garapp restent séparées.</p>
-      <p>Les sessions expirées sont supprimées de la base active. Cloudflare conserve toutefois un historique technique de sa base D1 pouvant permettre une restauration pendant 30 jours ; les jetons présents dans cet historique restent chiffrés. <a href="https://developers.cloudflare.com/d1/reference/time-travel/">En savoir plus sur cet historique</a>.</p>
+      <p>Les sessions expirées sont supprimées de la base active. Cloudflare conserve toutefois un historique technique de sa base D1 pouvant permettre une restauration pendant 7 jours sur l'offre gratuite (30 jours sur l'offre payante) ; les jetons présents dans cet historique restent chiffrés. <a href="https://developers.cloudflare.com/d1/reference/time-travel/">En savoir plus sur cet historique</a>.</p>
     </section>
 
     <section aria-labelledby="privacy-choices">

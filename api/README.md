@@ -57,7 +57,7 @@ The `oauth_states` table contains a SHA-256 hash of the one-time OAuth state, th
 
 The `sessions` table contains a SHA-256 hash of a random session ID, the app name, encrypted Google refresh token and IV, encrypted temporary access token and IV, access/refresh expiration if known, session creation and expiration times. AES-GCM authenticates ciphertext with the app and session hash; its 256-bit key exists only in a Cloudflare secret. It contains **no name, email address, avatar, Google user identifier, or backup contents**. Browser cookies are host-only (`__Host-`), `Secure`, `HttpOnly`, `SameSite=Lax`, unique per app, and valid for 30 days since the last successful `/session` or `/token` request. `disconnect` removes only that browser's session and encrypted tokens; it does **not** revoke authorization on other devices. Users can revoke the whole app separately in their Google Account settings.
 
-A daily scheduled task at 03:00 UTC deletes expired states and sessions. Deleting a D1 row removes the live record; Cloudflare D1 Time Travel can still restore historical data for up to 30 days. Authentication requests and responses must not be logged with token values or cookies.
+A daily scheduled task at 03:00 UTC deletes expired states and sessions. Deleting a D1 row removes the live record; Cloudflare D1 Time Travel can still restore historical data for up to 7 days on Workers Free or 30 days on Workers Paid. Authentication requests and responses must not be logged with token values or cookies.
 
 ## Verification
 
