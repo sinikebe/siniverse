@@ -9,9 +9,14 @@ const sha = digit => digit.repeat(40);
 const base = sha('a'), head = sha('b'), automationRef = sha('f');
 const publicRepository = { full_name: repository, private: false, visibility: 'public', owner: { login: 'sinikebe' }, fork: false };
 const context = (overrides = {}) => ({ repository, channel: 'dev', sha: head, automationRef, runId: '42', ...overrides });
-const record = (channel, version, target, overrides = {}) => ({ schemaVersion: 1, epoch: EPOCH, repository, channel,
-  version, sha: target, bump: version === '0.0.1' ? 'reset' : 'patch', pullRequest: null,
-  priorTag: version === '0.0.1' ? null : tagName(channel, '0.0.1'), source: null, automationRef, runId: '41', ...overrides });
+const record = (channel, version, target, overrides = {}) => {
+  const initialMain = channel === 'main' && version === '0.0.1';
+  return { schemaVersion: 1, epoch: EPOCH, repository, channel, version, sha: target,
+    bump: initialMain ? 'promotion' : version === '0.0.1' ? 'reset' : 'patch', pullRequest: null,
+    priorTag: version === '0.0.1' ? null : tagName(channel, '0.0.1'),
+    source: initialMain ? { tag: tagName('dev', version), sha: target, version } : null,
+    automationRef, runId: '41', ...overrides };
+};
 const pr = (number, target, overrides = {}) => ({ number, merge_commit_sha: target, merged_at: '2026-11-13T00:00:00Z',
   base: { ref: 'dev', repo: { full_name: repository } }, head: { ref: 'feature', sha: target, repo: { full_name: repository } },
   title: 'fix: a correction', body: '', labels: [], ...overrides });
@@ -26,6 +31,11 @@ function fixture({ current = head, seed = [], commits = { [head]: base }, prs = 
     refs.set(name, id);
   };
   seed.forEach(add);
+  for (const value of seed) {
+    if (value.channel === 'main' && value.priorTag === null && value.source && !refs.has(value.source.tag)) {
+      add(record('dev', value.source.version, value.source.sha));
+    }
+  }
   const state = { current, refs, objects, calls, failCreateRef: false };
   state.request = async (path, options = {}) => {
     calls.push({ path, ...options });
@@ -262,8 +272,38 @@ test('production assignment requires the exact same-repository dev promotion, ev
       assert.equal(state.calls.filter(call => call.method === 'POST').length, 0);
     }
   }
-  const ready = fixture({ prs: [pr(21, head, { base: mainBase,
+  const ready = fixture({ seed: [record('dev', '0.0.1', head)], prs: [pr(21, head, { base: mainBase,
     head: { ref: 'dev', sha: head, repo: { full_name: repository } } })] });
   assert.equal((await assignVersion(context({ channel: 'main' }), ready.request)).version, '0.0.1');
   await assert.rejects(() => requireMainPromotion(repository, base, ready.request), /exact source SHA/);
+});
+
+test('first production copies the exact tested dev version, including a fix made before the first promotion', async () => {
+  const dev = sha('d');
+  for (const version of ['0.0.1', '0.0.2']) {
+    const seed = version === '0.0.1' ? [record('dev', version, dev)]
+      : [record('dev', '0.0.1', base), record('dev', version, dev)];
+    const promotion = pr(22, head, { base: { ref: 'main', repo: { full_name: repository } },
+      head: { ref: 'dev', sha: dev, repo: { full_name: repository } } });
+    const state = fixture({ seed, prs: [promotion] });
+    const first = await assignVersion(context({ channel: 'main' }), state.request);
+    assert.equal(first.version, version); assert.equal(first.priorTag, null); assert.equal(first.bump, 'promotion');
+    assert.deepEqual(first.source, { tag: tagName('dev', version), sha: dev, version });
+    const writes = state.calls.filter(call => call.method === 'POST').length;
+    assert.equal((await assignVersion(context({ channel: 'main' }), state.request)).version, version);
+    assert.equal(state.calls.filter(call => call.method === 'POST').length, writes);
+  }
+});
+
+test('first production without an exact dev tag is refused and initial main annotations require validated dev provenance', async () => {
+  const promotion = pr(23, head, { base: { ref: 'main', repo: { full_name: repository } },
+    head: { ref: 'dev', sha: head, repo: { full_name: repository } } });
+  const missing = fixture({ prs: [promotion] });
+  await assert.rejects(() => assignVersion(context({ channel: 'main' }), missing.request), /No exact dev version tag/);
+  assert.equal(missing.calls.filter(call => call.method === 'POST').length, 0);
+  assert.throws(() => validateRecord({ ...record('main', '0.0.1', head), source: null },
+    tagName('main', '0.0.1'), repository, head), /exact dev provenance/);
+  const invalid = fixture({ seed: [record('main', '0.0.1', head)] });
+  invalid.objects.get(invalid.refs.get(tagName('dev', '0.0.1'))).object.sha = base;
+  await assert.rejects(() => resolveVersionForSha(repository, 'main', head, invalid.request), /unexpected object/);
 });

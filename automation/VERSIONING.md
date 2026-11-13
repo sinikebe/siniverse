@@ -26,8 +26,11 @@ publication is established by CI and its HTTPS probe.
 
 ## Increment policy
 
-The first assignment per channel is exactly `0.0.1`, even for a feature reset PR.
-Earlier history is outside this epoch. Later merges follow this priority:
+The first dev assignment is exactly `0.0.1`, even for a feature reset PR.
+The first main promotion requires the exact dev tag and copies that tested
+version: `0.0.1` initially, or a higher version if fixes were tested in dev
+before the first production approval. Its priorTag is null only with validated
+dev provenance. Earlier history is outside this epoch. Later merges follow this priority:
 
 1. One `semver:major`, `semver:minor` or `semver:patch` label.
 2. An explicit Conventional Commit `!` title or `BREAKING CHANGE:` body marker:
@@ -88,8 +91,8 @@ pull-requests-read only to recheck that exact production provenance.
 3. Adopt the byte-identical CI caller in four apps and Pages caller in
    Finapp/Garapp, all pinned to that same new immutable SHA.
 4. Publish and test dev first. Promote only through an explicitly approved
-   same-repository dev-to-main PR, preserving distinct work. Each first natural
-   channel run assigns `0.0.1`, never an initial automatic `0.0.2`.
+   same-repository dev-to-main PR, preserving distinct work. Dev begins at `0.0.1`;
+   production copies the version actually tested in dev without another bump.
 
 Normal PR/merge runs validate the rollout. No extra manual dispatch is required.
 Permanent main/dev and immutable tags remain; feature branches use safe cleanup.

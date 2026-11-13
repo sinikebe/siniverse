@@ -126,7 +126,11 @@ export function validateRecord(record, name, repository, sha) {
   invariant(SHA.test(record.automationRef || '') && /^[1-9]\d*$/.test(record.runId || ''), 'Version tag provenance is incomplete.');
   invariant(['reset', 'major', 'minor', 'patch', 'promotion'].includes(record.bump), 'Invalid recorded version increment.');
   invariant(record.pullRequest === null || (Number.isSafeInteger(record.pullRequest) && record.pullRequest > 0), 'Invalid recorded pull request.');
-  if (record.priorTag === null) invariant(record.version === '0.0.1' && record.bump === 'reset', 'Only the reset may start a version channel.');
+  if (record.priorTag === null) {
+    if (record.channel === 'dev') invariant(record.version === '0.0.1' && record.bump === 'reset', 'Only the reset may start the dev channel.');
+    else invariant(record.bump === 'promotion' && record.source?.version === record.version,
+      'The first production version must copy its exact dev provenance.');
+  }
   else {
     const previous = parseTag(record.priorTag);
     invariant(previous.channel === record.channel && compareVersions(previous.version, record.version) < 0 && record.bump !== 'reset',
@@ -149,7 +153,15 @@ export async function readVersionRecord(repository, tag, request) {
     && object.object.sha === tag.commit.sha, 'An existing version tag moved or targets an unexpected object.');
   let record;
   try { record = JSON.parse(object.message); } catch { throw new Error('Version tag annotation must contain its JSON provenance.'); }
-  return validateRecord(record, tag.name, repository, tag.commit.sha);
+  const validated = validateRecord(record, tag.name, repository, tag.commit.sha);
+  if (validated.channel === 'main' && validated.priorTag === null) {
+    const source = await readVersionRecord(repository, {
+      name: validated.source.tag, commit: { sha: validated.source.sha }
+    }, request);
+    invariant(source.channel === 'dev' && source.version === validated.version,
+      'The first production version requires a valid exact dev source tag.');
+  }
+  return validated;
 }
 
 export async function resolveVersionForSha(repository, channel, sha, request, catalog) {
@@ -259,14 +271,17 @@ export async function assignVersion(context, request) {
   if (context.channel === 'main') for (const sha of points) assertMainPromotion(context.repository, sha, byCommit.get(sha));
   for (const sha of points) {
     const pr = byCommit.get(sha) || null;
+    let dev = null;
+    if (context.channel === 'main' && pr?.head?.ref === 'dev' && pr.head.repo?.full_name === context.repository) {
+      dev = await resolveVersionForSha(context.repository, 'dev', pr.head.sha, request, catalog);
+    }
     let selection = { version: '0.0.1', bump: 'reset', source: null };
-    if (previous) {
-      let dev = null;
-      if (context.channel === 'main' && pr?.head?.ref === 'dev' && pr.head.repo?.full_name === context.repository) {
-        dev = await resolveVersionForSha(context.repository, 'dev', pr.head.sha, request, catalog);
-      }
-      selection = selectVersion(previous.version, pr, dev);
-    } else classifyPullRequest(pr);
+    if (previous) selection = selectVersion(previous.version, pr, dev);
+    else {
+      classifyPullRequest(pr);
+      if (dev) selection = { version: dev.version, bump: 'promotion',
+        source: { tag: dev.name, sha: dev.sha, version: dev.version } };
+    }
     const record = { schemaVersion: 1, epoch: EPOCH, repository: context.repository, channel: context.channel,
       sha, version: selection.version, bump: selection.bump, pullRequest: pr?.number ?? null,
       priorTag: previous?.name ?? null, source: selection.source, automationRef: context.automationRef, runId: context.runId };

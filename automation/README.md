@@ -95,8 +95,9 @@ pull-requests read; app check/build/deploy remains contents read.
 
 Central updates retain the currently pinned functional caller until the new
 central commit is reviewed and merged, avoiding its own unknown future hash.
-The reset build works with the old pin using source fallback 0.0.1; adoption
-of the new pin creates the first channel tags at exactly 0.0.1.
+The reset build works with the source fallback 0.0.1. The first dev assignment
+is 0.0.1; the first main promotion copies the exact tested dev version, including
+any fix version assigned before production is approved.
 After central review/merge, generate the callers with that immutable source:
 
     node automation/ci.mjs caller FULL_CENTRAL_SHA > .github/workflows/ci.yml

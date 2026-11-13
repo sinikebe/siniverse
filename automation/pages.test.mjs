@@ -28,8 +28,10 @@ function fixture() {
       const channel = path.endsWith('1'.repeat(40)) ? 'main' : 'dev';
       const target = channel === 'main' ? main : dev;
       return { sha: (channel === 'main' ? '1' : '2').repeat(40), tag: 'siniverse-version/' + channel + '/v0.0.1', object: { type: 'commit', sha: target },
-        message: JSON.stringify({ schemaVersion: 1, epoch: EPOCH, repository, channel, sha: target, version: '0.0.1', bump: 'reset',
-          pullRequest: null, priorTag: null, source: null, automationRef: 'f'.repeat(40), runId: '42' }) };
+        message: JSON.stringify({ schemaVersion: 1, epoch: EPOCH, repository, channel, sha: target, version: '0.0.1', bump: channel === 'main' ? 'promotion' : 'reset',
+          pullRequest: null, priorTag: null,
+          source: channel === 'main' ? { tag: 'siniverse-version/dev/v0.0.1', sha: dev, version: '0.0.1' } : null,
+          automationRef: 'f'.repeat(40), runId: '42' }) };
     }
     if (path.includes('/actions/workflows/ci.yml/runs?')) {
       const branch = path.includes('branch=main&') ? 'main' : 'dev';
