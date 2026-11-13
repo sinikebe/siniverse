@@ -1,0 +1,126 @@
+name: Shared legacy Pages
+
+on:
+  workflow_call:
+    inputs:
+      automation_ref:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: >-
+      (github.repository == 'sinikebe/finapp' || github.repository == 'sinikebe/Garapp') &&
+      github.event.repository.private == false && github.event.repository.visibility == 'public' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'workflow_run' && github.event.workflow_run.name == 'CI' &&
+        github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository &&
+        (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'dev')))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+      pages: read
+    outputs:
+      deploy: ${{ steps.plan.outputs.deploy }}
+      main_sha: ${{ steps.plan.outputs.main_sha }}
+      dev_sha: ${{ steps.plan.outputs.dev_sha }}
+      artifact_name: ${{ steps.plan.outputs.artifact_name }}
+    steps:
+      - name: Check out the immutable shared implementation
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: sinikebe/siniverse
+          ref: ${{ inputs.automation_ref }}
+          path: .siniverse-automation
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.22.2'
+          package-manager-cache: false
+      - name: Use the shared npm version
+        run: npm install --global npm@11.19.1 --no-audit --no-fund
+      - name: Select current tested main and dev revisions
+        id: plan
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SINIVERSE_AUTOMATION_REF: ${{ inputs.automation_ref }}
+        run: node .siniverse-automation/automation/pages.mjs plan
+      - name: Check out tested main
+        if: steps.plan.outputs.deploy == 'true'
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ steps.plan.outputs.main_sha }}
+          path: pages-main
+          persist-credentials: false
+      - name: Check out tested dev
+        if: steps.plan.outputs.deploy == 'true'
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ steps.plan.outputs.dev_sha }}
+          path: pages-dev
+          persist-credentials: false
+      - name: Build the existing legacy redirects and recovery application
+        if: steps.plan.outputs.deploy == 'true'
+        working-directory: pages-main
+        env:
+          SINIVERSE_PAGES_MAIN_SOURCE: ${{ github.workspace }}/pages-main
+          SINIVERSE_PAGES_DEV_SOURCE: ${{ github.workspace }}/pages-dev
+          SINIVERSE_PAGES_OUT: ${{ runner.temp }}/siniverse-pages-output
+        run: npm run ci:pages
+      - name: Upload the unique Pages artifact
+        if: steps.plan.outputs.deploy == 'true'
+        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
+        with:
+          name: ${{ steps.plan.outputs.artifact_name }}
+          path: ${{ runner.temp }}/siniverse-pages-output
+          retention-days: 1
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.deploy == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    concurrency:
+      group: legacy-pages
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      actions: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Check out the immutable shared implementation
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: sinikebe/siniverse
+          ref: ${{ inputs.automation_ref }}
+          path: .siniverse-automation
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.22.2'
+          package-manager-cache: false
+      - name: Use the shared npm version
+        run: npm install --global npm@11.19.1 --no-audit --no-fund
+      - name: Wait for the exact artifact and recheck public source revisions
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SINIVERSE_AUTOMATION_REF: ${{ inputs.automation_ref }}
+          SINIVERSE_PAGES_MAIN_SHA: ${{ needs.build.outputs.main_sha }}
+          SINIVERSE_PAGES_DEV_SHA: ${{ needs.build.outputs.dev_sha }}
+          SINIVERSE_PAGES_ARTIFACT_NAME: ${{ needs.build.outputs.artifact_name }}
+        run: node .siniverse-automation/automation/pages.mjs verify-artifact
+      - name: Deploy the selected legacy Pages artifact
+        id: deploy
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+        with:
+          artifact_name: ${{ needs.build.outputs.artifact_name }}

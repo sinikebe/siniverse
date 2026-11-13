@@ -1,0 +1,95 @@
+name: Siniverse reusable CI
+
+on:
+  workflow_call:
+    inputs:
+      automation_ref:
+        type: string
+        required: true
+      deploy:
+        type: boolean
+        default: false
+    secrets:
+      CLOUDFLARE_ACCOUNT_ID:
+        required: false
+      CLOUDFLARE_API_TOKEN:
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: siniverse-ci-${{ github.repository }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  app:
+    if: github.event.repository.private == false && contains(fromJSON('["sinikebe/siniverse","sinikebe/finapp","sinikebe/Garapp","sinikebe/branchlab"]'), github.repository) && (github.event_name != 'pull_request' || github.event.action != 'closed')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CI: true
+      WRANGLER_SEND_METRICS: false
+      APP_DIR: ${{ github.workspace }}/app
+      AUTOMATION_REF: ${{ inputs.automation_ref }}
+      REQUESTED_DEPLOY: ${{ inputs.deploy }}
+    steps:
+      - name: Checkout application at the event commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+          path: app
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Checkout immutable central automation
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: sinikebe/siniverse
+          ref: ${{ inputs.automation_ref }}
+          path: .siniverse-ci
+          persist-credentials: false
+      - name: Set up the shared Node version without persistent cache
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: app/.node-version
+          package-manager-cache: false
+      - name: Install the shared npm version
+        shell: bash
+        run: |
+          echo "NPM_CONFIG_CACHE=$RUNNER_TEMP/siniverse-npm" >> "$GITHUB_ENV"
+          echo "CONTEXT_FILE=$RUNNER_TEMP/siniverse-context.json" >> "$GITHUB_ENV"
+          npm install --global npm@11.19.1 --no-audit --no-fund
+      - name: Install application dependencies from the lockfile
+        working-directory: app
+        run: npm ci --no-audit --no-fund
+      - name: Test the central controller
+        run: node --test .siniverse-ci/automation/ci.test.mjs
+      - name: Verify identity, toolchain and configuration
+        id: context
+        run: node .siniverse-ci/automation/ci.mjs context
+      - name: Install Chromium when required by the application
+        if: steps.context.outputs.chromium == 'true'
+        working-directory: app
+        run: node node_modules/@playwright/test/cli.js install --with-deps chromium
+      - name: Check application
+        working-directory: app
+        run: npm run ci:check
+      - name: Build application once
+        working-directory: app
+        run: npm run ci:build
+      - name: Seal and validate the shared deployment manifest
+        run: node .siniverse-ci/automation/ci.mjs seal
+      - name: Validate Worker packaging without Cloudflare credentials
+        run: node .siniverse-ci/automation/ci.mjs dry-run
+      - name: Publish the sealed dist and verify HTTPS
+        if: github.event_name != 'pull_request' && steps.context.outputs.publish == 'true'
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: node .siniverse-ci/automation/ci.mjs publish
+      - name: Write common run summary
+        if: always()
+        env:
+          CI_JOB_STATUS: ${{ job.status }}
+        run: node .siniverse-ci/automation/ci.mjs summary

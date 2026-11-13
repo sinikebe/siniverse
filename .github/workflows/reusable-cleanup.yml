@@ -1,0 +1,59 @@
+name: Branch cleanup
+
+on:
+  workflow_call:
+    inputs:
+      automation_ref:
+        description: Immutable sinikebe/siniverse commit used by this caller
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    if: >-
+      ${{ github.event_name == 'pull_request' && github.event.action == 'closed' &&
+          github.event.pull_request.merged == true &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          github.event.repository.private == false &&
+          github.event.repository.visibility == 'public' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: read
+    concurrency:
+      group: siniverse-cleanup-${{ github.repository }}-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    steps:
+      - name: Validate the immutable automation revision
+        shell: bash
+        env:
+          AUTOMATION_REF: ${{ inputs.automation_ref }}
+        run: |
+          [[ "$AUTOMATION_REF" =~ ^[a-fA-F0-9]{40}$ ]] || {
+            echo 'The central automation revision must be a complete commit SHA.' >&2
+            exit 1
+          }
+      - name: Check out trusted central tools only
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: sinikebe/siniverse
+          ref: ${{ inputs.automation_ref }}
+          path: .siniverse-ci
+          persist-credentials: false
+      - name: Check the tools revision
+        shell: bash
+        env:
+          AUTOMATION_REF: ${{ inputs.automation_ref }}
+        run: test "$(git -C .siniverse-ci rev-parse HEAD)" = "$AUTOMATION_REF"
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version-file: .siniverse-ci/.node-version
+          package-manager-cache: false
+      - name: Preserve new work and conditionally delete the merged source branch
+        run: node .siniverse-ci/automation/cleanup.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}

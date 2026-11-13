@@ -1,0 +1,20 @@
+name: Pages
+
+on:
+  workflow_run:
+    workflows: [CI]
+    branches: [main, dev]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+
+jobs:
+  pages:
+    uses: sinikebe/siniverse/.github/workflows/reusable-pages.yml@__AUTOMATION_SHA__
+    with:
+      automation_ref: __AUTOMATION_SHA__

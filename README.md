@@ -12,13 +12,18 @@ Site statique en français, responsive et utilisable sans JavaScript côté visi
 
 ## CI et déploiement sur Cloudflare Workers
 
+Le socle partagé et les contrats des quatre applications sont décrits dans
+[automation/README.md](automation/README.md). Cette première PR conserve la CI
+inline fonctionnelle pour le bootstrap ; le caller commun sera adopté au SHA
+immuable publié après revue, sans référence circulaire au commit en cours.
+
 Le site public est servi par le Worker de fichiers statiques `siniverse`. Le fichier
-`wrangler.jsonc` limite les fichiers publiés à `public/` et laisse Cloudflare
+`ci:build` copie `public/` dans `dist/`. `wrangler.jsonc` limite la publication à `dist/` et laisse Cloudflare
 servir les ressources sans invoquer de code Worker. Le dossier `api/` contient
 un second Worker existant, `siniverse-api`, pour la connexion Google Drive des applications.
 
 Le workflow `.github/workflows/ci.yml` utilise les runners Linux hébergés par
-GitHub, Node.js 24 et Wrangler **4.161.0**, épinglé dans `package.json` et
+GitHub, Node.js **24.22.2**, npm **11.19.1** et Wrangler **4.161.0**, épinglés dans `.node-version`, `package.json` et
 `package-lock.json`. Il installe les dépendances avec `npm ci`, vérifie la syntaxe,
 exécute les tests du site et de l’API, puis valide le paquet statique avec
 `wrangler deploy --dry-run` pour le site et l’API. Le site n’a pas de compilation front-end.
@@ -46,12 +51,12 @@ est refusé. Les exécutions d’une même branche sont sérialisées sans inter
 une publication en cours.
 
 Les domaines sont gérés dans le dashboard Cloudflare. La production
-`siniverse.cc` et la base de previews existante `dev.siniverse.cc`, configurée
-pour le trafic Preview uniquement, restent attachées au Worker. Ne pas ajouter
+`siniverse.cc` sert la production et les Worker Previews ; le Preview `dev`
+utilise `https://dev.siniverse.cc/`. Ne pas ajouter
 une liste `route` ou `routes` partielle dans `wrangler.jsonc` : elle remplacerait
-les réglages manuels. `workers_dev: false` conserve cette gestion manuelle et
-`keep_vars: true` préserve les variables du dashboard. Les réglages de Preview
-URLs déjà en place ne sont pas remplacés.
+les réglages manuels. `workers_dev: false` et `preview_urls: false` désactivent
+les URL workers.dev tout en conservant cette gestion manuelle, et
+`keep_vars: true` préserve les variables du dashboard.
 
 La branche `dev` se crée depuis `main` après intégration de cette configuration.
 `npm run deploy:preview` utilise `wrangler preview --name dev` et la base de
