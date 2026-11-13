@@ -13,7 +13,7 @@
   "scripts": {
     "dev": "node tools/serve.mjs",
     "start": "node tools/serve.mjs",
-    "check": "node --check tools/serve.mjs && node --check api/src/worker.js && node --check public/concepts/model.mjs && node --check public/concepts/concepts.mjs && node --check public/concepts/instrument.mjs && node --check tools/check-concepts-browser.mjs",
+    "check": "node --check tools/serve.mjs && node --check api/src/worker.js && node --check public/concepts/model.mjs && node --check public/concepts/concepts.mjs && node --check public/concepts/instrument.mjs && node --check tools/check-concepts-browser.mjs && node --check public/concepts/v2/model.mjs && node --check public/concepts/v2/views.mjs && node --check public/concepts/v2/story.mjs && node --check public/concepts/v2/explore.mjs && node --check public/concepts/v2/depth-arrival.mjs",
     "test": "node --test",
     "test:automation": "node --test automation/ci.test.mjs",
     "ci:check": "npm run check && npm test",

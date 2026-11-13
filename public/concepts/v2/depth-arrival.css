@@ -1,0 +1,44 @@
+.depth-world.depth-ensemble { padding: 20px clamp(18px, 3vw, 48px) 18px; background: #e4e5dc; }
+.depth-arrival-room { min-height: 0; }
+.depth-arrival-origin { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px 22px; padding: 7px 0 18px; border-bottom: 1px solid #253a292c; }
+.depth-arrival-origin h1 { margin: 0; font: 650 29px/1 system-ui, sans-serif; letter-spacing: -.055em; }
+.depth-arrival-origin h1:focus { outline: none; }
+.depth-arrival-origin p { margin: 0; font: 12px/1.5 ui-monospace, Consolas, monospace; color: #53614f; }
+.arrival-origin-point { align-self: center; width: 7px; height: 7px; background: #273d2c; border-radius: 50%; }
+.depth-arrival-landscape { display: block; width: 100%; padding-top: 10px; }
+.depth-arrival-wide { display: block; width: 100%; height: auto; }
+.depth-arrival-compact { display: none; }
+.depth-sheet-region { --arrival-ink: #3154b2; --arrival-tint: #3154b209; color: #213029; text-decoration: none; }
+.arrival-garapp { --arrival-ink: #9d4b35; --arrival-tint: #9d4b350a; }
+.arrival-branchlab { --arrival-ink: #72528e; --arrival-tint: #72528e0a; }
+.arrival-zone { fill: transparent; stroke: transparent; pointer-events: all; transition: fill .18s; }
+.depth-sheet-region:hover .arrival-zone { fill: var(--arrival-tint); }
+.depth-sheet-region:focus-visible .arrival-zone { fill: var(--arrival-tint); stroke: var(--arrival-ink); stroke-width: 2; }
+.arrival-app-name { fill: #213029; font: 500 54px/1 system-ui, sans-serif; letter-spacing: -3px; }
+.arrival-purpose { fill: #3e4c40; font: 16px/1.4 system-ui, sans-serif; }
+.arrival-enter { fill: var(--arrival-ink); font: 12px/1.5 ui-monospace, Consolas, monospace; }
+.arrival-note { fill: var(--arrival-ink); font: 15px/1.4 system-ui, sans-serif; }
+.arrival-measure { fill: var(--arrival-ink); font: 12px/1.5 ui-monospace, Consolas, monospace; }
+.arrival-curve { fill: none; stroke: var(--arrival-ink); stroke-width: 4; stroke-linecap: round; }
+.arrival-alternate { stroke-dasharray: 7 8; opacity: .55; }
+.arrival-guide { fill: none; stroke: var(--arrival-ink); stroke-width: 1; opacity: .55; }
+.arrival-event, .arrival-port, .arrival-device { fill: #e4e5dc; stroke: var(--arrival-ink); stroke-width: 2; }
+.arrival-event-selected { fill: var(--arrival-ink); }
+.arrival-seam { fill: none; stroke: #5e6b4c48; stroke-width: 1; pointer-events: none; }
+.depth-sheet-region:hover .arrival-app-name { fill: var(--arrival-ink); }
+@media (max-width: 760px) {
+  .depth-world.depth-ensemble { padding: 13px 18px 14px; }
+  .depth-arrival-origin { gap: 9px 13px; padding-bottom: 17px; }
+  .depth-arrival-origin h1 { font-size: 27px; }
+  .depth-arrival-origin p { flex-basis: 100%; padding-left: 20px; font-size: 10px; }
+  .arrival-origin-point { width: 6px; height: 6px; }
+  .depth-arrival-wide { display: none; }
+  .depth-arrival-compact { display: block; width: 100%; height: auto; }
+  .arrival-app-name { font-size: 43px; letter-spacing: -2px; }
+  .arrival-purpose { font-size: 13px; }
+  .arrival-note { font-size: 13px; }
+  .arrival-enter, .arrival-measure { font-size: 11px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .depth-arrival-landscape *, .depth-arrival-landscape *::before, .depth-arrival-landscape *::after { transition: none !important; animation: none !important; }
+}
