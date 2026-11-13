@@ -15,7 +15,7 @@ export function renderStory(state, api) {
 
   const words = past.map(entry =>
     '<li class="story-chosen-word">' +
-      api.link(entry.state, entry.label, 'class="story-word-link"') +
+      api.link(entry.state, escape(entry.label), 'class="story-word-link"') +
       '<span class="story-word-joint" aria-hidden="true"></span>' +
     '</li>'
   ).join('');
@@ -32,7 +32,7 @@ export function renderStory(state, api) {
     const attributes = 'class="story-choice-link"' + (choice.note ? ' aria-describedby="' + noteId + '"' : '');
     return '<li class="story-branch">' +
       '<span class="story-branch-joint" aria-hidden="true"></span>' +
-      api.link(choice.state, choice.label, attributes) +
+      api.link(choice.state, escape(choice.label), attributes) +
       (choice.note ? '<p class="story-choice-note" id="' + noteId + '">' + escape(choice.note) + '</p>' : '') +
     '</li>';
   }).join('');
@@ -57,6 +57,7 @@ export function renderStory(state, api) {
           '<h1 id="view-title" tabindex="-1">' + escape(story.title || 'Quelle suite voulez-vous explorer ?') + '</h1>' +
           (story.lead ? '<p class="story-lead">' + escape(story.lead) + '</p>' : '') +
         '</header>' +
+        (kind === 'opening' ? '<p class="story-known-tools">Vous connaissez déjà votre outil ? ' + ['finapp', 'garapp', 'branchlab'].map(id => api.link({concept:'bifurcations',trail:[id]}, api.apps[id].name, 'class="story-direct-tool"')).join(' / ') + '</p>' : '') +
         annotation +
         (choices.length ? '<div class="story-next"><p class="story-next-label">' + (kind === 'opening' ? 'Commencez ici' : 'Et maintenant…') + '</p><ul class="story-branches">' + branches + '</ul></div>' : '') +
         (app ? '<div class="story-real-exit"><span class="story-exit-line" aria-hidden="true"></span><p>Passer du récit à votre propre projet.</p>' + api.appLink(app, 'Continuer dans ' + appName) + '</div>' : '') +

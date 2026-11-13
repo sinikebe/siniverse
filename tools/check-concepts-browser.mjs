@@ -81,7 +81,7 @@ class Protocol {
 async function ready(url) {
   for (let index = 0; index < 80; index++) {
     try {
-      if (await socket.evaluate('location.href === ' + JSON.stringify(url) + ' && document.documentElement.dataset.conceptsReady === "true"')) return;
+      if (await socket.evaluate('location.href === ' + JSON.stringify(url) + ' && (location.pathname.startsWith("/concepts/v2/") ? document.documentElement.dataset.navigationReady === "true" : document.documentElement.dataset.conceptsReady === "true")')) return;
     } catch { /* A navigation can replace the execution context once. */ }
     await pause(100);
   }
@@ -107,6 +107,7 @@ async function click(selector) {
   return point;
 }
 async function screenshot(name, width) {
+  await pause(500);
   const height = await socket.evaluate('Math.min(5000,Math.max(document.documentElement.scrollHeight,innerHeight))');
   await socket.send('Runtime.evaluate', { expression: 'window.scrollTo(0,0)' });
   const image = await socket.send('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: true,
@@ -200,7 +201,7 @@ async function run() {
       }
       await pause(850);
       assert.match(await socket.evaluate('document.querySelector(".app-version").textContent'), /^v\d+\.\d+\.\d+$/);
-      await screenshot(concept + '-' + format, width);
+      // V1 remains a regression journey; new screenshots focus on the navigation comparison.
       report.checks.push(concept + '/' + format + ': chargement, geste, liens, footer, capture');
     }
   }
@@ -249,13 +250,150 @@ async function run() {
   assert.equal(await socket.evaluate('document.querySelector("#instrument-view").hidden'), true);
   await socket.send('Page.removeScriptToEvaluateOnNewDocument', { identifier: motion.identifier });
   report.checks.push('Mouvement réduit : changement d’état sans animation ni perspective');
+
+  // V2 exercises destinations, complete browser history and real links, not visual toggles.
+  const currentRoute = () => socket.evaluate('history.state.__siniverseNavigationV2.route');
+  async function waitRoute(expected, focusId) {
+    for (let index = 0; index < 100; index++) {
+      if (await socket.evaluate('document.documentElement.dataset.navigationReady === "true" && document.documentElement.dataset.navigationState === ' + JSON.stringify(JSON.stringify(expected)) + ' && JSON.stringify(history.state.__siniverseNavigationV2.route) === ' + JSON.stringify(JSON.stringify(expected)))) {
+        if (focusId) assert.equal(await socket.evaluate('document.activeElement.id'), focusId, 'Browser history lost the originating control focus.');
+        return;
+      }
+      await pause(50);
+    }
+    throw new Error('Navigation did not restore: ' + JSON.stringify(expected) + '; actual: ' + JSON.stringify(await currentRoute()));
+  }
+  async function journeyClick(selector, expected) {
+    await click(selector);
+    await waitRoute(expected);
+  }
+  async function keyboardActivate(selector, expected) {
+    await socket.send('Page.bringToFront');
+    await socket.evaluate('document.querySelector(' + JSON.stringify(selector) + ').focus()');
+    await socket.send('Input.dispatchKeyEvent', { type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13,text:'\r',unmodifiedText:'\r' });
+    await socket.send('Input.dispatchKeyEvent', { type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13 });
+    await waitRoute(expected);
+  }
+  const depth = node => ({concept:'emboitement',node});
+  const story = trail => ({concept:'bifurcations',trail});
+  const startMontage = {concept:'montage',panels:['ensemble'],kept:[],focus:'ensemble',origins:{}};
+  const rootV2 = origin + '/concepts/v2/explore.html';
+  await socket.send('Emulation.setEmulatedMedia', {features:[]});
+  for (const [format,width,height] of [['desktop',1365,900],['mobile',390,844]]) {
+    await socket.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:format==='mobile'});
+    await navigate(rootV2+'?concept=emboitement');
+    await screenshot('v2-depth-arrival-'+format,width);
+    await journeyClick('#experience [data-region="finapp"] .region-copy',depth('finapp'));
+    await screenshot('v2-depth-regions-'+format,width);
+    const terrain=format==='mobile'?'.depth-terrain-compact':'.depth-terrain-wide';
+    const horizonSelector='#experience '+terrain+' [data-region="finapp.exemple"]';
+    const horizonId=await socket.evaluate('document.querySelector('+JSON.stringify(horizonSelector)+').id');
+    await keyboardActivate(horizonSelector,depth('finapp.exemple'));
+    await screenshot('v2-depth-example-'+format,width);
+    await socket.evaluate('history.back()'); await waitRoute(depth('finapp'),horizonId);
+    await socket.evaluate('history.forward()'); await waitRoute(depth('finapp.exemple'));
+    await journeyClick('#depth-up',depth('finapp'));
+    await journeyClick('#depth-up',depth('ensemble'));
+    await journeyClick('#experience [data-region="garapp"] .region-copy',depth('garapp'));
+    await journeyClick('#experience '+terrain+' [data-region="garapp.exemple"] .landmark-title',depth('garapp.exemple'));
+    assert.equal(await socket.evaluate('document.querySelector("#experience .real-app-link").getAttribute("href")'),'https://garapp.siniverse.cc');
+    await navigate(rootV2+'?concept=emboitement&lieu=branchlab.methode');
+    await journeyClick('#depth-up',depth('branchlab'));
+    report.checks.push('V2 Emboîtement/'+format+': régions SVG clavier/clic, parents, Back/Forward et focus, lien profond et vraie sortie');
+
+    await navigate(rootV2+'?concept=bifurcations');
+    await screenshot('v2-story-arrival-'+format,width);
+    const choose = path => '#experience .story-choice-link[href*="chemin='+encodeURIComponent(path)+'"]';
+    for (const path of ['achat','achat/voiture','achat/voiture/comparer','achat/voiture/comparer/exemple']) {
+      await journeyClick(choose(path),story(path.split('/')));
+    }
+    await screenshot('v2-story-example-'+format,width);
+    await journeyClick(choose('achat/voiture/comparer/exemple/suivre'),story(['achat','voiture','comparer','exemple','suivre']));
+    assert.equal(await socket.evaluate('document.querySelector("#experience .real-app-link").getAttribute("href")'),'https://garapp.siniverse.cc');
+    await journeyClick('#experience .story-word-link[href$="chemin=achat"]',story(['achat']));
+    await journeyClick(choose('achat/installation'),story(['achat','installation']));
+    await journeyClick(choose('achat/installation/relier'),story(['achat','installation','relier']));
+    const revised=await currentRoute();
+    await socket.evaluate('history.back()'); await waitRoute(story(['achat','installation']));
+    await socket.evaluate('history.forward()'); await waitRoute(revised);
+    assert.equal(await socket.evaluate('document.querySelector("#experience .real-app-link").getAttribute("href")'),'https://branchlab.siniverse.cc');
+    await reload(); await waitRoute(revised);
+    report.checks.push('V2 Bifurcations/'+format+': récit complet, continuation Finapp→Garapp, révision vers Branchlab, Back/Forward, lien profond');
+
+    await navigate(rootV2+'?concept=montage');
+    await screenshot('v2-montage-arrival-'+format,width);
+    await click('#experience .montage-entry.entry-finapp');
+    let montage=await currentRoute();
+    assert.deepEqual(montage.panels,['ensemble','finapp']);
+    await click('[data-surface="finapp"] .montage-topic[href*="finapp.exemple"]');
+    montage=await currentRoute(); assert.equal(montage.focus,'finapp.exemple');
+    await click('[data-surface="finapp.exemple"] [data-keep="finapp.exemple"]');
+    montage=await currentRoute(); assert.deepEqual(montage.kept,['finapp.exemple']);
+    await click('[data-surface="finapp.exemple"] .montage-related[href*="garapp"]');
+    montage=await currentRoute(); assert.equal(montage.focus,'garapp');
+    await click('[data-surface="garapp"] .montage-topic[href*="garapp.exemple"]');
+    montage=await currentRoute();
+    assert.deepEqual(montage.panels,['finapp.exemple','garapp','garapp.exemple']);
+    assert.deepEqual(montage.kept,['finapp.exemple']);
+    await screenshot('v2-montage-kept-'+format,width);
+    const exactMount=JSON.stringify(montage);
+    const deepLink=await socket.evaluate('document.querySelector("#permalink").href');
+    await navigate(deepLink);
+    assert.equal(JSON.stringify(await currentRoute()),exactMount);
+    await click('[data-surface="garapp.exemple"] [data-close="garapp.exemple"]');
+    montage=await currentRoute(); assert.deepEqual(montage.panels,['finapp.exemple','garapp']);
+    await socket.evaluate('history.back()'); await waitRoute(JSON.parse(exactMount));
+    await socket.evaluate('history.forward()'); await waitRoute(montage);
+    if(format==='mobile') await click('.montage-edge[href*="focus=finapp.exemple"]');
+    const sourceControl='[data-surface="finapp.exemple"] [data-source-return="finapp"]';
+    await click(sourceControl);
+    montage=await currentRoute();
+    assert.equal(montage.focus,'finapp');
+    assert(montage.panels.includes('finapp.exemple'),'Returning to a folded source lost the kept example.');
+    await journeyClick('#fold-all',startMontage);
+    report.checks.push('V2 Montage/'+format+': source adjacente, conservation, plafond trois, source évincée navigable, repli, URL complète et Back/Forward');
+
+    assert(await socket.evaluate('document.documentElement.scrollWidth <= innerWidth+1'),'V2 horizontal page overflow.');
+    assert(await socket.evaluate('(() => {const ids=[...document.querySelectorAll("[id]")].map(e=>e.id);return ids.length===new Set(ids).size})()'),'V2 duplicate IDs.');
+    assert.match(await socket.evaluate('document.querySelector(".app-version").textContent'),/^v\d+\.\d+\.\d+$/);
+  }
+  await socket.send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});
+  await socket.evaluate('localStorage.removeItem("siniverse.navigation-concepts.v2");sessionStorage.removeItem("siniverse.navigation-concepts.v2");history.replaceState({},"")');
+  await navigate(rootV2); await waitRoute(depth('ensemble'));
+  await reload(); await waitRoute(story([]));
+  await click('.journey-settings > summary');
+  await keyboardActivate('#pin-theme',story([]));
+  for(let attempt=0;attempt<60;attempt++){if(await socket.evaluate('document.querySelector("#pin-theme").getAttribute("aria-pressed")==="true"'))break;await pause(50);}
+  assert.equal(await socket.evaluate('document.querySelector("#pin-theme").getAttribute("aria-pressed")'),'true');
+  await reload(); await waitRoute(story([]));
+  await navigate(rootV2+'?concept=montage');
+  assert.equal(await socket.evaluate('JSON.parse(localStorage.getItem("siniverse.navigation-concepts.v2")).pinned'),'bifurcations');
+  await click('.journey-settings > summary');
+  await click('#resume-rotation');
+  assert.equal(await socket.evaluate('location.search'),'');
+  await waitRoute(startMontage);
+  await reload(); await waitRoute(depth('ensemble'));
+  report.checks.push('V2 rotation uniquement au refresh, épingle clavier, lien direct indépendant, reprise sans saut');
+  const v2Blocked=await socket.send('Page.addScriptToEvaluateOnNewDocument',{source:'for(const key of ["localStorage","sessionStorage"])Object.defineProperty(window,key,{get(){throw new DOMException("blocked","SecurityError")}});'});
+  await navigate(rootV2); await waitRoute(depth('ensemble'));
+  await journeyClick('#experience [data-region="finapp"] .region-copy',depth('finapp'));
+  await reload(); await waitRoute(story([]));
+  assert.match(await socket.evaluate('document.querySelector("#storage-state").textContent'),/onglet/);
+  await socket.send('Page.removeScriptToEvaluateOnNewDocument',{identifier:v2Blocked.identifier});
+  report.checks.push('V2 stockage bloqué : préférence et route séparées, rotation au rechargement');
+  await socket.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+  await navigate(rootV2+'?concept=emboitement&lieu=finapp');
+  await journeyClick('#experience [data-region="finapp.exemple"] .landmark-title',depth('finapp.exemple'));
+  await socket.evaluate('history.back()'); await waitRoute(depth('finapp'));
+  report.checks.push('V2 mouvement réduit : mêmes destinations et historique sans dépendre d’une animation');
+
   assert.deepEqual(report.exceptions, [], 'Browser reported a page exception or resource/CSP error.');
   report.status = 'passed';
 }
 
 let timeout;
 try {
-  await Promise.race([run(), new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('Browser review exceeded 180 seconds.')), 180000); })]);
+  await Promise.race([run(), new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('Browser review exceeded 240 seconds.')), 180000); })]);
 } catch (error) {
   report.status = 'failed'; report.error = error.message; process.exitCode = 1;
   console.error(error.stack || error);

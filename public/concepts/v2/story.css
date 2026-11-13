@@ -176,3 +176,5 @@
 @media (prefers-reduced-motion: reduce) {
   .story-world *, .story-world *::before, .story-world *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+.story-known-tools{max-width:700px;margin-top:28px!important;font:12px/2 ui-monospace,Consolas,monospace;color:var(--story-muted)}.story-direct-tool{display:inline-flex;min-height:44px;align-items:center;text-decoration:underline!important;text-underline-offset:5px;color:var(--story-signal)!important}

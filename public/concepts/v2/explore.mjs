@@ -36,7 +36,8 @@ function api() {
   return { escape, apps: APPS, detail: id => CONTENT[id], story: resolveStory(state.concept === 'bifurcations' ? state : storyState()),
     appLink, link: (destination, label, attributes = '') => {
       const href = routeHref(destination, { rotation: mode === 'rotation' });
-      return '<a href="' + escape(href) + '" data-nav id="nav-' + (++index) + '" ' + attributes + '>' + label + '</a>';
+      const id = /(?:^|\s)id\s*=/.test(attributes) ? '' : ' id="nav-' + (++index) + '"';
+      return '<a href="' + escape(href) + '" data-nav' + id + ' ' + attributes + '>' + label + '</a>';
     } };
 }
 function appDestination(app) {
@@ -69,10 +70,12 @@ function render(record) {
   const quick = document.querySelector('#quick-apps');
   quick.innerHTML = Object.entries(APPS).map(([id, app]) => '<a data-nav href="' + escape(routeHref(appDestination(id), { rotation: mode === 'rotation' }))
     + '" id="quick-' + id + '">' + app.name + '</a>').join('');
+  for (const surface of host.querySelectorAll('[data-surface]')) surface.style.viewTransitionName = 'montage-' + surface.dataset.surface.replaceAll('.', '-');
   syncControls();
   const focus = document.getElementById(record?.focus || 'view-title') || document.querySelector('#view-title');
   focus?.focus({ preventScroll: true });
   window.scrollTo({ left: record?.scroll?.[0] || 0, top: record?.scroll?.[1] || 0, behavior: 'instant' });
+  document.documentElement.dataset.navigationState = JSON.stringify(state);
   document.documentElement.dataset.navigationRevision = String(++renderNumber);
   document.documentElement.dataset.navigationReady = 'true';
 }
@@ -94,7 +97,7 @@ async function navigate(destination) {
 document.addEventListener('click', event => {
   const anchor = event.target.closest('a[data-nav]');
   if (!anchor || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-  const target = new URL(anchor.href);
+  const target = new URL(anchor.getAttribute('href'), location.href);
   if (target.origin !== location.origin || target.pathname !== location.pathname) return;
   event.preventDefault();
   void navigate(parseRoute(target.search, state.concept));

@@ -64,7 +64,7 @@ export const CONTENT = {
     facts: [{ label: 'Source', value: 'Ordinateur' }, { label: 'Sortie → câble', value: 'DisplayPort' }, { label: 'Destination', value: 'Entrée de l’écran' }] }
 };
 export const NODE_IDS = Object.keys(CONTENT);
-export const detail = id => CONTENT[id] || null;
+export const detail = id => Object.hasOwn(CONTENT, id) ? CONTENT[id] : null;
 export const depthState = (node = 'ensemble') => ({ concept: 'emboitement', node: NODE_IDS.includes(node) ? node : 'ensemble' });
 export const parentNode = node => node.includes('.') ? node.split('.')[0] : 'ensemble';
 export const storyState = (trail = []) => ({ concept: 'bifurcations', trail: cleanTrail(trail) });
