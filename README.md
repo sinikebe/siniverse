@@ -8,54 +8,102 @@ La page d’accueil de **[siniverse.cc](https://siniverse.cc)** : un point d’e
 | Garapp | Suivre ses véhicules, interventions, composants, carburant, assurance et dépenses. | [garapp.siniverse.cc](https://garapp.siniverse.cc) |
 | Branchlab | Représenter ses appareils, ports et câbles pour comprendre les compatibilités et les limites des connexions vidéo directes. | [branchlab.siniverse.cc](https://branchlab.siniverse.cc) |
 
-Site statique en français, responsive et utilisable sans JavaScript. Aucune installation de dépendances, aucun compte, aucun traceur, aucune police externe. Les illustrations de la page sont des exemples fictifs, pas des captures de données utilisateur.
+Site statique en français, responsive et utilisable sans JavaScript côté visiteur. Aucune dépendance chargée par la page, aucun compte, aucun traceur, aucune police externe. Les illustrations de la page sont des exemples fictifs, pas des captures de données utilisateur.
 
-## Déploiement sur Cloudflare Workers
+## CI et déploiement sur Cloudflare Workers
 
-Le site public est servi par un Worker de fichiers statiques. Le fichier
+Le site public est servi par le Worker de fichiers statiques `siniverse`. Le fichier
 `wrangler.jsonc` limite les fichiers publiés à `public/` et laisse Cloudflare
 servir les ressources sans invoquer de code Worker. Le dossier `api/` contient
-un second Worker, indépendant, pour la connexion Google Drive des applications.
+un second Worker existant, `siniverse-api`, pour la connexion Google Drive des applications.
 
-Dans Cloudflare **Workers & Pages**, utiliser le Worker existant `siniverse`
-lié au dépôt `sinikebe/siniverse`, avec la racine du dépôt comme répertoire de
-travail, la branche `main`, la commande de build `node --test test/site.test.mjs` et la
-commande de déploiement `npx wrangler deploy`. Aucun
-outil n'est nécessaire sur l'ordinateur personnel : cette commande s'exécute
-dans la construction Cloudflare. Aucun secret n'est nécessaire au site public.
+Le workflow `.github/workflows/ci.yml` utilise les runners Linux hébergés par
+GitHub, Node.js 24 et Wrangler **4.161.0**, épinglé dans `package.json` et
+`package-lock.json`. Il installe les dépendances avec `npm ci`, vérifie la syntaxe,
+exécute les tests du site et de l’API, puis valide le paquet statique avec
+`wrangler deploy --dry-run` pour le site et l’API. Le site n’a pas de compilation front-end.
 
-Tester d'abord l'adresse `workers.dev`, puis transférer le domaine personnalisé
-`siniverse.cc` du projet Pages vers le Worker. Garder le projet Pages disponible
-pendant la vérification pour faciliter un retour arrière. Le Worker API a sa
-propre configuration et son propre domaine `api.siniverse.cc` : voir son guide
-dans `api/` avant d'activer la connexion persistante dans les applications.
+| Déclencheur | Résultat après validation |
+| --- | --- |
+| Push sur `main` | Publication du site `siniverse` puis de l’API `siniverse-api`, chacun sur son domaine existant. |
+| Push sur `dev` | Mise à jour du Worker Preview stable nommé `dev` du site uniquement. L’API n’est pas publiée. |
+| Pull request, y compris depuis un fork | Vérifications uniquement, sans identifiants Cloudflare ni déploiement. |
+| Lancement manuel `workflow_dispatch` | Vérifications seules par défaut. Avec `deploy: true`, publication correspondant à la branche choisie si elle est `main` ou `dev`. |
 
-Après avoir retiré le domaine du projet Pages et l'avoir attaché au Worker,
-déclarer durablement ce domaine dans `wrangler.jsonc` avec
-`"routes": [{"pattern":"siniverse.cc","custom_domain":true}]`, puis
-redéployer. La route n'est pas encore dans le dépôt pour permettre au nouveau
-Worker de se déployer et d'être testé avant la bascule du projet Pages.
+Le déploiement est conditionné à la présence des deux secrets GitHub Actions
+`CLOUDFLARE_API_TOKEN` et `CLOUDFLARE_ACCOUNT_ID`. Sans eux, les vérifications
+s’exécutent et une publication déclenchée par un push est explicitement ignorée
+avec une notice et un résumé dans GitHub Actions. Une demande manuelle avec
+`deploy: true` échoue si ces secrets manquent. Les valeurs ne doivent jamais
+figurer dans le dépôt.
+Les secrets ne sont transmis qu’à l’étape de publication, jamais aux tests des
+pull requests. Désactiver les anciens **Workers Builds** Cloudflare avant
+d’activer cette chaîne évite de publier deux fois le même commit.
+
+Juste avant publication, le workflow vérifie que le compte correspond à celui
+des Workers existants et relit la tête de la branche dans GitHub avant chaque publication. Un commit dépassé
+est refusé. Les exécutions d’une même branche sont sérialisées sans interrompre
+une publication en cours.
+
+Les domaines sont gérés dans le dashboard Cloudflare. La production
+`siniverse.cc` et la base de previews existante `dev.siniverse.cc`, configurée
+pour le trafic Preview uniquement, restent attachées au Worker. Ne pas ajouter
+une liste `route` ou `routes` partielle dans `wrangler.jsonc` : elle remplacerait
+les réglages manuels. `workers_dev: false` conserve cette gestion manuelle et
+`keep_vars: true` préserve les variables du dashboard. Les réglages de Preview
+URLs déjà en place ne sont pas remplacés.
+
+La branche `dev` se crée depuis `main` après intégration de cette configuration.
+`npm run deploy:preview` utilise `wrangler preview --name dev` et la base de
+previews existante ; l’URL exacte est affichée dans le journal de publication.
+Il ne remplace pas la version de production. Aucun Preview par pull request
+n’est créé, donc aucun nettoyage de Preview à la fermeture des PR n’est requis.
+
+Le Worker API garde son domaine `api.siniverse.cc`, son cron et sa base D1.
+`npm run deploy:api` utilise le même Wrangler racine épinglé, avec
+`--config api/wrangler.jsonc --no-x-provision --keep-vars`. L’ID de la base D1
+déjà liée à `DB` est explicite ; aucune base ni migration n’est créée.
+Les secrets applicatifs Cloudflare restent en place : ils ne sont ni recopiés
+dans GitHub ni modifiés par la chaîne. Aucun API Preview n’est déployé sur `dev`.
+Voir le guide dans `api/` pour la configuration OAuth et les migrations manuelles.
+
+Le jeton GitHub doit autoriser la publication sur **les deux Workers** du compte
+attendu. L’API utilise une D1 existante, sans opération SQL ni migration dans la
+CI ; Wrangler peut demander la permission D1 en lecture pour ses métadonnées.
+La gestion du domaine API reste celle de sa configuration actuelle : si elle
+nécessite de réconcilier ce domaine, limiter Workers Routes Write à la zone
+`siniverse.cc`. Aucun droit de création D1 ni de migration n’est requis par la chaîne.
 
 ## Retour arrière
 
-Le projet Pages actuel peut rester disponible pendant la vérification du
-nouveau Worker. Un seul projet doit porter `siniverse.cc` à la fois : en cas de
-problème, retirer le domaine personnalisé du Worker et le réassocier au projet
-Pages. Ne supprimer l'ancien projet qu'après validation des applications et
-de leurs liens depuis la page d'accueil.
+Revenir sur le commit concerné dans `main` republie la version précédente par
+la même chaîne. Pour un retour immédiat, utiliser une version antérieure du
+Worker existant dans Cloudflare, puis réconcilier `main` avant la publication
+suivante. Les domaines personnalisés restent attachés au même Worker.
 
-Références : [migration Pages vers Workers](https://developers.cloudflare.com/workers/static-assets/migration-guides/migrate-from-pages/),
-[domaines personnalisés Workers](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/).
+Références : [GitHub Actions et Workers](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/),
+[configuration Wrangler et routes manuelles](https://developers.cloudflare.com/workers/wrangler/configuration/#source-of-truth),
+[Worker Previews](https://developers.cloudflare.com/workers/previews/get-started/),
+[domaines de Preview](https://developers.cloudflare.com/workers/previews/custom-domains/).
 
 ## Aperçu local
 
-Avec Node.js 22 ou plus récent, depuis la racine du dépôt :
+Avec Node.js 24, depuis la racine du dépôt :
 
 ```sh
 node tools/serve.mjs
 ```
 
 Ouvrir [127.0.0.1:4175](http://127.0.0.1:4175). `npm start` et `npm run dev` lancent le même serveur si npm est disponible. La variable `PORT` permet de choisir un autre port. Le serveur écoute uniquement sur la boucle locale et sert uniquement `public` ; il ne remplace pas la gestion des en-têtes et du DNS de Cloudflare.
+
+Pour exécuter les mêmes vérifications que la CI :
+
+```sh
+npm ci
+npm run check
+npm test
+npm run build
+```
 
 ## Modifier la page ou ajouter une application
 
