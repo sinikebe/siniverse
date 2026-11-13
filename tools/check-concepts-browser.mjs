@@ -81,7 +81,11 @@ class Protocol {
 async function ready(url) {
   for (let index = 0; index < 80; index++) {
     try {
-      if (await socket.evaluate('location.href === ' + JSON.stringify(url) + ' && (location.pathname.startsWith("/concepts/v2/") ? document.documentElement.dataset.navigationReady === "true" : document.documentElement.dataset.conceptsReady === "true")')) return;
+      const v2 = new URL(url).pathname.startsWith('/concepts/v2/');
+      const expression = v2
+        ? 'location.origin === ' + JSON.stringify(new URL(url).origin) + ' && location.pathname === "/concepts/v2/explore.html" && document.documentElement.dataset.navigationReady === "true"'
+        : 'location.href === ' + JSON.stringify(url) + ' && document.documentElement.dataset.conceptsReady === "true"';
+      if (await socket.evaluate(expression)) return;
     } catch { /* A navigation can replace the execution context once. */ }
     await pause(100);
   }
@@ -104,7 +108,11 @@ async function click(selector) {
   await socket.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: point.x, y: point.y, button: 'left', clickCount: 1 });
   await socket.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: point.x, y: point.y, button: 'left', clickCount: 1 });
   await pause(80);
-  return point;
+  for(let attempt=0;attempt<100;attempt++) {
+    if(await socket.evaluate('!location.pathname.startsWith("/concepts/v2/") || document.documentElement.dataset.navigationReady === "true"')) return point;
+    await pause(50);
+  }
+  throw new Error('The spatial navigation did not settle after clicking '+selector);
 }
 async function screenshot(name, width) {
   await pause(500);
@@ -374,6 +382,7 @@ async function run() {
   await waitRoute(startMontage);
   await reload(); await waitRoute(depth('ensemble'));
   report.checks.push('V2 rotation uniquement au refresh, épingle clavier, lien direct indépendant, reprise sans saut');
+  await socket.evaluate('history.replaceState({}, "")');
   const v2Blocked=await socket.send('Page.addScriptToEvaluateOnNewDocument',{source:'for(const key of ["localStorage","sessionStorage"])Object.defineProperty(window,key,{get(){throw new DOMException("blocked","SecurityError")}});'});
   await navigate(rootV2); await waitRoute(depth('ensemble'));
   await journeyClick('#experience [data-region="finapp"] .region-copy',depth('finapp'));
