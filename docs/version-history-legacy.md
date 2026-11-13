@@ -1,6 +1,6 @@
 # Versions antérieures au reset
 
-Le 13 novembre 2026, le portail Siniverse est réinitialisé à `0.0.1` à la demande de son propriétaire pour commencer le versionnement commun aux quatre applications.
+Le 13 novembre 2026, le portail Siniverse est réinitialisé à `0.0.1` pour commencer le versionnement commun aux quatre applications.
 
 Avant ce reset, `package.json` et `package-lock.json` indiquaient `1.0.0`. Leur dernier état est conservé dans le commit `f16bb9f893992e0a1145f45d95908f697b13e56e` et dans l'historique Git. Aucun changelog antérieur n'est supprimé ; le dépôt n'en contenait pas.
 
