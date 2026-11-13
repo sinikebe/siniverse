@@ -50,11 +50,21 @@ updatePreferenceStatus();
 
 const motionQuery = typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
 let reducedMotion = motionQuery?.matches ?? false;
+const mobile = () => window.innerWidth <= 760;
+const instrumentApp = document.querySelector('.instrument-app');
+function positionInstrumentDescription() {
+  const object = document.querySelector('.instrument-object');
+  const copy = document.querySelector('.instrument-copy');
+  if (mobile() && instrumentApp.parentElement !== object) object.insertBefore(instrumentApp, document.querySelector('.instrument-controls'));
+  else if (!mobile() && instrumentApp.parentElement !== copy) copy.append(instrumentApp);
+}
+positionInstrumentDescription();
+window.addEventListener('resize', positionInstrumentDescription, { passive: true });
 const instrumentState = { intent: 'finapp', horizon: 10, history: 0, spread: false, view: false };
 const instrument = current === 'instrument' ? createInstrument(document.getElementById('instrument-canvas'), {
   reducedMotion, ...instrumentState
 }) : null;
-if (instrument) document.getElementById('instrument-fallback').hidden = true;
+if (instrument) document.getElementById('instrument-fallback').setAttribute('hidden', '');
 
 function renderInstrument() {
   const app = APPS[instrumentState.intent];
@@ -110,7 +120,6 @@ let chapter = 0;
 const viewport = document.getElementById('fil-viewport');
 const chapterButtons = [...document.querySelectorAll('[data-chapter]')];
 const chapterNodes = chapterButtons.map((_, index) => document.getElementById('fil-chapter-' + index));
-const mobile = () => window.innerWidth <= 760;
 function setChapter(index) {
   chapter = Math.max(0, Math.min(2, index));
   chapterButtons.forEach((button, item) => {

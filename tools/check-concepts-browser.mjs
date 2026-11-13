@@ -173,7 +173,9 @@ async function run() {
       assert(await socket.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'), 'Horizontal page overflow.');
       assert(await socket.evaluate('[...document.querySelectorAll(".app-nav a")].length === 3 && document.querySelector(".app-nav").getBoundingClientRect().bottom < innerHeight'), 'App links are not immediately visible.');
       if (concept === 'instrument') {
+        assert(await socket.evaluate('document.querySelector("#instrument-canvas").hidden || (document.querySelector("#instrument-fallback").hasAttribute("hidden") && getComputedStyle(document.querySelector("#instrument-fallback")).display === "none")'), 'SVG fallback overlaps the active Canvas.');
         if (format === 'mobile') {
+          assert(await socket.evaluate('document.querySelector(".object-stage").getBoundingClientRect().bottom <= document.querySelector(".instrument-app").getBoundingClientRect().top + 1'), 'Mobile sculpture must appear before the app description.');
           await click('[data-intent="garapp"]'); await click('[data-history="1"]');
           assert.match(await socket.evaluate('document.querySelector("#instrument-history").textContent'), /24 avril/);
         } else {
