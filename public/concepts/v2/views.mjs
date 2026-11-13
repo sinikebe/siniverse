@@ -41,7 +41,7 @@ function depthInterior(app, api) {
   let compact;
   if(app === 'finapp') compact =
     target('methode','<circle class="landmark-start" cx="75" cy="80" r="26"/><path class="landmark-tick" d="M62 80H88M75 67V93"/>' + text(122,66,'Les hypothèses','Le point de départ'),'Entrer dans les hypothèses : méthode de Finapp')
-    + target('role','<path class="landmark-fill" d="M75 110C75 205 280 195 280 395L115 395C115 220 75 205 75 110Z"/>' + text(30,247,'L’écart','Ce que compare Finapp'),'Entrer dans l’écart : le rôle de Finapp')
+    + target('role','<path class="landmark-fill" d="M75 110C75 205 280 195 280 395L115 395C115 220 75 205 75 110Z"/>' + text(170,155,'L’écart','Ce que compare Finapp'),'Entrer dans l’écart : le rôle de Finapp')
     + '<path class="terrain-line" d="M75 110C75 205 280 195 280 395M75 110C75 205 115 220 115 395"/>'
     + target('exemple','<path class="landmark-axis" d="M38 413H315"/><circle class="landmark-disc" cx="280" cy="413" r="18"/><text x="280" y="419" class="landmark-symbol">↘</text>' + text(40,468,'Un même horizon','Un exemple à dix ans'),'Entrer dans l’horizon : exemple fictif de Finapp');
   else if(app === 'garapp') compact =
