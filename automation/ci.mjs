@@ -4,6 +4,7 @@ import { appendFileSync, existsSync, lstatSync, readFileSync, readdirSync, write
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { assertVersion, githubVersionClient, requireMainPromotion, resolveVersionForSha, tagName, versionTags } from './version.mjs';
 
 const SHA = /^[a-f0-9]{40}$/;
 const here = dirname(fileURLToPath(import.meta.url));
@@ -39,6 +40,8 @@ export function createContext(env, event, baseResolver = () => '') {
   const ref = env.GITHUB_REF || '';
   const sourceBranch = isPr ? event.pull_request?.head?.ref : ref.replace(/^refs\/heads\//, '');
   const target = isPr ? event.pull_request?.base?.ref : ref.replace(/^refs\/heads\//, '');
+  invariant(!isPr || target !== 'main' || (event.pull_request?.head?.ref === 'dev'
+    && event.pull_request.head.repo?.full_name === repository), 'PRs to main must come from dev in the same repository; test changes in dev first.');
   const branch = target === 'main' ? 'main' : 'dev';
   const environment = isPr || !['refs/heads/main', 'refs/heads/dev'].includes(ref) ? 'test' :
     branch === 'main' ? 'production' : 'preview';
@@ -59,10 +62,12 @@ export function createContext(env, event, baseResolver = () => '') {
 }
 
 export function verifyCallerPin(text, automationRef) {
+  const versions = [...text.matchAll(/^\s*uses:\s*sinikebe\/siniverse\/\.github\/workflows\/reusable-version\.yml@([a-f0-9]{40})\s*$/gm)];
   const calls = [...text.matchAll(/^\s*uses:\s*sinikebe\/siniverse\/\.github\/workflows\/reusable-ci\.yml@([a-f0-9]{40})\s*$/gm)];
   const cleanups = [...text.matchAll(/^\s*uses:\s*sinikebe\/siniverse\/\.github\/workflows\/reusable-cleanup\.yml@([a-f0-9]{40})\s*$/gm)];
   const refs = [...text.matchAll(/^\s*automation_ref:\s*['"]?([a-f0-9]{40})['"]?\s*$/gm)];
   invariant(calls.length === 1 && calls[0][1] === automationRef, 'The caller must pin reusable-ci to automation_ref.');
+  invariant(versions.length === 1 && versions[0][1] === automationRef, 'The caller must pin reusable-version to the same automation_ref.');
   invariant(cleanups.length === 1 && cleanups[0][1] === automationRef, 'The caller must pin reusable-cleanup to the same automation_ref.');
   invariant(refs.length >= 1 && refs.every((match) => match[1] === automationRef), 'All caller references must use the same automation SHA.');
   invariant(!/secrets:\s*inherit\b/.test(text), 'Secrets must be passed explicitly.');
@@ -145,7 +150,7 @@ export function manifestFor(context, appVersion, digest, now = new Date()) {
     schemaVersion: 1, app: getProfile(context.repository).id,
     repository: context.repository, sha: context.sha, ref: context.ref,
     branch: context.branch, environment: context.environment,
-    appVersion, automationRef: context.automationRef, runId: context.runId,
+    appVersion, versionTag: context.versionTag || null, automationRef: context.automationRef, runId: context.runId,
     runAttempt: context.runAttempt, builtAt: now.toISOString(),
     toolchain: context.toolchain, artifactSha256: digest
   };
@@ -240,6 +245,27 @@ function readState(p) {
   return readJson(p.state);
 }
 
+export async function buildVersion(context, fallback, env, request) {
+  assertVersion(fallback);
+  if (context.publishEligible) {
+    assertVersion(env.SINIVERSE_VERSION);
+    invariant(env.SINIVERSE_VERSION_TAG === tagName(context.branch, env.SINIVERSE_VERSION), 'Publication requires its exact version tag.');
+  }
+  if (context.environment !== 'test' && request) {
+    if (context.publishEligible && context.branch === 'main') await requireMainPromotion(context.repository, context.sha, request);
+    const catalog = await versionTags(context.repository, request);
+    const exists = catalog.some(tag => tag.name.startsWith('siniverse-version/' + context.branch + '/') && tag.commit.sha === context.sha);
+    if (exists || context.publishEligible) {
+      const release = await resolveVersionForSha(context.repository, context.branch, context.sha, request, catalog);
+      if (env.SINIVERSE_VERSION) invariant(release.version === env.SINIVERSE_VERSION, 'Assigned version differs from its immutable source tag.');
+      if (env.SINIVERSE_VERSION_TAG) invariant(release.name === env.SINIVERSE_VERSION_TAG, 'Assigned version tag differs from its immutable source tag.');
+      return { appVersion: release.version, versionTag: release.name };
+    }
+  }
+  invariant(!context.publishEligible, 'An exact immutable version must be verified before publication.');
+  return { appVersion: assertVersion(env.SINIVERSE_VERSION || fallback), versionTag: null };
+}
+
 export async function githubHead(context, token, fetcher = fetch) {
   invariant(token, 'A read-only GitHub token is required to revalidate publication.');
   const headers = { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
@@ -293,8 +319,8 @@ export async function main(command, env = process.env) {
       }
       try { return run('git', ['rev-parse', env.GITHUB_SHA + '^'], { cwd: p.app, quiet: true }); } catch { return env.GITHUB_SHA; }
     });
-    context.appVersion = readJson(join(p.app, 'package.json')).version;
-    invariant(typeof context.appVersion === 'string' && context.appVersion.length > 0, 'Application version is required.');
+    Object.assign(context, await buildVersion(context, readJson(join(p.app, 'package.json')).version, env,
+      context.environment !== 'test' ? githubVersionClient(context.repository, env.GH_TOKEN) : null));
     assertCheckouts(context, p);
     assertToolchain(p);
     validateConfigs(context, p);
@@ -302,7 +328,8 @@ export async function main(command, env = process.env) {
     const vars = {
       SINIVERSE_REPOSITORY: context.repository, SINIVERSE_SHA: context.sha, SINIVERSE_REF: context.ref,
       SINIVERSE_BRANCH: context.branch, SINIVERSE_SOURCE_BRANCH: context.sourceBranch,
-      SINIVERSE_ENVIRONMENT: context.environment, SINIVERSE_BASE_SHA: context.baseSha
+      SINIVERSE_ENVIRONMENT: context.environment, SINIVERSE_BASE_SHA: context.baseSha,
+      SINIVERSE_VERSION: context.appVersion
     };
     for (const [key, value] of Object.entries(vars)) appendFileSync(env.GITHUB_ENV, key + '=' + value + '\n');
     appendFileSync(env.GITHUB_OUTPUT, 'chromium=' + getProfile(context.repository).chromium + '\npublish=' + context.publishEligible + '\n');
@@ -315,6 +342,8 @@ export async function main(command, env = process.env) {
       '| Repository | ' + (context?.repository || env.GITHUB_REPOSITORY || '') + ' |',
       '| Commit | ' + (context?.sha || env.GITHUB_SHA || '') + ' |',
       '| Automation | ' + (context?.automationRef || env.AUTOMATION_REF || '') + ' |',
+      '| Version | ' + (context?.appVersion || '') + ' |',
+      '| Version tag | ' + (context?.versionTag || 'Local/PR fallback') + ' |',
       '| Result | ' + (env.CI_JOB_STATUS || 'unknown') + ' |',
       '| Publication | ' + (state.publication?.outcome || 'Validation only') + ' |'];
     for (const result of state.publication?.targets || []) lines.push('| ' + result.worker + ' | ' + result.url + ' |');
@@ -356,6 +385,8 @@ export async function main(command, env = process.env) {
   for (const target of plan) {
     verifyManifest(readJson(join(p.dist, 'deployment.json')), context, context.appVersion, artifactDigest(p.dist));
     await githubHead(context, env.GH_TOKEN);
+    await buildVersion(context, context.appVersion, { SINIVERSE_VERSION: context.appVersion, SINIVERSE_VERSION_TAG: context.versionTag },
+      githubVersionClient(context.repository, env.GH_TOKEN));
     run(process.execPath, [cli, ...wranglerArguments(target)], { cwd: p.app });
     await probe(target, state.manifest);
     state.publication.targets.push({ worker: target.worker, url: target.url });

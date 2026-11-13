@@ -3,6 +3,7 @@ import { appendFileSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertVersion, resolveVersionForSha, versionTags } from './version.mjs';
 
 const repositories = new Set(['sinikebe/finapp', 'sinikebe/Garapp']);
 const shaPattern = /^[a-f0-9]{40}$/;
@@ -94,13 +95,21 @@ export async function planPages({ repository, eventName, event, policy, request,
   await requireCI(repository, 'dev', selected.dev, request, pause);
   const pages = await request(`/repos/${repository}/pages`);
   if (pages.build_type !== 'workflow') throw new Error('Configure GitHub Pages Source as GitHub Actions before publication.');
-  return { deploy: true, ...selected };
+  return { deploy: true, ...selected, ...await pagesVersions(repository, selected.main, selected.dev, request) };
+}
+
+export async function pagesVersions(repository, main, dev, request) {
+  const catalog = await versionTags(repository, request);
+  const selected = await Promise.all(['main', 'dev'].map(channel =>
+    resolveVersionForSha(repository, channel, channel === 'main' ? main : dev, request, catalog)));
+  return { mainVersion: selected[0].version, devVersion: selected[1].version };
 }
 
 export async function verifyArtifact({ repository, policy, request, runId, attempt, name: selectedName,
-  main, dev, pause = pauseDefault }) {
+  main, dev, mainVersion, devVersion, pause = pauseDefault }) {
   pagesProfile(repository, policy);
   if (![main, dev].every(sha => shaPattern.test(sha ?? ''))) throw new Error('Exact selected main/dev revisions are required.');
+  assertVersion(mainVersion); assertVersion(devVersion);
   const name = selectedName ?? artifactName(runId, attempt);
   artifactName(runId, attempt); // Validate the current run identifiers before comparing attempts.
   const selected = /^github-pages-([1-9][0-9]*)-([1-9][0-9]*)$/.exec(name);
@@ -118,6 +127,8 @@ export async function verifyArtifact({ repository, policy, request, runId, attem
       assertPublic(repository, await request(`/repos/${repository}`));
       const current = await heads(repository, request);
       if (current.main !== main || current.dev !== dev) throw new Error('A source branch changed after Pages selection; wait for its next successful CI.');
+      const versions = await pagesVersions(repository, main, dev, request);
+      if (versions.mainVersion !== mainVersion || versions.devVersion !== devVersion) throw new Error('The immutable Pages versions changed after the build.');
       return { name, id: matches[0].id };
     }
     if (index < attempts - 1) await pause();
@@ -143,14 +154,18 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     const plan = await planPages({ repository, eventName: process.env.GITHUB_EVENT_NAME, event, policy, request });
     output('deploy', String(plan.deploy));
     output('artifact_name', artifactName(process.env.GITHUB_RUN_ID, process.env.GITHUB_RUN_ATTEMPT));
-    if (plan.deploy) { output('main_sha', plan.main); output('dev_sha', plan.dev); }
+    if (plan.deploy) {
+      output('main_sha', plan.main); output('dev_sha', plan.dev);
+      output('main_version', plan.mainVersion); output('dev_version', plan.devVersion);
+    }
     if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY,
-      plan.deploy ? `Legacy Pages sources: main ${plan.main}, dev ${plan.dev}.\n` : 'No Pages publication: this CI event has been superseded.\n');
+      plan.deploy ? `Legacy Pages sources: main ${plan.main} v${plan.mainVersion}, dev ${plan.dev} v${plan.devVersion}.\n` : 'No Pages publication: this CI event has been superseded.\n');
   } else if (process.argv[2] === 'verify-artifact') {
     const name = process.env.SINIVERSE_PAGES_ARTIFACT_NAME;
     if (!name) throw new Error('The selected build artifact name is required.');
     await verifyArtifact({ repository, policy, request, runId: process.env.GITHUB_RUN_ID,
       attempt: process.env.GITHUB_RUN_ATTEMPT, name,
-      main: process.env.SINIVERSE_PAGES_MAIN_SHA, dev: process.env.SINIVERSE_PAGES_DEV_SHA });
+      main: process.env.SINIVERSE_PAGES_MAIN_SHA, dev: process.env.SINIVERSE_PAGES_DEV_SHA,
+      mainVersion: process.env.SINIVERSE_PAGES_MAIN_VERSION, devVersion: process.env.SINIVERSE_PAGES_DEV_VERSION });
   } else throw new Error('Choose plan or verify-artifact.');
 }

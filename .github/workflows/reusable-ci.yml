@@ -9,6 +9,12 @@ on:
       deploy:
         type: boolean
         default: false
+      version:
+        type: string
+        default: ''
+      version_tag:
+        type: string
+        default: ''
     secrets:
       CLOUDFLARE_ACCOUNT_ID:
         required: false
@@ -17,9 +23,11 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: siniverse-ci-${{ github.repository }}-${{ github.event.pull_request.number || github.ref }}
+  queue: max
   cancel-in-progress: false
 
 jobs:
@@ -33,6 +41,8 @@ jobs:
       APP_DIR: ${{ github.workspace }}/app
       AUTOMATION_REF: ${{ inputs.automation_ref }}
       REQUESTED_DEPLOY: ${{ inputs.deploy }}
+      SINIVERSE_VERSION: ${{ inputs.version }}
+      SINIVERSE_VERSION_TAG: ${{ inputs.version_tag }}
     steps:
       - name: Checkout application at the event commit
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -66,6 +76,8 @@ jobs:
         run: node --test .siniverse-ci/automation/ci.test.mjs
       - name: Verify identity, toolchain and configuration
         id: context
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: node .siniverse-ci/automation/ci.mjs context
       - name: Install Chromium when required by the application
         if: steps.context.outputs.chromium == 'true'
