@@ -14,9 +14,12 @@
     "start": "node tools/serve.mjs",
     "check": "node --check tools/serve.mjs && node --check api/src/worker.js",
     "test": "node --test",
-    "build": "wrangler deploy --dry-run --outdir .wrangler/build",
+    "build": "npm run build:site && npm run build:api",
+    "build:site": "wrangler deploy --dry-run --outdir .wrangler/build",
+    "build:api": "wrangler deploy --config api/wrangler.jsonc --no-x-provision --dry-run --outdir .wrangler/api-build",
     "deploy": "wrangler deploy",
-    "deploy:preview": "wrangler preview --name dev"
+    "deploy:preview": "wrangler preview --name dev",
+    "deploy:api": "wrangler deploy --config api/wrangler.jsonc --no-x-provision --keep-vars"
   },
   "engines": {
     "node": ">=24"

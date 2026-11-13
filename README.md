@@ -12,21 +12,21 @@ Site statique en français, responsive et utilisable sans JavaScript côté visi
 
 ## CI et déploiement sur Cloudflare Workers
 
-Le site public est servi par un Worker de fichiers statiques. Le fichier
+Le site public est servi par le Worker de fichiers statiques `siniverse`. Le fichier
 `wrangler.jsonc` limite les fichiers publiés à `public/` et laisse Cloudflare
 servir les ressources sans invoquer de code Worker. Le dossier `api/` contient
-un second Worker, indépendant, pour la connexion Google Drive des applications.
+un second Worker existant, `siniverse-api`, pour la connexion Google Drive des applications.
 
 Le workflow `.github/workflows/ci.yml` utilise les runners Linux hébergés par
 GitHub, Node.js 24 et Wrangler **4.161.0**, épinglé dans `package.json` et
 `package-lock.json`. Il installe les dépendances avec `npm ci`, vérifie la syntaxe,
 exécute les tests du site et de l’API, puis valide le paquet statique avec
-`wrangler deploy --dry-run`. Le site n’a pas de compilation front-end.
+`wrangler deploy --dry-run` pour le site et l’API. Le site n’a pas de compilation front-end.
 
 | Déclencheur | Résultat après validation |
 | --- | --- |
-| Push sur `main` | Publication du Worker existant `siniverse`, servi sur `siniverse.cc`. |
-| Push sur `dev` | Mise à jour du Worker Preview stable nommé `dev`, sur le même Worker. |
+| Push sur `main` | Publication du site `siniverse` puis de l’API `siniverse-api`, chacun sur son domaine existant. |
+| Push sur `dev` | Mise à jour du Worker Preview stable nommé `dev` du site uniquement. L’API n’est pas publiée. |
 | Pull request, y compris depuis un fork | Vérifications uniquement, sans identifiants Cloudflare ni déploiement. |
 | Lancement manuel `workflow_dispatch` | Vérifications seules par défaut. Avec `deploy: true`, publication correspondant à la branche choisie si elle est `main` ou `dev`. |
 
@@ -41,7 +41,7 @@ pull requests. Désactiver les anciens **Workers Builds** Cloudflare avant
 d’activer cette chaîne évite de publier deux fois le même commit.
 
 Juste avant publication, le workflow vérifie que le compte correspond à celui
-du Worker existant et relit la tête de la branche dans GitHub. Un commit dépassé
+des Workers existants et relit la tête de la branche dans GitHub avant chaque publication. Un commit dépassé
 est refusé. Les exécutions d’une même branche sont sérialisées sans interrompre
 une publication en cours.
 
@@ -59,9 +59,20 @@ previews existante ; l’URL exacte est affichée dans le journal de publication
 Il ne remplace pas la version de production. Aucun Preview par pull request
 n’est créé, donc aucun nettoyage de Preview à la fermeture des PR n’est requis.
 
-Le Worker API garde sa configuration et son domaine `api.siniverse.cc` propres.
-Cette chaîne exécute ses tests mais ne déploie ni l’API, ni ses secrets, ni ses
-migrations D1 : voir le guide dans `api/` pour ces opérations.
+Le Worker API garde son domaine `api.siniverse.cc`, son cron et sa base D1.
+`npm run deploy:api` utilise le même Wrangler racine épinglé, avec
+`--config api/wrangler.jsonc --no-x-provision --keep-vars`. L’ID de la base D1
+déjà liée à `DB` est explicite ; aucune base ni migration n’est créée.
+Les secrets applicatifs Cloudflare restent en place : ils ne sont ni recopiés
+dans GitHub ni modifiés par la chaîne. Aucun API Preview n’est déployé sur `dev`.
+Voir le guide dans `api/` pour la configuration OAuth et les migrations manuelles.
+
+Le jeton GitHub doit autoriser la publication sur **les deux Workers** du compte
+attendu. L’API utilise une D1 existante, sans opération SQL ni migration dans la
+CI ; Wrangler peut demander la permission D1 en lecture pour ses métadonnées.
+La gestion du domaine API reste celle de sa configuration actuelle : si elle
+nécessite de réconcilier ce domaine, limiter Workers Routes Write à la zone
+`siniverse.cc`. Aucun droit de création D1 ni de migration n’est requis par la chaîne.
 
 ## Retour arrière
 

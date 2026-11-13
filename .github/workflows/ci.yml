@@ -41,7 +41,7 @@ jobs:
         run: npm run check
       - name: Verify homepage, privacy and persistent Drive sessions
         run: npm test
-      - name: Validate static Worker packaging without credentials
+      - name: Validate site and API packaging without credentials
         run: npm run build
 
   deploy:
@@ -59,7 +59,7 @@ jobs:
           cache: npm
       - name: Install pinned deployment CLI
         run: npm ci
-      - name: Publish production or the stable dev Preview
+      - name: Publish site and API production or the stable site Preview
         shell: bash
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -83,15 +83,22 @@ jobs:
             exit 1
           fi
 
-          current_head="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$GITHUB_REF_NAME" --jq '.object.sha')"
-          if [[ "$current_head" != "$GITHUB_SHA" ]]; then
-            echo "::error::Deployment refused: this commit is no longer the branch head."
-            exit 1
-          fi
+          require_current_head() {
+            local current_head
+            current_head="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$GITHUB_REF_NAME" --jq '.object.sha')"
+            if [[ "$current_head" != "$GITHUB_SHA" ]]; then
+              echo "::error::Deployment refused: this commit is no longer the branch head."
+              exit 1
+            fi
+          }
 
           if [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
+            require_current_head
             npm run deploy
+            require_current_head
+            npm run deploy:api
           elif [[ "$GITHUB_REF" == "refs/heads/dev" ]]; then
+            require_current_head
             npm run deploy:preview
           else
             echo "::error::Unsupported deployment branch: $GITHUB_REF"

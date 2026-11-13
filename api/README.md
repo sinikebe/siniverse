@@ -19,10 +19,27 @@ The browser may display the account name, email and avatar by calling Drive `abo
 
 If the Worker is unreachable, has no D1 schema, or lacks credentials, its auth endpoints fail closed (`503`, or a network error). The sites can temporarily fall back to their existing Google Identity Services flow. OAuth endpoints intentionally return `404` on `workers.dev` hosts: only `https://api.siniverse.cc` can receive a Google authorization callback.
 
-## Cloudflare setup
+## GitHub Actions deployment
 
-1. In **Workers & Pages → Create application → Connect GitHub**, select the Siniverse repository and its `main` branch. Set **Root directory** to `api`, **Worker name** to `siniverse-api`, **Build command** to `node --test`, and leave the default **Deploy command** `npx wrangler deploy`. Set the **build environment variable** `NODE_VERSION=24` so the SQLite-based tests run with the supported Node version. Cloudflare runs these commands in its build service; no local `npx` is required. A failing test prevents deployment. `wrangler.jsonc` declares a D1 binding named `DB` with automatic database provisioning (Wrangler 4.45 or later). After the first deployment, verify `GET /health` at its `workers.dev` URL and locate the provisioned D1 database in the Cloudflare dashboard.
-2. Open **D1 → the database bound to `siniverse-api` → Console**. Paste the full contents of [`migrations/0001_sessions.sql`](migrations/0001_sessions.sql) and click **Execute**. Run `SELECT name FROM sqlite_master WHERE type = 'table';` to confirm `oauth_states` and `sessions` exist. This initial migration is idempotent. For subsequent migrations, use Wrangler's `d1 migrations apply DB --remote` in CI or apply reviewed SQL through the D1 Console; do not run destructive migrations over existing sessions.
+The repository workflow publishes the existing `siniverse-api` Worker from `main`, after the site and API tests pass. A manual run publishes only when `deploy` is explicitly enabled on `main`. The `dev` branch publishes a site Preview only: it never publishes this API or creates an API Preview. Pull requests run tests and packaging checks without Cloudflare credentials.
+
+Use the pinned **Wrangler 4.161.0 at the repository root**, installed with `npm ci`. The workflow runs `npm run deploy:api`, equivalent to `wrangler deploy --config api/wrangler.jsonc --no-x-provision --keep-vars`. It verifies the expected account and current GitHub branch head immediately before publication. Missing credentials skip push publication; an explicit manual publication fails if credentials are absent. See the root README for the two GitHub deployment secrets and the account guard.
+
+The deployment token must cover both `siniverse` and `siniverse-api`. The database already exists, and its ID is pinned in `wrangler.jsonc`: publication does not create a D1 database or execute SQL. Wrangler may need D1 Read for metadata. Worker Editor access is needed for publication; Workers Routes Write for the `siniverse.cc` zone is relevant only if the domain connection needs reconciliation. Runtime OAuth/encryption secrets stay in Cloudflare, are preserved by deployment, and must not be copied into the repository or workflow.
+
+For credential-free local checks, run these commands from the repository root:
+
+```sh
+npm ci
+npm run check
+npm test
+npm run build:api
+```
+
+## Existing Cloudflare runtime setup
+
+1. Keep the existing Worker `siniverse-api`, its `api.siniverse.cc` domain, daily cron and D1 binding `DB`. The configuration references the same existing database, `fb5227cc-637b-4bab-be6b-3984a0b96d64`; automatic resource provisioning is disabled by the deployment command. Keep its former Workers Builds integration paused so GitHub Actions is the only publisher.
+2. Database schema changes remain a separate, reviewed manual operation. If initial setup is still required, open **D1 → the database bound to `siniverse-api` → Console**, review [`migrations/0001_sessions.sql`](migrations/0001_sessions.sql) and apply it there. Run `SELECT name FROM sqlite_master WHERE type = 'table';` to confirm `oauth_states` and `sessions` exist. The initial migration is idempotent. No workflow in this repository runs `d1 migrations apply`, and no destructive migration over existing sessions is part of publication.
 3. In **Workers & Pages → siniverse-api → Settings → Variables and Secrets**, add these values as **Secret**, never plaintext variables or repository files:
 
    | Secret name | Value |
@@ -32,11 +49,7 @@ If the Worker is unreachable, has no D1 schema, or lacks credentials, its auth e
    | `TOKEN_ENCRYPTION_KEY` | Base64 encoding of **exactly 32 random bytes** for AES-GCM. |
 
    Generate the encryption key with `node -p "require('node:crypto').randomBytes(32).toString('base64')"` and enter the result directly in Cloudflare's secret field. Keep a secure backup of this key: replacing it without migrating D1 renders existing encrypted sessions unusable and requires users to reconnect. No real secret belongs in a commit, issue, log, or support message.
-4. `wrangler.jsonc` declares the **Custom Domain** `api.siniverse.cc`; during deployment Cloudflare creates its DNS record and TLS certificate automatically. Confirm it appears under **siniverse-api → Settings → Domains & Routes** and that `https://api.siniverse.cc/health` returns `{"ok":true}`. The session endpoint returns a generic `503` while runtime setup is incomplete. Keep the `routes` entry in Git so future deployments continue to attach the API domain. There is no reason to attach the app websites' domains to this API Worker.
-
-Cloudflare's automatic D1 provisioning currently uses a binding-only configuration. If provisioning does not occur in your account, create one D1 database in the dashboard, bind it to `siniverse-api` as `DB`, and replace the binding-only entry in `wrangler.jsonc` with its `database_name` and `database_id` before retrying the build.
-
-If the first deployment cannot attach `api.siniverse.cc` because of an existing DNS record or domain assignment, temporarily remove the `routes` entry, deploy and test `/health` on `workers.dev`, resolve the conflict in the Cloudflare dashboard, then restore the `routes` entry and deploy again **before** enabling the API in the apps.
+4. `wrangler.jsonc` retains the existing **Custom Domain** `api.siniverse.cc`. Confirm it appears under **siniverse-api → Settings → Domains & Routes** and that `https://api.siniverse.cc/health` returns `{"ok":true}`. The session endpoint returns a generic `503` while runtime setup is incomplete. Keep the current route in Git; do not attach the app websites' domains to this API Worker or remove the existing domain as part of the CI migration.
 
 ## Google Auth Platform setup
 
