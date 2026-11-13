@@ -89,9 +89,17 @@ async function navigate(destination) {
   historyWrite('pushState', record);
   const canTransition = !matchMedia('(prefers-reduced-motion: reduce)').matches && typeof document.startViewTransition === 'function';
   if (canTransition) {
-    lastTransition = document.startViewTransition(() => render(record));
-    try { await lastTransition.finished; } catch { /* A fast next navigation can skip the preceding animation. */ }
-    lastTransition = null;
+    const transition = document.startViewTransition(() => {
+      if (state !== next) return;
+      render(record);
+      document.documentElement.dataset.navigationReady = 'false';
+    });
+    lastTransition = transition;
+    try { await transition.finished; } catch { /* A fast next navigation can skip the preceding animation. */ }
+    if (lastTransition === transition) {
+      lastTransition = null;
+      document.documentElement.dataset.navigationReady = 'true';
+    }
   } else render(record);
 }
 document.addEventListener('click', event => {
