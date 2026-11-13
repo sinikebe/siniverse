@@ -293,6 +293,14 @@ async function run() {
     const arrival=format==='mobile'?'.depth-arrival-compact':'.depth-arrival-wide';
     await navigate(rootV2+'?concept=emboitement');
     await screenshot('v2-depth-arrival-'+format,width);
+    await journeyClick('#experience '+arrival+' [data-region="finapp"] .arrival-measure:nth-last-child(2)',depth('finapp'));
+    await journeyClick('#depth-up',depth('ensemble'));
+    const graphSelector='#experience '+arrival+' [data-region="finapp"] .arrival-curve:not(.arrival-alternate)';
+    const graphPoint=await socket.evaluate('(() => {const p=document.querySelector('+JSON.stringify(graphSelector)+');p.scrollIntoView({block:"center",behavior:"instant"});const point=p.getPointAtLength(p.getTotalLength()*.72).matrixTransform(p.getScreenCTM());return {x:point.x,y:point.y}})()');
+    await socket.send('Input.dispatchMouseEvent',{type:'mousePressed',x:graphPoint.x,y:graphPoint.y,button:'left',clickCount:1});
+    await socket.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:graphPoint.x,y:graphPoint.y,button:'left',clickCount:1});
+    await waitRoute(depth('finapp'));
+    await journeyClick('#depth-up',depth('ensemble'));
     await journeyClick('#experience '+arrival+' [data-region="finapp"] .arrival-app-name',depth('finapp'));
     await screenshot('v2-depth-regions-'+format,width);
     const terrain=format==='mobile'?'.depth-terrain-compact':'.depth-terrain-wide';

@@ -14,10 +14,10 @@ export function renderDepthArrival(api) {
 
   const wide = region('finapp', 'M0 0H780C700 95 700 190 570 240S400 300 390 390H0Z',
     name('finapp', 48, 65) + purpose('finapp', 51, 96)
-    + '<path class="arrival-guide" d="M80 302H557M80 308V145"/>'
-    + '<path class="arrival-curve" d="M80 288C170 288 165 245 260 245S365 172 430 185 500 132 557 127"/>'
-    + '<path class="arrival-curve arrival-alternate" d="M80 288C165 288 170 271 260 270S365 238 430 248 505 210 557 210"/>'
-    + label(82, 325, 'aujourd’hui', 'arrival-measure') + label(508, 325, '10 ans', 'arrival-measure') + enter(48, 365))
+    + '<path class="arrival-guide" d="M80 302H400M80 308V145"/>'
+    + '<path class="arrival-curve" d="M80 288C140 288 137 245 201 245S271 172 315 185 362 132 400 127"/>'
+    + '<path class="arrival-curve arrival-alternate" d="M80 288C137 288 140 271 201 270S271 238 315 248 365 210 400 210"/>'
+    + label(82, 325, 'aujourd’hui', 'arrival-measure') + label(350, 325, '10 ans', 'arrival-measure') + enter(48, 365))
     + region('garapp', 'M780 0H1200V420C1060 410 990 350 900 370S700 410 570 240C700 190 700 95 780 0Z',
       name('garapp', 803, 65) + purpose('garapp', 806, 96)
       + '<path class="arrival-curve" d="M735 210H1145"/>'
