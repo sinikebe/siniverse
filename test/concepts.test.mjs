@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CONCEPTS, HISTORY_KEY, PREFERENCE_KEY, chooseConcept, cleanPreference,
-  createPreferenceStore, nextHistory, togglePin } from '../public/concepts/model.mjs';
+  createPreferenceStore, filPaths, nextHistory, togglePin } from '../public/concepts/model.mjs';
 
 const memoryStorage = initial => {
   const values = new Map(initial ? [[PREFERENCE_KEY, initial]] : []);
@@ -97,4 +97,22 @@ test('corrupt preferences and complete storage denial leave working controls and
 test('maintenance steps wrap in both directions without storing application records', () => {
   assert.equal(nextHistory(3), 0);
   assert.equal(nextHistory(0, -1), 3);
+});
+
+test('a fresh direct-link visit reports readable storage without changing the saved choice', () => {
+  const local = memoryStorage();
+  const store = createPreferenceStore({ local: () => local });
+  assert.equal(store.mode, 'local');
+  assert.equal(chooseConcept('?concept=fil', store.read()).id, 'fil');
+  assert.equal(local.values.size, 0);
+});
+
+test('changing the horizon changes both drawn financial paths while keeping the following chapters connected', () => {
+  const short = filPaths(5), normal = filPaths(10), long = filPaths(20);
+  assert.notEqual(short.base, normal.base); assert.notEqual(normal.base, long.base);
+  assert.notEqual(short.alternate, long.alternate);
+  assert.equal(short.base.slice(short.base.indexOf('H930')), long.base.slice(long.base.indexOf('H930')));
+  for (const paths of [short, normal, long]) {
+    assert(!paths.base.includes('NaN')); assert(!paths.alternate.includes('NaN'));
+  }
 });

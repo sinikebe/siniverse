@@ -75,12 +75,12 @@
                 <button type="button" data-horizon="10" aria-pressed="true">10 ans</button>
                 <button type="button" data-horizon="20" aria-pressed="false">20 ans</button>
               </div>
-              <p class="control-note">Deux approches illustratives à horizon commun. Aucun rendement calculé.</p>
+              <p class="control-note">Deux approches fictives, observées au même horizon.</p>
             </div>
             <div data-instrument-panel="garapp" hidden>
               <span class="control-label">Un repère dans le temps</span>
               <div class="history-controls"><button type="button" data-history="-1" aria-label="Repère précédent">←</button><p id="instrument-history" aria-live="polite">12 mars 2026 · Contrôle des pneus · 68 €</p><button type="button" data-history="1" aria-label="Repère suivant">→</button></div>
-              <p class="control-note">Historique entièrement fictif. Le geste sélectionne une information, sans la sauvegarder.</p>
+              <p class="control-note">Un historique d’exemple, un repère à retrouver.</p>
             </div>
             <div data-instrument-panel="branchlab" hidden>
               <button id="instrument-spread" class="outline-button" type="button" aria-pressed="false">Écarter les éléments</button>
@@ -102,8 +102,8 @@
       <div class="fil-viewport" id="fil-viewport">
         <div class="fil-strip">
           <svg class="fil-line fil-line-horizontal" viewBox="0 0 2400 430" preserveAspectRatio="none" aria-hidden="true">
-            <path class="thread-base" d="M0 258C160 258 145 283 235 240S370 265 455 185 585 210 650 145S740 180 800 225H930C980 225 980 150 1040 150S1100 290 1160 290 1220 215 1280 215H1465C1510 215 1500 165 1550 165S1600 245 1660 245H1770C1825 245 1825 170 1900 170H2080C2160 170 2130 270 2210 270H2400"/>
-            <path class="thread-alternate" d="M235 240C350 230 370 180 455 135S580 160 650 95 735 115 800 170"/>
+            <path class="thread-base" data-fil-path="base" d="M0 258C160 258 145 283 235 240S370 265 455 185 585 210 650 145S740 180 800 225H930C980 225 980 150 1040 150S1100 290 1160 290 1220 215 1280 215H1465C1510 215 1500 165 1550 165S1600 245 1660 245H1770C1825 245 1825 170 1900 170H2080C2160 170 2130 270 2210 270H2400"/>
+            <path class="thread-alternate" data-fil-path="alternate" d="M235 240C350 230 370 180 455 135S580 160 650 95 735 115 800 170"/>
             <circle class="thread-dot" cx="1040" cy="150" r="10"/><circle class="thread-dot" cx="1160" cy="290" r="10"/><circle class="thread-dot" cx="1280" cy="215" r="10"/>
             <rect class="thread-plug" x="1888" y="154" width="28" height="32" rx="4"/><rect class="thread-plug" x="2068" y="154" width="28" height="32" rx="4"/>
           </svg>
@@ -111,17 +111,17 @@
           <article class="fil-chapter fil-finapp" id="fil-chapter-0" aria-labelledby="fil-finapp-title">
             <div class="chapter-number" aria-hidden="true">01</div><div class="chapter-copy"><p class="mono">FINAPP / PROJETER</p><h2 id="fil-finapp-title">Et si l’on prenait<br>un peu de recul ?</h2><p>Un horizon commun rend deux approches plus faciles à comparer.</p><a href="https://finapp.siniverse.cc">Ouvrir Finapp <span aria-hidden="true">↗</span></a></div>
             <span class="line-caption">A / B — deux chemins illustratifs</span>
-            <div class="fold-wrap"><button class="unfold-button" type="button" data-unfold="finapp" aria-expanded="false" aria-controls="fold-finapp">Déplier le scénario <span aria-hidden="true">↘</span></button><div class="paper-fold" id="fold-finapp" hidden><p class="mono">EXEMPLE FICTIF / HORIZON COMMUN</p><h3><span data-horizon-text>10</span> ans, deux approches.</h3><p>A suit un effort constant ; B illustre un effort progressif. Le trait raconte une comparaison, sans calcul de performance.</p><div class="horizon-switch" role="group" aria-label="Horizon de l’exemple du fil"><button type="button" data-horizon="5" aria-pressed="false">5 ans</button><button type="button" data-horizon="10" aria-pressed="true">10 ans</button><button type="button" data-horizon="20" aria-pressed="false">20 ans</button></div></div></div>
+            <div class="fold-wrap"><button class="unfold-button" type="button" data-unfold="finapp" aria-expanded="false" aria-controls="fold-finapp">Déplier le scénario <span aria-hidden="true">↘</span></button><div class="paper-fold" id="fold-finapp" hidden><p class="mono">EXEMPLE FICTIF / HORIZON COMMUN</p><h3><span data-horizon-text>10</span> ans, deux approches.</h3><p>A suit un effort constant ; B illustre un effort progressif. Le trait fait apparaître deux façons d’avancer.</p><div class="horizon-switch" role="group" aria-label="Horizon de l’exemple du fil"><button type="button" data-horizon="5" aria-pressed="false">5 ans</button><button type="button" data-horizon="10" aria-pressed="true">10 ans</button><button type="button" data-horizon="20" aria-pressed="false">20 ans</button></div></div></div>
           </article>
           <article class="fil-chapter fil-garapp" id="fil-chapter-1" aria-labelledby="fil-garapp-title">
             <div class="chapter-number" aria-hidden="true">02</div><div class="chapter-copy"><p class="mono">GARAPP / ENTRETENIR</p><h2 id="fil-garapp-title">Ce qui s’est passé<br>laisse une trace.</h2><p>Une date, une intervention, une dépense : un historique à retrouver.</p><a href="https://garapp.siniverse.cc">Ouvrir Garapp <span aria-hidden="true">↗</span></a></div>
             <span class="line-caption">Un repère devient un souvenir utile.</span>
-            <div class="fold-wrap"><button class="unfold-button" type="button" data-unfold="garapp" aria-expanded="false" aria-controls="fold-garapp">Dérouler le repère <span aria-hidden="true">↘</span></button><div class="paper-fold ticket-fold" id="fold-garapp" hidden><p class="mono">TICKET FICTIF / AUCUNE SAUVEGARDE</p><h3>12 mars 2026</h3><p>Contrôle des pneus</p><p class="ticket-amount">68 € <span>notés dans l’exemple</span></p><p>Le geste révèle une information ; il ne répare ni ne modifie un véhicule.</p></div></div>
+            <div class="fold-wrap"><button class="unfold-button" type="button" data-unfold="garapp" aria-expanded="false" aria-controls="fold-garapp">Dérouler le repère <span aria-hidden="true">↘</span></button><div class="paper-fold ticket-fold" id="fold-garapp" hidden><p class="mono">HISTORIQUE D’EXEMPLE / 12 MARS</p><h3>12 mars 2026</h3><p>Contrôle des pneus</p><p class="ticket-amount">68 € <span>notés dans l’exemple</span></p><p>Une intervention se retrouve grâce au repère qui la raconte.</p></div></div>
           </article>
           <article class="fil-chapter fil-branchlab" id="fil-chapter-2" aria-labelledby="fil-branchlab-title">
             <div class="chapter-number" aria-hidden="true">03</div><div class="chapter-copy"><p class="mono">BRANCHLAB / RELIER</p><h2 id="fil-branchlab-title">D’un bout à l’autre,<br>comprendre le lien.</h2><p>Une connexion vidéo se lit mieux quand on en voit les étapes.</p><a href="https://branchlab.siniverse.cc">Ouvrir Branchlab <span aria-hidden="true">↗</span></a></div>
             <span class="line-caption">Le même trait, devenu câble.</span>
-            <div class="fold-wrap"><button class="unfold-button" type="button" data-unfold="branchlab" aria-expanded="false" aria-controls="fold-branchlab">Révéler les extrémités <span aria-hidden="true">↘</span></button><div class="paper-fold" id="fold-branchlab" hidden><p class="mono">CONNEXION VIDÉO FICTIVE</p><h3>Chaque élément a un rôle.</h3><ol class="connection-parts"><li>Appareil</li><li>Sortie vidéo</li><li>Câble</li><li>Entrée écran</li></ol><p>Un exemple de lecture, sans diagnostic ni promesse de compatibilité matérielle.</p></div></div>
+            <div class="fold-wrap"><button class="unfold-button" type="button" data-unfold="branchlab" aria-expanded="false" aria-controls="fold-branchlab">Révéler les extrémités <span aria-hidden="true">↘</span></button><div class="paper-fold" id="fold-branchlab" hidden><p class="mono">CONNEXION VIDÉO FICTIVE</p><h3>Chaque élément a un rôle.</h3><ol class="connection-parts"><li>Appareil</li><li>Sortie vidéo</li><li>Câble</li><li>Entrée écran</li></ol><p>Une chaîne vidéo d’exemple, lue d’un bout à l’autre.</p></div></div>
           </article>
         </div>
       </div>
@@ -129,9 +129,9 @@
     </section>
 
     <section id="concept-machine" class="concept machine" aria-labelledby="machine-title" hidden>
-      <div class="machine-heading"><p class="eyebrow">03 / MACHINE À DÉCLICS</p><h1 id="machine-title">Un petit déclic.<br>Une idée plus claire.</h1><p>Choisissez un mécanisme. Un geste suffit à voir son effet.</p><span class="demo-label">Plateau fictif · aucune donnée enregistrée</span></div>
+      <div class="machine-heading"><p class="eyebrow">03 / MACHINE À DÉCLICS</p><h1 id="machine-title">Un petit déclic.<br>Une idée plus claire.</h1><p>Choisissez un mécanisme. Un geste suffit à voir son effet.</p><span class="demo-label">Démonstration fictive</span></div>
       <div class="machine-board">
-        <div class="board-topline mono"><span>ATELIER SINIVERSE</span><span>MODE EXPLORATION / SANS SCORE</span></div>
+        <div class="board-topline mono"><span>ATELIER SINIVERSE</span><span>TROIS MÉCANISMES / UN MÊME RAIL</span></div>
         <svg class="machine-rail" viewBox="0 0 1200 500" preserveAspectRatio="none" aria-hidden="true"><path d="M20 180H270C330 180 330 385 410 385H650C720 385 720 190 800 190H1180"/><circle cx="270" cy="180" r="9"/><circle cx="650" cy="385" r="9"/><circle cx="800" cy="190" r="9"/></svg>
         <div class="mechanism mechanism-finapp">
           <p class="mechanism-label mono">01 / FINAPP</p>
@@ -143,7 +143,7 @@
             <path class="lever-stem" d="M118 114 81 202"/><rect class="lever-handle" x="54" y="189" width="52" height="25" rx="7"/>
             <circle class="screw" cx="36" cy="66" r="4"/><circle class="screw" cx="251" cy="157" r="4"/>
           </svg>
-          <h2>Deux trajectoires,<br>un même horizon.</h2><button class="machine-action" type="button" data-machine="finapp">Comparer <span aria-hidden="true">↗</span></button>
+          <h2>Deux trajectoires,<br>un même horizon.</h2><button class="machine-action" type="button" data-machine="finapp" aria-controls="machine-output">Comparer <span aria-hidden="true">↗</span></button>
         </div>
         <div class="mechanism mechanism-garapp">
           <p class="mechanism-label mono">02 / GARAPP</p>
@@ -152,7 +152,7 @@
             <g id="machine-wheel" transform="rotate(0 158 113)"><path class="wheel-teeth" d="m158 19 15 12 21-5 9 19 21 3 2 22 17 12-8 21 9 20-17 14-1 22-21 5-8 20-22-3-15 15-17-13-21 5-10-19-21-3-3-21-17-13 8-21-9-20 17-14 1-22 21-5 9-20 21 3Z"/><circle class="wheel-face" cx="158" cy="113" r="63"/><path class="wheel-spokes" d="M158 60V166M105 113H211"/><circle class="mechanical-hub" cx="158" cy="113" r="17"/><circle class="wheel-dot" cx="158" cy="67" r="8"/></g>
             <path class="stamp-arm" d="M254 66V157H219"/><rect class="stamp-handle" x="239" y="45" width="30" height="31" rx="5"/>
           </svg>
-          <h2>Un repère posé,<br>un historique lisible.</h2><button class="machine-action" type="button" data-machine="garapp">Poser un repère <span aria-hidden="true">↓</span></button>
+          <h2>Un repère posé,<br>un historique lisible.</h2><button class="machine-action" type="button" data-machine="garapp" aria-controls="machine-output">Poser un repère <span aria-hidden="true">↓</span></button>
         </div>
         <div class="mechanism mechanism-branchlab">
           <p class="mechanism-label mono">03 / BRANCHLAB</p>
@@ -163,7 +163,7 @@
             <g class="plug-right"><rect class="plug-body" x="172" y="101" width="23" height="29" rx="4"/></g>
             <path class="screen-check" d="m198 84 15 14 30-31"/>
           </svg>
-          <h2>Quelques éléments,<br>un lien à comprendre.</h2><button class="machine-action" type="button" data-machine="branchlab">Relier <span aria-hidden="true">→</span></button>
+          <h2>Quelques éléments,<br>un lien à comprendre.</h2><button class="machine-action" type="button" data-machine="branchlab" aria-controls="machine-output">Relier <span aria-hidden="true">→</span></button>
         </div>
         <div class="machine-output" id="machine-output" data-app="finapp">
           <div><p class="mono" id="machine-output-label">À VOUS DE JOUER / FINAPP</p><p id="machine-output-text" role="status" aria-live="polite">Actionnez l’aiguillage pour révéler deux approches fictives à horizon commun.</p></div>
@@ -174,7 +174,7 @@
     </section>
   </main>
 
-  <aside class="comparison-note"><p>Trois pistes à essayer, aucun thème retenu pour l’instant.</p><a href="/">Revenir à l’accueil actuel <span aria-hidden="true">↗</span></a></aside>
+  <aside class="comparison-note"><p>Trois pistes à essayer, aucun thème retenu. Démonstrations fictives, sans accès aux données de vos applications.</p><a href="/">Revenir à l’accueil actuel <span aria-hidden="true">↗</span></a></aside>
   <footer class="lab-footer"><a class="brand" href="/">siniverse<span>.</span></a><p>Des idées, des outils, votre quotidien. <span class="app-version" data-app-version>v0.0.1</span></p><a href="/confidentialite.html">Confidentialité</a><a href="https://github.com/sinikebe/siniverse">Voir le projet sur GitHub <span aria-hidden="true">↗</span></a></footer>
 </body>
 </html>

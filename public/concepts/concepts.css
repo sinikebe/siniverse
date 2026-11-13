@@ -93,7 +93,7 @@ button { min-height: 44px; }
 .fil-viewport { overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-color: var(--ink) transparent; }
 .fil-strip { width: 300%; display: grid; grid-template-columns: repeat(3, 1fr); position: relative; }
 .fil-line { pointer-events: none; position: absolute; z-index: 0; }
-.fil-line-horizontal { top: 85px; width: 100%; height: 350px; }
+.fil-line-horizontal { top: 250px; width: 100%; height: 190px; }
 .fil-line-vertical { display: none; }
 .thread-base { fill: none; stroke: #192a26; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
 .thread-alternate { fill: none; stroke: #446be8; stroke-width: 3; stroke-dasharray: 5 8; }

@@ -1,4 +1,4 @@
-import { APPS, CONCEPTS, HISTORY_EXAMPLE, chooseConcept, createPreferenceStore, nextHistory, togglePin } from './model.mjs';
+import { APPS, CONCEPTS, HISTORY_EXAMPLE, chooseConcept, createPreferenceStore, filPaths, nextHistory, togglePin } from './model.mjs';
 import { createInstrument } from './instrument.mjs';
 
 const names = { instrument: 'Instrument', fil: 'Fil', machine: 'Machine' };
@@ -23,7 +23,7 @@ function updatePreferenceStatus(resumed = false) {
   pinButton.setAttribute('aria-pressed', String(pinnedHere));
   document.getElementById('view-mode').textContent =
     (mode === 'direct' ? 'Lien stable' : pinnedHere ? 'Thème figé' : 'Rotation') + ' · ' + (CONCEPTS.indexOf(current) + 1) + '/3';
-  const scope = store.mode === 'local' ? 'Choix conservé sur cet appareil.'
+  const scope = store.mode === 'local' ? 'Préférences locales à cet appareil.'
     : store.mode === 'session' || store.mode === 'onglet' ? 'Choix conservé pour cet onglet.'
       : 'Stockage indisponible : choix conservé pendant cette visite.';
   const saved = preference.pinned ? 'Thème mémorisé : ' + names[preference.pinned] + '. '
@@ -77,7 +77,7 @@ function renderInstrument() {
   spread.textContent = instrumentState.spread ? 'Rassembler les éléments' : 'Écarter les éléments';
   spread.setAttribute('aria-pressed', String(instrumentState.spread));
   document.getElementById('instrument-connection').textContent = instrumentState.spread
-    ? 'Appareil → sortie vidéo → câble → entrée écran. Les rôles sont séparés, sans diagnostic matériel.'
+    ? 'Appareil → sortie vidéo → câble → entrée écran. Chaque rôle devient lisible.'
     : 'Une chaîne vidéo d’exemple : appareil → port → câble → entrée.';
   instrument?.update(instrumentState);
 }
@@ -88,7 +88,7 @@ for (const button of document.querySelectorAll('[data-horizon]')) button.addEven
   instrumentState.horizon = Number(button.dataset.horizon);
   for (const other of document.querySelectorAll('[data-horizon]')) other.setAttribute('aria-pressed', String(other.dataset.horizon === button.dataset.horizon));
   for (const label of document.querySelectorAll('[data-horizon-text]')) label.textContent = button.dataset.horizon;
-  renderInstrument();
+  updateFilPaths(); renderInstrument();
 });
 for (const button of document.querySelectorAll('[data-history]')) button.addEventListener('click', () => {
   instrumentState.history = nextHistory(instrumentState.history, Number(button.dataset.history)); renderInstrument();
@@ -100,6 +100,11 @@ document.getElementById('instrument-view').addEventListener('click', () => {
   instrumentState.view = !instrumentState.view; renderInstrument();
 });
 renderInstrument();
+function updateFilPaths() {
+  const paths = filPaths(instrumentState.horizon);
+  for (const path of document.querySelectorAll('[data-fil-path]')) path.setAttribute('d', paths[path.dataset.filPath]);
+}
+updateFilPaths();
 
 let chapter = 0;
 const viewport = document.getElementById('fil-viewport');
@@ -150,22 +155,31 @@ for (const button of document.querySelectorAll('[data-unfold]')) {
 
 let wheelSteps = 0;
 const pulseTimers = new Map();
+let activeMechanism = document.querySelector('.mechanism-finapp');
+const machineOutput = document.getElementById('machine-output');
+function positionMachineOutput() {
+  const target = mobile() ? activeMechanism : document.querySelector('.machine-board');
+  if (machineOutput.parentElement !== target) target.append(machineOutput);
+}
+positionMachineOutput();
+window.addEventListener('resize', positionMachineOutput, { passive: true });
 for (const button of document.querySelectorAll('[data-machine]')) button.addEventListener('click', () => {
   const id = button.dataset.machine, app = APPS[id], mechanism = button.closest('.mechanism');
+  activeMechanism = mechanism; positionMachineOutput();
   let result;
   if (id === 'finapp') {
     mechanism.classList.toggle('is-compared');
-    result = 'Exemple fictif à 10 ans : A garde un effort constant, B un effort progressif. Deux trajectoires illustratives, aucun rendement calculé.';
+    result = 'À horizon commun de 10 ans, l’aiguillage compare un effort constant et un effort progressif.';
   } else if (id === 'garapp') {
     const example = HISTORY_EXAMPLE[wheelSteps % HISTORY_EXAMPLE.length];
     wheelSteps++;
     document.getElementById('machine-wheel').setAttribute('transform', 'rotate(' + (wheelSteps % 4) * 90 + ' 158 113)');
-    result = 'Repère fictif : ' + example.date + ' — ' + example.action + ' — ' + example.amount + '. Aucune information n’est enregistrée.';
+    result = example.date + ' — ' + example.action + ' — ' + example.amount + '. Un repère vient rejoindre l’historique d’exemple.';
   } else {
     mechanism.classList.remove('is-linked');
     if (reducedMotion) mechanism.classList.add('is-linked');
     else { void mechanism.offsetWidth; requestAnimationFrame(() => mechanism.classList.add('is-linked')); }
-    result = 'Chaîne vidéo fictive reliée : appareil → sortie vidéo → câble → entrée écran. Les rôles se lisent, aucune compatibilité n’est calculée.';
+    result = 'Appareil → sortie vidéo → câble → entrée écran. Les pièces se rejoignent, le rôle de chaque élément apparaît.';
   }
   clearTimeout(pulseTimers.get(mechanism));
   mechanism.classList.remove('is-pulsing');

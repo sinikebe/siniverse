@@ -63,17 +63,20 @@ export function createPreferenceStore({ local, session, history } = {}) {
       target.replaceState({ ...(previous && typeof previous === 'object' ? previous : {}),
         [HISTORY_KEY]: JSON.parse(value) }, '');
     } });
-  let current = cleanPreference(null), mode = 'mémoire';
+  let current = cleanPreference(null), mode = 'mémoire', readable = null, found = false;
   for (const layer of layers) {
     try {
-      const raw = JSON.parse(layer.read() || 'null');
+      const text = layer.read();
+      if (!readable) readable = layer.label;
+      const raw = JSON.parse(text || 'null');
       if (!raw || raw.v !== 1 || !Number.isSafeInteger(raw.revision) || raw.revision < 0) continue;
       const candidate = cleanPreference(raw);
-      if (candidate.revision > current.revision || mode === 'mémoire') {
-        current = candidate; mode = layer.label;
+      if (!found || candidate.revision > current.revision) {
+        current = candidate; mode = layer.label; found = true;
       }
     } catch { /* Private browsing, corrupt storage and blocked history use the next layer. */ }
   }
+  if (!found) mode = readable || 'mémoire';
   return {
     read: () => ({ ...current }),
     get mode() { return mode; },
@@ -95,4 +98,16 @@ export function createPreferenceStore({ local, session, history } = {}) {
 
 export function nextHistory(index, direction = 1) {
   return (index + direction + HISTORY_EXAMPLE.length) % HISTORY_EXAMPLE.length;
+}
+
+export function filPaths(horizon = 10) {
+  const lift = horizon === 5 ? .6 : horizon === 20 ? 1.45 : 1;
+  const y = value => Math.round(240 - value * lift);
+  const continuation = 'H930C980 225 980 150 1040 150S1100 290 1160 290 1220 215 1280 215H1465C1510 215 1500 165 1550 165S1600 245 1660 245H1770C1825 245 1825 170 1900 170H2080C2160 170 2130 270 2210 270H2400';
+  return {
+    base: 'M0 258C160 258 145 283 235 240S370 265 455 ' + y(55) + ' 585 ' + y(30)
+      + ' 650 ' + y(95) + 'S740 ' + y(60) + ' 800 225' + continuation,
+    alternate: 'M235 240C350 230 370 ' + y(60) + ' 455 ' + y(105)
+      + 'S580 ' + y(80) + ' 650 ' + y(145) + ' 735 ' + y(125) + ' 800 ' + y(70)
+  };
 }
