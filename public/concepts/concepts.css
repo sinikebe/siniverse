@@ -250,3 +250,5 @@ button { min-height: 44px; }
 #instrument-canvas { position: absolute; inset: 0; }
 .instrument[data-app="garapp"] { --accent: #d76e51; }
 .instrument[data-app="branchlab"] { --accent: #8f6bcd; }
+
+.fil-mini-chart { display: block; width: 100%; height: 120px; margin: 12px 0; overflow: hidden; }

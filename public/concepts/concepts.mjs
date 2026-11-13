@@ -201,3 +201,5 @@ motionQuery?.addEventListener?.('change', event => {
 });
 
 document.getElementById('instrument-view').hidden = reducedMotion;
+
+document.documentElement.dataset.conceptsReady = 'true';

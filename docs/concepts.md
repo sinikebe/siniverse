@@ -14,3 +14,9 @@ La clé `siniverse.home-concepts.v1` est isolée des données des applications. 
 Les liens réels des trois apps sont présents dès l’en-tête. Chaque mécanisme dispose de boutons utilisables au clavier ; les animations sont ponctuelles et le mouvement réduit supprime les transitions, la rotation d’objet et la parallaxe. Le ruban utilise le défilement natif, sans détourner la molette verticale.
 
 Les scripts sont locaux et la CSP reste stricte hors de `/concepts/*`. Le build injecte la version CI dans le footer commun. Les tests couvrent surtout choix direct/rotation/épingle, reprise et défaillances de stockage. La revue navigateur doit compléter ces contrôles pour les rendus ordinateur/mobile.
+
+## Contrôle navigateur Linux
+
+Le workflow `Concept browser review` utilise uniquement le Chrome système déjà installé sur ubuntu-24.04, avec Node et le protocole natif du navigateur. Aucun navigateur, driver ou package supplémentaire n’est téléchargé. En cas d’absence de Chrome, le job échoue explicitement au lieu d’installer un substitut.
+
+Il construit les fichiers de revue, sert la CSP locale sur une interface loopback éphémère, vérifie les trois scènes, les gestes, la rotation/épingle/reprise, le repli sans stockage et le mouvement réduit. Six captures ordinateur/mobile et un rapport JSON sont conservés dans un petit artefact GitHub pendant un jour. Les captures de PR utilisent la version locale de build ; la livraison dev conserve la version réellement attribuée par la CI commune. Le workflow est spécifique aux maquettes et ne modifie ni le pin partagé ni le déploiement.
