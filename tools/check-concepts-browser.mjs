@@ -208,9 +208,17 @@ async function run() {
   assert.equal(await socket.evaluate('document.documentElement.dataset.concept'), 'instrument');
   await reload();
   assert.equal(await socket.evaluate('document.documentElement.dataset.concept'), 'fil');
+  await socket.send('Page.bringToFront');
   await socket.evaluate('document.querySelector("#pin-theme").focus()');
-  await socket.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+  assert.equal(await socket.evaluate('document.activeElement.id'), 'pin-theme');
+  await socket.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r', unmodifiedText: '\r' });
   await socket.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+  for (let attempt = 0; attempt < 60; attempt++) {
+    if (await socket.evaluate('document.querySelector("#pin-theme").getAttribute("aria-pressed") === "true"')) break;
+    await pause(50);
+  }
+  report.keyboardPin = await socket.evaluate('({focused:document.activeElement.id,documentFocused:document.hasFocus(),pressed:document.querySelector("#pin-theme").getAttribute("aria-pressed"),preference:JSON.parse(localStorage.getItem("siniverse.home-concepts.v1"))})');
+  assert.equal(report.keyboardPin.pressed, 'true', 'Keyboard pin must settle before reload.');
   await reload();
   assert.equal(await socket.evaluate('document.documentElement.dataset.concept'), 'fil');
   await navigate(origin + '/concepts/?concept=machine');
