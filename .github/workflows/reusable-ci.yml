@@ -23,6 +23,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: siniverse-ci-${{ github.repository }}-${{ github.event.pull_request.number || github.ref }}

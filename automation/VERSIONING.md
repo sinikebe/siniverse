@@ -77,11 +77,18 @@ mappings are rechecked before publishing the existing ephemeral Pages artifact.
 
 ## Bootstrap and pin rollout
 
+Working PRs always target dev. The owner tests dev before explicitly approving
+a dev-to-main promotion from the same repository. Other main PR sources and
+direct main pushes cannot assign or publish a production version. No workflow
+automatically merges or promotes main. The app job uses contents-read and
+pull-requests-read only to recheck that exact production provenance.
+
 1. Review/test central code while retaining the currently pinned caller.
-2. Merge the central PR with a merge commit, preserving its reviewed source SHA.
+2. Merge the central PR into dev with a merge commit, preserving its reviewed source SHA.
 3. Adopt the byte-identical CI caller in four apps and Pages caller in
    Finapp/Garapp, all pinned to that same new immutable SHA.
-4. Adopt both main/dev channels without losing distinct work. Each first natural
+4. Publish and test dev first. Promote only through an explicitly approved
+   same-repository dev-to-main PR, preserving distinct work. Each first natural
    channel run assigns `0.0.1`, never an initial automatic `0.0.2`.
 
 Normal PR/merge runs validate the rollout. No extra manual dispatch is required.

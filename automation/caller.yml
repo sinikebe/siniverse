@@ -32,6 +32,7 @@ jobs:
     if: always() && !cancelled() && (github.event_name != 'pull_request' || github.event.action != 'closed') && (needs.version.result == 'skipped' || (needs.version.result == 'success' && needs.version.outputs.current == 'true'))
     permissions:
       contents: read
+      pull-requests: read
     uses: sinikebe/siniverse/.github/workflows/reusable-ci.yml@__AUTOMATION_REF__
     with:
       automation_ref: __AUTOMATION_REF__

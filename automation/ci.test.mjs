@@ -60,8 +60,8 @@ test('push main and dev select exact targets without confusing the real source b
 
 test('PR validation uses its packaging target and base without publication or secrets', () => {
   const pr = createContext(env({ GITHUB_EVENT_NAME: 'pull_request', GITHUB_REF: 'refs/pull/7/merge', REQUESTED_DEPLOY: 'true' }),
-    event({ action: 'synchronize', pull_request: { base: { ref: 'main', sha: previous }, head: { ref: 'feature/new' } } }));
-  assert.equal(pr.branch, 'main');
+    event({ action: 'synchronize', pull_request: { base: { ref: 'dev', sha: previous }, head: { ref: 'feature/new' } } }));
+  assert.equal(pr.branch, 'dev');
   assert.equal(pr.sourceBranch, 'feature/new');
   assert.equal(pr.environment, 'test');
   assert.equal(pr.publishEligible, false);
@@ -317,6 +317,9 @@ test('build and deployment markers use the exact tagged version, with source fal
     sha, version: '0.2.0', bump: 'minor', pullRequest: 9, priorTag: 'siniverse-version/main/v0.0.1',
     source: null, automationRef, runId: '42' };
   const request = async path => {
+    if (path.includes('/pulls?')) return [{ number: 9, merged_at: '2026-11-13T00:00:00Z', merge_commit_sha: sha,
+      base: { ref: 'main', repo: { full_name: 'sinikebe/siniverse' } },
+      head: { ref: 'dev', sha: previous, repo: { full_name: 'sinikebe/siniverse' } } }];
     if (path.includes('/tags?')) return [{ name: tag, commit: { sha } }];
     if (path.includes('/git/ref/tags/')) return { ref: 'refs/tags/' + tag, object: { type: 'tag', sha: object } };
     if (path.endsWith('/git/tags/' + object)) return { sha: object, tag, object: { type: 'commit', sha }, message: JSON.stringify(release) };
@@ -331,4 +334,15 @@ test('build and deployment markers use the exact tagged version, with source fal
     { SINIVERSE_VERSION: '0.3.0', SINIVERSE_VERSION_TAG: 'siniverse-version/main/v0.3.0' }, request), /differs/);
   const validation = { ...context(), environment: 'test', publishEligible: false };
   assert.deepEqual(await buildVersion(validation, '0.0.1', {}, null), { appVersion: '0.0.1', versionTag: null });
+});
+
+test('main PR validation accepts only dev from the exact repository, while feature PRs target dev', () => {
+  const request = (base, ref, owner = 'sinikebe/siniverse') => createContext(
+    env({ GITHUB_EVENT_NAME: 'pull_request', GITHUB_REF: 'refs/pull/9/merge' }),
+    event({ action: 'opened', pull_request: { base: { ref: base, sha: previous },
+      head: { ref, repo: { full_name: owner } } } }));
+  assert.equal(request('main', 'dev').branch, 'main');
+  assert.equal(request('dev', 'feature/footer').branch, 'dev');
+  assert.throws(() => request('main', 'feature/footer'), /must come from dev/);
+  assert.throws(() => request('main', 'dev', 'someone/siniverse'), /same repository/);
 });

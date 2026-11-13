@@ -4,7 +4,7 @@ import { appendFileSync, existsSync, lstatSync, readFileSync, readdirSync, write
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { assertVersion, githubVersionClient, resolveVersionForSha, tagName, versionTags } from './version.mjs';
+import { assertVersion, githubVersionClient, requireMainPromotion, resolveVersionForSha, tagName, versionTags } from './version.mjs';
 
 const SHA = /^[a-f0-9]{40}$/;
 const here = dirname(fileURLToPath(import.meta.url));
@@ -40,6 +40,8 @@ export function createContext(env, event, baseResolver = () => '') {
   const ref = env.GITHUB_REF || '';
   const sourceBranch = isPr ? event.pull_request?.head?.ref : ref.replace(/^refs\/heads\//, '');
   const target = isPr ? event.pull_request?.base?.ref : ref.replace(/^refs\/heads\//, '');
+  invariant(!isPr || target !== 'main' || (event.pull_request?.head?.ref === 'dev'
+    && event.pull_request.head.repo?.full_name === repository), 'PRs to main must come from dev in the same repository; test changes in dev first.');
   const branch = target === 'main' ? 'main' : 'dev';
   const environment = isPr || !['refs/heads/main', 'refs/heads/dev'].includes(ref) ? 'test' :
     branch === 'main' ? 'production' : 'preview';
@@ -250,6 +252,7 @@ export async function buildVersion(context, fallback, env, request) {
     invariant(env.SINIVERSE_VERSION_TAG === tagName(context.branch, env.SINIVERSE_VERSION), 'Publication requires its exact version tag.');
   }
   if (context.environment !== 'test' && request) {
+    if (context.publishEligible && context.branch === 'main') await requireMainPromotion(context.repository, context.sha, request);
     const catalog = await versionTags(context.repository, request);
     const exists = catalog.some(tag => tag.name.startsWith('siniverse-version/' + context.branch + '/') && tag.commit.sha === context.sha);
     if (exists || context.publishEligible) {

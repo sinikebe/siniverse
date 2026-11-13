@@ -56,6 +56,12 @@ The Preview HTTPS probe also requires noindex.
 
 ## Publication
 
+All working PRs target dev first. After the owner tests dev and explicitly
+approves production, only dev from the same repository may target main.
+CI rejects other main PR sources; version assignment and publication also
+verify the exact merged dev-to-main PR. The app job has only read permissions
+(contents and PR metadata). No workflow promotes or merges main automatically.
+
 Push main publishes production; push dev publishes stable Worker Preview dev.
 PRs only validate. Manual runs default to validation; deploy=true can publish
 only exact main/dev. Secrets are available only in the executing publication

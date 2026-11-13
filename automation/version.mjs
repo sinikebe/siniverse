@@ -218,9 +218,27 @@ async function createVersionTag(context, record, request) {
   return { name, ...record };
 }
 
+export function assertMainPromotion(repository, sha, pr) {
+  invariant(SHA.test(sha || '') && pr?.merged_at && pr.merge_commit_sha === sha && pr.base?.ref === 'main'
+    && pr.base.repo?.full_name === repository && pr.head?.ref === 'dev' && pr.head.repo?.full_name === repository
+    && SHA.test(pr.head.sha || ''), 'Production requires a merged dev-to-main PR from the same repository; direct pushes and other sources are refused.');
+  return pr;
+}
+
+export async function requireMainPromotion(repository, sha, request, pullRequests) {
+  const prs = pullRequests ?? await paginate('/repos/' + repository + '/pulls?state=closed&base=main', request);
+  const matches = prs.filter(pr => pr.merged_at && pr.merge_commit_sha === sha && pr.base?.ref === 'main'
+    && pr.base.repo?.full_name === repository);
+  invariant(matches.length === 1, 'Production requires exactly one merged dev-to-main PR for this exact source SHA.');
+  return assertMainPromotion(repository, sha, matches[0]);
+}
+
 export async function assignVersion(context, request) {
   invariant(channels.has(context.channel) && SHA.test(context.sha || ''), 'Invalid version assignment ref.');
   if (!await assertCurrent(context, request)) return { current: false };
+  const mainPullRequests = context.channel === 'main'
+    ? await paginate('/repos/' + context.repository + '/pulls?state=closed&base=main', request) : null;
+  if (mainPullRequests) await requireMainPromotion(context.repository, context.sha, request, mainPullRequests);
   const catalog = await versionTags(context.repository, request);
   const exact = catalog.filter(tag => parseTag(tag.name).channel === context.channel && tag.commit.sha === context.sha);
   if (exact.length) return { current: true, ...await resolveVersionForSha(context.repository, context.channel, context.sha, request, catalog) };
@@ -229,7 +247,7 @@ export async function assignVersion(context, request) {
   let previous = channelTags.length ? { name: channelTags[0].name, ...await readVersionRecord(context.repository, channelTags[0], request) } : null;
   const pending = previous ? await ancestorRange(context.repository, context.sha, previous.sha, request) : [context.sha];
   const pendingSet = new Set(pending);
-  const pullRequests = (await paginate('/repos/' + context.repository + '/pulls?state=closed&base=' + context.channel, request))
+  const pullRequests = (mainPullRequests ?? await paginate('/repos/' + context.repository + '/pulls?state=closed&base=' + context.channel, request))
     .filter(pr => pr.merged_at && pr.base?.ref === context.channel && pr.base?.repo?.full_name === context.repository && pendingSet.has(pr.merge_commit_sha));
   const byCommit = new Map();
   for (const pr of pullRequests) {
@@ -238,6 +256,7 @@ export async function assignVersion(context, request) {
   }
   // Replay every merged PR, then one direct-push tip, never each intermediate direct commit.
   const points = [...pending.filter(sha => byCommit.has(sha) && sha !== context.sha), context.sha];
+  if (context.channel === 'main') for (const sha of points) assertMainPromotion(context.repository, sha, byCommit.get(sha));
   for (const sha of points) {
     const pr = byCommit.get(sha) || null;
     let selection = { version: '0.0.1', bump: 'reset', source: null };

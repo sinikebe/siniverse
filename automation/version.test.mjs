@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { assignVersion, assertVersion, bumpVersion, classifyPullRequest, compareVersions, EPOCH,
-  githubVersionClient, resolveVersionForSha, tagName, validateRecord, versionContext } from './version.mjs';
+  githubVersionClient, requireMainPromotion, resolveVersionForSha, tagName, validateRecord, versionContext } from './version.mjs';
 
 const repository = 'sinikebe/siniverse';
 const sha = digit => digit.repeat(40);
@@ -248,4 +248,22 @@ test('the write job runs pinned central code only, queues by repository, and nev
   assert.match(workflow, /queue: max/); assert.match(workflow, /cancel-in-progress: false/);
   assert.match(workflow, /repository: sinikebe\/siniverse/);
   assert.doesNotMatch(workflow, /CLOUDFLARE|npm (?:ci|run)|path: app|secrets:/);
+});
+
+test('production assignment requires the exact same-repository dev promotion, even for bootstrap and an already tagged SHA', async () => {
+  const mainBase = { ref: 'main', repo: { full_name: repository } };
+  for (const source of ['feature/new', 'fork-dev', 'direct']) {
+    const promotion = source === 'direct' ? [] : [pr(20, head, { base: mainBase,
+      head: { ref: source === 'fork-dev' ? 'dev' : source, sha: head,
+        repo: { full_name: source === 'fork-dev' ? 'attacker/siniverse' : repository } } })];
+    for (const seed of [[], [record('main', '0.0.1', head)]]) {
+      const state = fixture({ seed, prs: promotion });
+      await assert.rejects(() => assignVersion(context({ channel: 'main' }), state.request), /dev-to-main/);
+      assert.equal(state.calls.filter(call => call.method === 'POST').length, 0);
+    }
+  }
+  const ready = fixture({ prs: [pr(21, head, { base: mainBase,
+    head: { ref: 'dev', sha: head, repo: { full_name: repository } } })] });
+  assert.equal((await assignVersion(context({ channel: 'main' }), ready.request)).version, '0.0.1');
+  await assert.rejects(() => requireMainPromotion(repository, base, ready.request), /exact source SHA/);
 });
