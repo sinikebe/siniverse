@@ -152,7 +152,7 @@ test('a wholly unavailable persistence API still allows the current visit', () =
 });
 
 test('all nested destinations and mounted explanations render with locally allowed markup', () => {
-  const api={escape:String,apps:{finapp:{name:'Finapp'},garapp:{name:'Garapp'},branchlab:{name:'Branchlab'}},
+  const api={escape:String,detail,apps:{finapp:{name:'Finapp'},garapp:{name:'Garapp'},branchlab:{name:'Branchlab'}},
     appLink:id=>'<a href="https://'+id+'.siniverse.cc">Ouvrir</a>',
     link:(state,label,attrs='')=>'<a href="'+routeHref(state)+'" '+attrs+'>'+label+'</a>'};
   for(const id of Object.keys(CONTENT)) {

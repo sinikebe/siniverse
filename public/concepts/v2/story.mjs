@@ -20,7 +20,8 @@ export function renderStory(state, api) {
     '</li>'
   ).join('');
 
-  const paragraphs = (Array.isArray(content.body) ? content.body : []).map(paragraph =>
+  const annotationTitle = content.title && content.title !== story.title ? content.title : '';
+  const paragraphs = (Array.isArray(content.body) ? content.body : []).filter(paragraph => paragraph !== story.lead).map(paragraph =>
     '<p>' + escape(paragraph) + '</p>'
   ).join('');
   const facts = (Array.isArray(content.facts) ? content.facts : []).map(fact =>
@@ -37,11 +38,11 @@ export function renderStory(state, api) {
     '</li>';
   }).join('');
 
-  const hasContent = Boolean(content.title || paragraphs || facts);
+  const hasContent = Boolean(annotationTitle || paragraphs || facts);
   const annotation = hasContent ?
     '<aside class="story-annotation" aria-label="Éclairer cette partie du récit">' +
       (content.eyebrow ? '<p class="story-annotation-kicker">' + escape(content.eyebrow) + '</p>' : '') +
-      (content.title ? '<h2>' + escape(content.title) + '</h2>' : '') +
+      (annotationTitle ? '<h2>' + escape(annotationTitle) + '</h2>' : '') +
       '<div class="story-annotation-body">' + paragraphs + '</div>' +
       (facts ? '<dl class="story-facts">' + facts + '</dl>' : '') +
     '</aside>' : '';

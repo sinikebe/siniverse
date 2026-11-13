@@ -116,6 +116,7 @@ async function click(selector) {
 }
 async function screenshot(name, width) {
   await pause(500);
+  assert(await socket.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'), 'Horizontal overflow in '+name);
   const height = await socket.evaluate('Math.min(5000,Math.max(document.documentElement.scrollHeight,innerHeight))');
   await socket.send('Runtime.evaluate', { expression: 'window.scrollTo(0,0)' });
   const image = await socket.send('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: true,
@@ -289,9 +290,10 @@ async function run() {
   await socket.send('Emulation.setEmulatedMedia', {features:[]});
   for (const [format,width,height] of [['desktop',1365,900],['mobile',390,844]]) {
     await socket.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:format==='mobile'});
+    const arrival=format==='mobile'?'.depth-arrival-compact':'.depth-arrival-wide';
     await navigate(rootV2+'?concept=emboitement');
     await screenshot('v2-depth-arrival-'+format,width);
-    await journeyClick('#experience [data-region="finapp"] .region-copy',depth('finapp'));
+    await journeyClick('#experience '+arrival+' [data-region="finapp"] .arrival-app-name',depth('finapp'));
     await screenshot('v2-depth-regions-'+format,width);
     const terrain=format==='mobile'?'.depth-terrain-compact':'.depth-terrain-wide';
     const horizonSelector='#experience '+terrain+' [data-region="finapp.exemple"]';
@@ -302,7 +304,7 @@ async function run() {
     await socket.evaluate('history.forward()'); await waitRoute(depth('finapp.exemple'));
     await journeyClick('#depth-up',depth('finapp'));
     await journeyClick('#depth-up',depth('ensemble'));
-    await journeyClick('#experience [data-region="garapp"] .region-copy',depth('garapp'));
+    await journeyClick('#experience '+arrival+' [data-region="garapp"] .arrival-app-name',depth('garapp'));
     await journeyClick('#experience '+terrain+' [data-region="garapp.exemple"] .landmark-title',depth('garapp.exemple'));
     assert.equal(await socket.evaluate('document.querySelector("#experience .real-app-link").getAttribute("href")'),'https://garapp.siniverse.cc');
     await navigate(rootV2+'?concept=emboitement&lieu=branchlab.methode');
@@ -385,7 +387,7 @@ async function run() {
   await socket.evaluate('history.replaceState({}, "")');
   const v2Blocked=await socket.send('Page.addScriptToEvaluateOnNewDocument',{source:'for(const key of ["localStorage","sessionStorage"])Object.defineProperty(window,key,{get(){throw new DOMException("blocked","SecurityError")}});'});
   await navigate(rootV2); await waitRoute(depth('ensemble'));
-  await journeyClick('#experience [data-region="finapp"] .region-copy',depth('finapp'));
+  await journeyClick('#experience .depth-arrival-wide [data-region="finapp"] .arrival-app-name',depth('finapp'));
   await reload(); await waitRoute(story([]));
   assert.match(await socket.evaluate('document.querySelector("#storage-state").textContent'),/onglet/);
   await socket.send('Page.removeScriptToEvaluateOnNewDocument',{identifier:v2Blocked.identifier});

@@ -130,7 +130,6 @@
 .story-real-exit { margin: 35px 0 0; padding-top: 21px; border-top: 1px solid var(--story-rule); max-width: 740px; position: relative; }
 .story-real-exit > p { color: var(--story-muted); font-size: 12px; line-height: 1.6; }
 .story-real-exit > a { display: inline-flex; align-items: center; min-height: 48px; margin-top: 8px; font-size: 16px; font-weight: 650; color: var(--story-signal); text-decoration: underline !important; text-underline-offset: 6px; }
-.story-real-exit > a::after { content: '↗'; margin-left: 24px; font-size: 20px; }
 .story-exit-line { position: absolute; top: -4px; left: 0; height: 7px; width: 7px; background: var(--story-signal); }
 .story-colophon { margin: 47px 0 0 !important; border-top: 1px solid var(--story-rule); padding-top: 20px; color: var(--story-muted); font: 11px/1.65 ui-monospace, Consolas, monospace; }
 .story-colophon span { margin-right: 12px; color: var(--story-signal); font-size: 20px; }

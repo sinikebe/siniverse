@@ -1,5 +1,7 @@
 import { APPS, CONTENT, depthState, parentNode, openSurface, keepSurface, closeSurface, montageState } from './model.mjs';
 
+import { renderDepthArrival } from './depth-arrival.mjs';
+
 export const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 export function drawing(app, label = '') {
   if (app === 'finapp') return '<svg class="content-drawing financial-lines" viewBox="0 0 480 210" role="img" aria-label="' + escape(label || 'Deux trajectoires fictives à horizon commun') + '"><path class="drawing-axis" d="M20 182H460M20 190V20"/><path class="drawing-main" d="M20 175C110 175 100 140 190 140S270 75 330 85 390 38 460 28"/><path class="drawing-alternate" d="M20 175C110 175 100 160 190 158S275 125 330 133 405 85 460 80"/><text x="24" y="205">aujourd’hui</text><text x="388" y="205">10 ans</text></svg>';
@@ -57,15 +59,13 @@ function depthInterior(app, api) {
 }
 export function renderDepth(state, api) {
   const node = state.node, content = CONTENT[node], app = content.app, parent = parentNode(node);
-  const up = node === 'ensemble' ? '' : api.link(depthState(parent),
-    '<span aria-hidden="true">↖</span><span>Ressortir vers <strong>' + escape(parent === 'ensemble' ? 'l’ensemble' : APPS[parent].name) + '</strong></span>',
+  const parentFragment = '<span class="parent-graphic" aria-hidden="true">' + drawing(app || 'finapp') + '</span>';
+  const up = node === 'ensemble' ? '' : (node.includes('.') ? api.link(depthState(),
+    '<span class="parent-graphic parent-ensemble-graphic" aria-hidden="true">' + drawing('finapp') + drawing('garapp') + drawing('branchlab') + '</span><span><small>Le cadre d’origine</small><strong>Ensemble</strong></span><span aria-hidden="true">↖</span>',
+    'class="depth-grandparent"') : '') + api.link(depthState(parent),
+    parentFragment + '<span><small>Ressortir vers</small><strong>' + escape(parent === 'ensemble' ? 'l’ensemble' : APPS[parent].name) + '</strong></span><span aria-hidden="true">↖</span>',
     'class="depth-parent" id="depth-up"');
-  if (node === 'ensemble') return '<section class="depth-world depth-ensemble" data-depth="0"><div class="depth-room">'
-    + '<div class="depth-intro"><p class="eyebrow">SINIVERSE · L’EMBOÎTEMENT</p><h1 id="view-title" tabindex="-1">Entrez dans ce qui<br>vous éclaire.</h1><p>Un outil, puis une question, puis ce qui l’explique.<br>Chaque région est un endroit à explorer.</p></div>'
-    + '<div class="depth-regions">' + Object.entries(APPS).map(([id, item], index) => depthLink(api, id,
-      '<span class="region-mark" aria-hidden="true">0' + (index + 1) + '</span><span class="region-copy"><span>' + item.verb + '</span><strong>' + item.name
-      + '</strong><small>' + escape(CONTENT[id].title) + '</small><b>Entrer <span aria-hidden="true">↘</span></b></span>' + drawing(id), 'depth-region region-' + id)).join('')
-    + '</div><p class="scene-note">Les destinations contiennent des explications et des exemples fictifs. Les applications s’ouvrent ensuite sur leur propre site.</p></div></section>';
+  if (node === 'ensemble') return '<section class="depth-world depth-ensemble" data-depth="0">' + renderDepthArrival(api) + '</section>';
   if (!node.includes('.')) {
     return '<section class="depth-world depth-app app-' + app + '" data-depth="1">' + up
       + '<div class="depth-room"><div class="depth-app-intro"><p class="eyebrow">' + APPS[app].name + ' · ' + escape(content.eyebrow)
@@ -73,7 +73,6 @@ export function renderDepth(state, api) {
       + '</div><div class="depth-interior">' + depthInterior(app, api) + '</div><p class="scene-note">Entrez dans un élément pour en révéler le contenu. Le bord extérieur ramène à l’ensemble.</p></div></section>';
   }
   return '<section class="depth-world depth-detail app-' + app + '" data-depth="2">' + up
-    + '<div class="depth-ancestor"><span>ENSEMBLE / ' + APPS[app].name.toUpperCase() + '</span></div>'
     + '<article class="depth-room detail-room"><div class="detail-heading"><p class="eyebrow">' + escape(content.eyebrow)
     + '</p><h1 id="view-title" tabindex="-1">' + escape(content.title) + '</h1></div><div class="detail-visual">' + drawing(app) + facts(content) + '</div>'
     + '<div class="detail-reading">' + paragraphs(content) + '<div class="detail-exits">' + api.appLink(app)

@@ -27,7 +27,7 @@ export const CONTENT = {
     facts: [{ label: '1', value: 'Poser deux scénarios' }, { label: '2', value: 'Partager un horizon' }, { label: '3', value: 'Lire les écarts' }] },
   'finapp.exemple': { id: 'finapp.exemple', app: 'finapp', eyebrow: 'EXEMPLE FICTIF', title: 'Deux chemins, un même horizon.',
     body: ['Camille hésite entre acheter une voiture et conserver une solution de location. À dix ans, les deux approches ne répartissent ni les dépenses ni le patrimoine de la même façon.',
-      'Les deux traits illustrent cette différence de lecture. Ils ne représentent pas une projection chiffrée.'],
+      'L’exemple met en regard deux façons de lire le même choix, sans projection chiffrée.'],
     facts: [{ label: 'Scénario A', value: 'Acheter' }, { label: 'Scénario B', value: 'Louer' }, { label: 'Horizon commun', value: '10 ans' }],
     related: { app: 'garapp', label: 'Après le choix, conserver son historique' } },
   garapp: { id: 'garapp', app: 'garapp', eyebrow: 'AU FIL DES JOURS', title: 'Un véhicule laisse des repères.',
@@ -71,7 +71,7 @@ export const storyState = (trail = []) => ({ concept: 'bifurcations', trail: cle
 
 const STORY = {
   '': { title: 'Et si l’on commençait par une situation ?', lead: 'Choisissez une phrase. Elle devient le début du chemin.', kind: 'opening',
-    choices: [['achat', 'Je prépare un achat', 'Avant de décider'], ['vehicule', 'Je suis un véhicule', 'Au fil du temps'], ['video', 'Je relie un écran', 'Entre les appareils']] },
+    choices: [['achat', 'Je prépare un achat', 'Avant de décider'], ['vehicule', 'Je m’occupe d’un véhicule', 'Au fil du temps'], ['video', 'Je relie un écran', 'Entre les appareils']] },
   achat: { label: 'Je prépare un achat', title: 'Ce que l’on s’apprête à choisir.', lead: 'Le contexte donne une direction à la suite.', kind: 'branch',
     choices: [['voiture', 'Une voiture', 'Un choix aujourd’hui, un suivi demain'], ['installation', 'Une installation vidéo', 'Comprendre la liaison avant de s’équiper']] },
   'achat/voiture': { label: 'Une voiture', title: 'Avant ou après le choix ?', lead: 'Les mêmes objets peuvent appeler des questions différentes.', kind: 'branch',
@@ -95,7 +95,7 @@ for (const prefix of ['achat/voiture/comparer', 'finapp']) {
   STORY[prefix + '/suivre/methode'] = { label: 'Garder le fil', app: 'garapp', kind: 'method', content: 'garapp.methode', choices: [] };
 }
 for (const prefix of ['vehicule', 'garapp', 'achat/voiture/suivre']) {
-  STORY[prefix] = appStory('garapp', prefix === 'vehicule' ? 'Je suis un véhicule' : prefix === 'garapp' ? 'Garapp, directement' : 'Conserver ce qui a été fait');
+  STORY[prefix] = appStory('garapp', prefix === 'vehicule' ? 'Je m’occupe d’un véhicule' : prefix === 'garapp' ? 'Garapp, directement' : 'Conserver ce qui a été fait');
 }
 for (const prefix of ['video/relier', 'achat/installation/relier', 'branchlab']) {
   STORY[prefix] = appStory('branchlab', prefix === 'branchlab' ? 'Branchlab, directement' : 'Comprendre la liaison');
