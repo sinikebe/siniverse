@@ -6,7 +6,7 @@ This Cloudflare Worker keeps the Google Drive authorization for FinApp and GarAp
 
 | Endpoint | Result |
 | --- | --- |
-| `GET /health` | `{ "ok": true }`, including on `workers.dev` before setup. |
+| `GET /health` | `{ "ok": true }` on the existing API domain. |
 | `GET /v1/{app}/session` | `{ "connected": true }` or `{ "connected": false }`. |
 | `GET /v1/{app}/token` | `{ "access_token": "...", "expires_in": 3600 }` or `401` if disconnected. |
 | `GET /v1/{app}/connect?return_to=<URL>` | Starts Google's authorization-code flow and redirects the browser to Google. |
@@ -38,7 +38,7 @@ npm run build:api
 
 ## Existing Cloudflare runtime setup
 
-1. Keep the existing Worker `siniverse-api`, its `api.siniverse.cc` domain, daily cron and D1 binding `DB`. The configuration references the same existing database, `fb5227cc-637b-4bab-be6b-3984a0b96d64`; automatic resource provisioning is disabled by the deployment command. Keep its former Workers Builds integration paused so GitHub Actions is the only publisher.
+1. Keep the existing Worker `siniverse-api`, its dashboard-managed `api.siniverse.cc` domain, daily cron and D1 binding `DB`. The configuration references the same existing database, `fb5227cc-637b-4bab-be6b-3984a0b96d64`; automatic resource provisioning is disabled by the deployment command. Both `workers_dev` and `preview_urls` remain false. Keep its former Workers Builds integration paused so GitHub Actions is the only publisher. The common pipeline is documented in [`../automation/README.md`](../automation/README.md).
 2. Database schema changes remain a separate, reviewed manual operation. If initial setup is still required, open **D1 → the database bound to `siniverse-api` → Console**, review [`migrations/0001_sessions.sql`](migrations/0001_sessions.sql) and apply it there. Run `SELECT name FROM sqlite_master WHERE type = 'table';` to confirm `oauth_states` and `sessions` exist. The initial migration is idempotent. No workflow in this repository runs `d1 migrations apply`, and no destructive migration over existing sessions is part of publication.
 3. In **Workers & Pages → siniverse-api → Settings → Variables and Secrets**, add these values as **Secret**, never plaintext variables or repository files:
 
@@ -49,7 +49,7 @@ npm run build:api
    | `TOKEN_ENCRYPTION_KEY` | Base64 encoding of **exactly 32 random bytes** for AES-GCM. |
 
    Generate the encryption key with `node -p "require('node:crypto').randomBytes(32).toString('base64')"` and enter the result directly in Cloudflare's secret field. Keep a secure backup of this key: replacing it without migrating D1 renders existing encrypted sessions unusable and requires users to reconnect. No real secret belongs in a commit, issue, log, or support message.
-4. `wrangler.jsonc` retains the existing **Custom Domain** `api.siniverse.cc`. Confirm it appears under **siniverse-api → Settings → Domains & Routes** and that `https://api.siniverse.cc/health` returns `{"ok":true}`. The session endpoint returns a generic `503` while runtime setup is incomplete. Keep the current route in Git; do not attach the app websites' domains to this API Worker or remove the existing domain as part of the CI migration.
+4. The existing **Custom Domain** `api.siniverse.cc` stays managed in the dashboard; no partial declarative route list is deployed. Confirm it appears under **siniverse-api → Settings → Domains & Routes** and that `https://api.siniverse.cc/health` returns `{"ok":true}`. The session endpoint returns a generic `503` while runtime setup is incomplete. Do not attach app website domains to this API Worker or remove the existing domain as part of the CI migration. The pipeline publishes the API on main only, without an API Preview.
 
 ## Google Auth Platform setup
 

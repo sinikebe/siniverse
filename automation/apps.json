@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "accountId": "bbc2341709439fad81d7aebc62efb873",
+  "runner": "ubuntu-24.04",
+  "toolchain": {
+    "node": "24.22.2",
+    "npm": "11.19.1",
+    "wrangler": "4.161.0"
+  },
+  "apps": {
+    "sinikebe/siniverse": {
+      "id": "siniverse",
+      "worker": "siniverse",
+      "productionUrl": "https://siniverse.cc/",
+      "previewUrl": "https://dev.siniverse.cc/",
+      "chromium": false,
+      "api": {
+        "worker": "siniverse-api",
+        "config": "api/wrangler.jsonc",
+        "healthUrl": "https://api.siniverse.cc/health",
+        "binding": "DB",
+        "databaseId": "fb5227cc-637b-4bab-be6b-3984a0b96d64"
+      }
+    },
+    "sinikebe/finapp": {
+      "id": "finapp",
+      "worker": "siniverse-finapp-site",
+      "productionUrl": "https://finapp.siniverse.cc/",
+      "previewUrl": "https://dev.finapp.siniverse.cc/",
+      "chromium": false,
+      "pages": { "enabled": true }
+    },
+    "sinikebe/Garapp": {
+      "id": "garapp",
+      "worker": "siniverse-garapp-site",
+      "productionUrl": "https://garapp.siniverse.cc/",
+      "previewUrl": "https://dev.garapp.siniverse.cc/",
+      "chromium": false,
+      "pages": { "enabled": true }
+    },
+    "sinikebe/branchlab": {
+      "id": "branchlab",
+      "worker": "siniverse-branchlab-site",
+      "productionUrl": "https://branchlab.siniverse.cc/",
+      "previewUrl": "https://dev.branchlab.siniverse.cc/",
+      "chromium": true
+    }
+  }
+}

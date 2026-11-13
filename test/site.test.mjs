@@ -13,9 +13,9 @@ test('the public homepage exposes its app-specific Google data policy', () => {
   assert.match(file('public/sitemap.xml'), /confidentialite\.html/);
 });
 
-test('the static Worker publishes only the public directory and keeps the custom 404', () => {
+test('the static Worker publishes only dist and keeps the custom 404', () => {
   const worker = JSON.parse(file('wrangler.jsonc'));
-  assert.equal(worker.assets.directory, './public');
+  assert.equal(worker.assets.directory, './dist');
   assert.equal(worker.assets.not_found_handling, '404-page');
   assert.doesNotMatch(worker.assets.directory, /api|test|secret/i);
   assert.match(file('public/_headers'), /Content-Security-Policy:/);
