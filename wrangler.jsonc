@@ -1,9 +1,12 @@
 {
   "name": "siniverse",
   "compatibility_date": "2026-11-12",
+  "workers_dev": false,
+  "keep_vars": true,
   "assets": {
     "directory": "./public",
     "not_found_handling": "404-page",
     "run_worker_first": false
-  }
+  },
+  "previews": {}
 }
