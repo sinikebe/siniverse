@@ -1,9 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { artifactName, assertTrigger, githubClient, planPages, verifyArtifact } from './pages.mjs';
+import { EPOCH } from './version.mjs';
 
 const repository = 'sinikebe/finapp';
 const main = 'a'.repeat(40), dev = 'b'.repeat(40);
+const versions = { mainVersion: '0.0.1', devVersion: '0.0.1' };
 const policy = { apps: { [repository]: { pages: { enabled: true } }, 'sinikebe/Garapp': { pages: { enabled: true } } } };
 const publicRepository = { full_name: repository, private: false, visibility: 'public' };
 const event = { repository: publicRepository, workflow_run: { name: 'CI', event: 'push', status: 'completed',
@@ -17,6 +19,18 @@ function fixture() {
     if (path === `/repos/${repository}`) return clone(publicRepository);
     if (path.endsWith('/git/ref/heads/main')) return { object: { sha: main } };
     if (path.endsWith('/git/ref/heads/dev')) return { object: { sha: dev } };
+    if (path.includes('/tags?')) return ['main', 'dev'].map(channel => ({ name: 'siniverse-version/' + channel + '/v0.0.1', commit: { sha: channel === 'main' ? main : dev } }));
+    if (path.includes('/git/ref/tags/')) {
+      const channel = path.includes('/main/') ? 'main' : 'dev';
+      return { ref: 'refs/tags/siniverse-version/' + channel + '/v0.0.1', object: { type: 'tag', sha: (channel === 'main' ? '1' : '2').repeat(40) } };
+    }
+    if (path.includes('/git/tags/')) {
+      const channel = path.endsWith('1'.repeat(40)) ? 'main' : 'dev';
+      const target = channel === 'main' ? main : dev;
+      return { sha: (channel === 'main' ? '1' : '2').repeat(40), tag: 'siniverse-version/' + channel + '/v0.0.1', object: { type: 'commit', sha: target },
+        message: JSON.stringify({ schemaVersion: 1, epoch: EPOCH, repository, channel, sha: target, version: '0.0.1', bump: 'reset',
+          pullRequest: null, priorTag: null, source: null, automationRef: 'f'.repeat(40), runId: '42' }) };
+    }
     if (path.includes('/actions/workflows/ci.yml/runs?')) {
       const branch = path.includes('branch=main&') ? 'main' : 'dev';
       return { workflow_runs: [{ event: 'push', status: 'completed', conclusion: 'success',
@@ -52,7 +66,7 @@ test('Pages authorizes only public application repositories and successful inter
 
 test('selection requires successful push CI for both current heads and ignores an obsolete event', async () => {
   const state = fixture();
-  assert.deepEqual(await planPages({ repository, eventName: 'workflow_run', event, policy, request: state.request }), { deploy: true, main, dev });
+  assert.deepEqual(await planPages({ repository, eventName: 'workflow_run', event, policy, request: state.request }), { deploy: true, main, dev, ...versions });
   assert.equal(state.calls.filter(path => path.includes('/actions/workflows/ci.yml/runs?')).length, 2);
   const stale = clone(event); stale.workflow_run.head_sha = 'c'.repeat(40);
   const superseded = fixture();
@@ -86,7 +100,7 @@ test('artifact verification waits for one exact current-run unexpired artifact, 
     }
     return state.request(path);
   };
-  assert.deepEqual(await verifyArtifact({ repository, policy, request, runId: '123', attempt: '2', main, dev,
+  assert.deepEqual(await verifyArtifact({ repository, policy, request, runId: '123', attempt: '2', main, dev, ...versions,
     pause: async () => { waits++; } }), { name, id: 17 });
   assert.equal(reads, 6); assert.equal(waits, 5);
   assert.ok(state.calls.includes(`/repos/${repository}/git/ref/heads/dev`));
@@ -106,7 +120,7 @@ test('duplicate, absent, private or stale Pages deployments fail instead of bypa
       if (failure === 'stale' && path.endsWith('/git/ref/heads/dev')) return { object: { sha: 'c'.repeat(40) } };
       return state.request(path);
     };
-    await assert.rejects(verifyArtifact({ repository, policy, request, runId: '123', attempt: '2', main, dev, pause: async () => {} }));
+    await assert.rejects(verifyArtifact({ repository, policy, request, runId: '123', attempt: '2', main, dev, ...versions, pause: async () => {} }));
     assert.equal(reads, failure === 'absent' ? 6 : 1);
   }
 });
@@ -117,7 +131,7 @@ test('a deploy-only retry verifies the original successful build attempt artifac
   const request = async path => path.includes('/artifacts?')
     ? { artifacts: [{ name, expired: false, id: 9 }] } : state.request(path);
   assert.deepEqual(await verifyArtifact({ repository, policy, request, runId: '123', attempt: '2',
-    name, main, dev }), { name, id: 9 });
+    name, main, dev, ...versions }), { name, id: 9 });
 });
 
 test('API errors do not reveal the token and artifact names reject untrusted identifiers', async () => {
@@ -130,6 +144,18 @@ test('API errors do not reveal the token and artifact names reject untrusted ide
 
 test('an incomplete artifact API page is refused instead of assuming uniqueness', async () => {
   const name = artifactName('123', '2');
-  await assert.rejects(verifyArtifact({ repository, policy, runId: '123', attempt: '2', main, dev,
+  await assert.rejects(verifyArtifact({ repository, policy, runId: '123', attempt: '2', main, dev, ...versions,
     request: async () => ({ total_count: 101, artifacts: [{ name, expired: false, id: 1 }] }) }), /incomplete artifact listing/);
+});
+
+test('Pages requires exact versions for both heads and refuses a version mismatch before deployment', async () => {
+  const state = fixture();
+  const request = async path => path.includes('/tags?')
+    ? [{ name: 'siniverse-version/main/v0.0.1', commit: { sha: main } }] : state.request(path);
+  await assert.rejects(() => planPages({ repository, eventName: 'workflow_run', event, policy, request }), /No exact dev version tag/);
+  const name = artifactName('123', '1');
+  const artifactRequest = async path => path.includes('/artifacts?')
+    ? { artifacts: [{ name, expired: false, id: 1 }] } : state.request(path);
+  await assert.rejects(() => verifyArtifact({ repository, policy, request: artifactRequest, runId: '123', attempt: '1',
+    main, dev, mainVersion: '0.0.2', devVersion: '0.0.1' }), /versions changed/);
 });

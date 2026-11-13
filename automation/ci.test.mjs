@@ -5,10 +5,11 @@ import { basename, join, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import {
-  artifactDigest, assertCheckouts, createContext, credentialState, getProfile, githubHead, loadPolicy, preparePreviewHeaders,
+  artifactDigest, assertCheckouts, buildVersion, createContext, credentialState, getProfile, githubHead, loadPolicy, preparePreviewHeaders,
   manifestFor, probe, publicationPlan, readJsonc, renderCaller, validateApiConfig,
   validateSiteConfig, verifyCallerPin, verifyManifest, wranglerArguments
 } from './ci.mjs';
+import { EPOCH } from './version.mjs';
 
 const policy = loadPolicy();
 const sha = 'a'.repeat(40);
@@ -101,6 +102,9 @@ test('the caller is byte-identical for all apps and pins every central workflow 
   assert.throws(() => verifyCallerPin(text.replace('automation_ref: ' + automationRef, 'automation_ref: ' + sha), automationRef), /same automation/);
   assert.throws(() => verifyCallerPin(text + '\nsecrets: inherit\n', automationRef), /explicitly/);
   assert.throws(() => verifyCallerPin(text.replace('reusable-cleanup.yml@' + automationRef, 'reusable-cleanup.yml@' + sha), automationRef), /reusable-cleanup/);
+  assert.throws(() => verifyCallerPin(text.replace('reusable-version.yml@' + automationRef, 'reusable-version.yml@' + sha), automationRef), /reusable-version/);
+  const versionJob = text.slice(text.indexOf('  version:'), text.indexOf('  ci:'));
+  assert.doesNotMatch(versionJob, /secrets:|CLOUDFLARE/);
   assert.throws(() => renderCaller('main'), /immutable/);
 });
 
@@ -305,4 +309,26 @@ test('the reusable core has one runner job, public guard, no persistent cache/ar
   const beforePublish = workflow.slice(0, workflow.indexOf('- name: Publish the sealed dist'));
   assert.doesNotMatch(beforePublish, /secrets\.CLOUDFLARE_/);
   for (const repository of Object.keys(policy.apps)) assert(workflow.includes('"' + repository + '"'));
+});
+
+test('build and deployment markers use the exact tagged version, with source fallback only for validation', async () => {
+  const tag = 'siniverse-version/main/v0.2.0', object = 'd'.repeat(40);
+  const release = { schemaVersion: 1, epoch: EPOCH, repository: 'sinikebe/siniverse', channel: 'main',
+    sha, version: '0.2.0', bump: 'minor', pullRequest: 9, priorTag: 'siniverse-version/main/v0.0.1',
+    source: null, automationRef, runId: '42' };
+  const request = async path => {
+    if (path.includes('/tags?')) return [{ name: tag, commit: { sha } }];
+    if (path.includes('/git/ref/tags/')) return { ref: 'refs/tags/' + tag, object: { type: 'tag', sha: object } };
+    if (path.endsWith('/git/tags/' + object)) return { sha: object, tag, object: { type: 'commit', sha }, message: JSON.stringify(release) };
+    throw new Error('Unexpected version read.');
+  };
+  const assigned = await buildVersion(context(), '0.0.1', { SINIVERSE_VERSION: '0.2.0', SINIVERSE_VERSION_TAG: tag }, request);
+  assert.deepEqual(assigned, { appVersion: '0.2.0', versionTag: tag });
+  const marker = manifestFor({ ...context(), ...assigned }, assigned.appVersion, 'digest');
+  assert.equal(marker.appVersion, '0.2.0'); assert.equal(marker.versionTag, tag); assert.equal(marker.sha, sha);
+  await assert.rejects(() => buildVersion(context(), '0.0.1', {}, request), /major.minor.patch/);
+  await assert.rejects(() => buildVersion(context(), '0.0.1',
+    { SINIVERSE_VERSION: '0.3.0', SINIVERSE_VERSION_TAG: 'siniverse-version/main/v0.3.0' }, request), /differs/);
+  const validation = { ...context(), environment: 'test', publishEligible: false };
+  assert.deepEqual(await buildVersion(validation, '0.0.1', {}, null), { appVersion: '0.0.1', versionTag: null });
 });
