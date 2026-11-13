@@ -1,0 +1,69 @@
+name: Siniverse immutable versions
+
+on:
+  workflow_call:
+    inputs:
+      automation_ref:
+        type: string
+        required: true
+      deploy:
+        type: boolean
+        default: false
+    outputs:
+      current:
+        value: ${{ jobs.version.outputs.current }}
+      version:
+        value: ${{ jobs.version.outputs.version }}
+      tag:
+        value: ${{ jobs.version.outputs.tag }}
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    if: >-
+      github.event.repository.private == false && github.event.repository.visibility == 'public' &&
+      github.event.repository.fork == false &&
+      contains(fromJSON('["sinikebe/siniverse","sinikebe/finapp","sinikebe/Garapp","sinikebe/branchlab"]'), github.repository) &&
+      (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.deploy)) &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: read
+    concurrency:
+      group: siniverse-version-${{ github.repository }}
+      queue: max
+      cancel-in-progress: false
+    outputs:
+      current: ${{ steps.assign.outputs.current }}
+      version: ${{ steps.assign.outputs.version }}
+      tag: ${{ steps.assign.outputs.tag }}
+    steps:
+      - name: Validate the immutable central revision
+        shell: bash
+        env:
+          AUTOMATION_REF: ${{ inputs.automation_ref }}
+        run: '[[ "$AUTOMATION_REF" =~ ^[a-f0-9]{40}$ ]]'
+      - name: Checkout trusted central tools only
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: sinikebe/siniverse
+          ref: ${{ inputs.automation_ref }}
+          path: .siniverse-ci
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .siniverse-ci/.node-version
+          package-manager-cache: false
+      - name: Test immutable version assignment
+        run: node --test .siniverse-ci/automation/version.test.mjs
+      - name: Assign or reuse the exact source version
+        id: assign
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          AUTOMATION_REF: ${{ inputs.automation_ref }}
+          REQUESTED_DEPLOY: ${{ inputs.deploy }}
+        run: node .siniverse-ci/automation/version.mjs

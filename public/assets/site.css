@@ -142,6 +142,7 @@ h1 { position: relative; margin-top: 24px; font-size: clamp(48px, 5.9vw, 81px); 
 .next-link span { font-size: 16px; }
 .site-footer { padding-block: 34px 31px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .footer-brand { font-size: 19px; font-weight: 700; letter-spacing: -.6px; }
+.app-version { margin-left: .5em; white-space: nowrap; }
 .site-footer p, .site-footer > a:last-child { font-size: 10px; color: #747c70; }
 .site-footer .footer-privacy { font-size: 11px; color: #3f4d3b; text-decoration: underline; text-underline-offset: 3px; }
 .site-footer .footer-privacy:hover { color: #176747; }

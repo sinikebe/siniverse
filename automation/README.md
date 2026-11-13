@@ -4,6 +4,9 @@ The four application repositories use the same generated `CI` caller. All
 application differences live in `apps.json`: repository identity, Worker,
 existing production/Preview URLs, Chromium and the production-only Siniverse API.
 
+CI versions use immutable annotated tags per channel; see [VERSIONING.md](VERSIONING.md).
+The source package version is a local fallback, not the current deployed release.
+
 ## Contract
 
 - `ubuntu-24.04`, Node `24.22.2` from the sole `.node-version` file, npm
@@ -33,6 +36,7 @@ existing production/Preview URLs, Chromium and the production-only Siniverse API
 | SINIVERSE_SOURCE_BRANCH | Actual source branch for diagnostics. |
 | SINIVERSE_ENVIRONMENT | production, preview, or test for PR/features. |
 | SINIVERSE_BASE_SHA | PR base, nonzero push before, otherwise dev/main merge-base or commit parent. |
+| SINIVERSE_VERSION | Exact CI-assigned major.minor.patch version without v; local/PR fallback 0.0.1. |
 
 Application changelog/PWA/history checks remain in ci:check. Their business
 rules can require a broader baseline, such as the main merge-base on dev.
@@ -40,16 +44,23 @@ rules can require a broader baseline, such as the main merge-base on dev.
 ## Deployment marker
 
 Only the controller creates dist/deployment.json. Schema version 1 contains
-app, repository, sha, ref, branch, environment, unchanged appVersion,
+app, repository, sha, ref, branch, environment, injected appVersion, versionTag,
 automationRef, runId, runAttempt, builtAt, toolchain and artifactSha256.
 The digest covers sorted file paths and SHA256 hashes, excluding this marker.
 It is revalidated before each publication.
 
 On dev, the built _headers retains application rules and receives
-X-Robots-Tag: noindex, nofollow. Public sources and PWA/app versions are unchanged.
+X-Robots-Tag: noindex, nofollow. Public sources stay unchanged; application builds
+render the assigned version before calculating service worker/cache fingerprints.
 The Preview HTTPS probe also requires noindex.
 
 ## Publication
+
+All working PRs target dev first. After the owner tests dev and explicitly
+approves production, only dev from the same repository may target main.
+CI rejects other main PR sources; version assignment and publication also
+verify the exact merged dev-to-main PR. The app job has only read permissions
+(contents and PR metadata). No workflow promotes or merges main automatically.
 
 Push main publishes production; push dev publishes stable Worker Preview dev.
 PRs only validate. Manual runs default to validation; deploy=true can publish
@@ -70,24 +81,30 @@ Pages flows. Apps provide ci:pages. The existing Pages artifact is unique to
 run/attempt, retained one day; this is separate from artifact-free Workers.
 Both current main/dev revisions need successful push CI. Public identity,
 source heads and the exact artifact are rechecked before Pages publication.
+Both versions are resolved from immutable tags of those exact SHAs and passed
+as SINIVERSE_PAGES_MAIN_VERSION and SINIVERSE_PAGES_DEV_VERSION.
 
 reusable-cleanup.yml runs only for merged own-repository PRs in public apps.
 Fresh PR/ref/protection metadata is read twice. Permanent, protected and
 advanced branches are preserved. Deletion uses an atomic force-with-lease.
-No PR code or Cloudflare secrets are used. Only cleanup receives contents
-write and pull-requests read permissions.
+No PR code or Cloudflare secrets are used. Cleanup keeps its dedicated write
+permissions. The separate trusted version job also receives contents write and
+pull-requests read; app check/build/deploy remains contents read.
 
 ## Bootstrap and immutable pin updates
 
-The initial central PR retains a functional inline Siniverse CI, adapted to
-.node-version and dist, so it need not reference its own unknown future hash.
+Central updates retain the currently pinned functional caller until the new
+central commit is reviewed and merged, avoiding its own unknown future hash.
+The reset build works with the source fallback 0.0.1. The first dev assignment
+is 0.0.1; the first main promotion copies the exact tested dev version, including
+any fix version assigned before production is approved.
 After central review/merge, generate the callers with that immutable source:
 
     node automation/ci.mjs caller FULL_CENTRAL_SHA > .github/workflows/ci.yml
     node automation/ci.mjs pages-caller FULL_CENTRAL_SHA > .github/workflows/pages.yml
 
 The CI caller is byte-identical in four apps; the Pages caller is identical
-in Finapp/Garapp. CI, Pages and cleanup use one reviewed SHA. Updates require
+in Finapp/Garapp. CI, version assignment, Pages and cleanup use one reviewed SHA. Updates require
 a new reviewed pin; callers never follow a moving branch/tag.
 
 Run node --test automation/*.test.mjs and actionlint before a new release.

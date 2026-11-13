@@ -30,6 +30,8 @@ jobs:
       deploy: ${{ steps.plan.outputs.deploy }}
       main_sha: ${{ steps.plan.outputs.main_sha }}
       dev_sha: ${{ steps.plan.outputs.dev_sha }}
+      main_version: ${{ steps.plan.outputs.main_version }}
+      dev_version: ${{ steps.plan.outputs.dev_version }}
       artifact_name: ${{ steps.plan.outputs.artifact_name }}
     steps:
       - name: Check out the immutable shared implementation
@@ -71,6 +73,8 @@ jobs:
         env:
           SINIVERSE_PAGES_MAIN_SOURCE: ${{ github.workspace }}/pages-main
           SINIVERSE_PAGES_DEV_SOURCE: ${{ github.workspace }}/pages-dev
+          SINIVERSE_PAGES_MAIN_VERSION: ${{ steps.plan.outputs.main_version }}
+          SINIVERSE_PAGES_DEV_VERSION: ${{ steps.plan.outputs.dev_version }}
           SINIVERSE_PAGES_OUT: ${{ runner.temp }}/siniverse-pages-output
         run: npm run ci:pages
       - name: Upload the unique Pages artifact
@@ -117,6 +121,8 @@ jobs:
           SINIVERSE_AUTOMATION_REF: ${{ inputs.automation_ref }}
           SINIVERSE_PAGES_MAIN_SHA: ${{ needs.build.outputs.main_sha }}
           SINIVERSE_PAGES_DEV_SHA: ${{ needs.build.outputs.dev_sha }}
+          SINIVERSE_PAGES_MAIN_VERSION: ${{ needs.build.outputs.main_version }}
+          SINIVERSE_PAGES_DEV_VERSION: ${{ needs.build.outputs.dev_version }}
           SINIVERSE_PAGES_ARTIFACT_NAME: ${{ needs.build.outputs.artifact_name }}
         run: node .siniverse-automation/automation/pages.mjs verify-artifact
       - name: Deploy the selected legacy Pages artifact
