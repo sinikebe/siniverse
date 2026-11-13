@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="fr" data-concept="instrument">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex">
+  <meta name="description" content="Trois pistes interactives pour le prochain accueil de Siniverse. À explorer, comparer et choisir.">
+  <title>Trois pistes — Siniverse</title>
+  <link rel="icon" href="/assets/siniverse.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/concepts/concepts.css">
+  <script type="module" src="/concepts/concepts.mjs"></script>
+</head>
+<body>
+  <a class="skip-link" href="#concept-stage">Aller à la maquette</a>
+  <header class="lab-header">
+    <a class="brand" href="/" aria-label="Accueil actuel de Siniverse">siniverse<span>.</span></a>
+    <span class="lab-label">LES POSSIBLES / ÉTUDE D’ACCUEIL</span>
+    <nav class="app-nav" aria-label="Ouvrir les applications">
+      <a href="https://finapp.siniverse.cc"><img src="/assets/finapp.svg" width="18" height="18" alt="">Finapp <span aria-hidden="true">↗</span></a>
+      <a href="https://garapp.siniverse.cc"><img src="/assets/garapp.svg" width="18" height="18" alt="">Garapp <span aria-hidden="true">↗</span></a>
+      <a href="https://branchlab.siniverse.cc"><img src="/assets/branchlab.svg" width="18" height="18" alt="">Branchlab <span aria-hidden="true">↗</span></a>
+    </nav>
+  </header>
+
+  <section class="comparison-bar" aria-label="Comparer les directions">
+    <div class="concept-navigation">
+      <span class="comparison-title">Concepts d’accueil</span>
+      <nav class="concept-links" aria-label="Liens stables des maquettes">
+        <a href="/concepts/?concept=instrument" data-concept-link="instrument">01 Instrument</a>
+        <a href="/concepts/?concept=fil" data-concept-link="fil">02 Fil</a>
+        <a href="/concepts/?concept=machine" data-concept-link="machine">03 Machine</a>
+      </nav>
+    </div>
+    <div class="preference-controls">
+      <a class="rotation-link" href="/concepts/" data-rotation-link>Tester la rotation <span aria-hidden="true">↻</span></a>
+      <button id="pin-theme" class="pin-button" type="button" aria-pressed="false">Figer ce thème</button>
+    </div>
+    <p class="selection-status"><span id="view-mode">Rotation · 1/3</span><span id="preference-status" role="status" aria-live="polite">Les maquettes tournent, l’accueil actuel reste inchangé.</span></p>
+  </section>
+
+  <noscript><p class="no-script">Ces maquettes interactives nécessitent JavaScript. Les liens vers les applications et l’accueil actuel restent disponibles.</p></noscript>
+  <main id="concept-stage" tabindex="-1">
+    <section id="concept-instrument" class="concept instrument" aria-labelledby="instrument-title">
+      <div class="instrument-hero">
+        <div class="instrument-copy">
+          <p class="eyebrow">01 / INSTRUMENT IMPOSSIBLE</p>
+          <h1 id="instrument-title">D’autres instruments pour le quotidien.</h1>
+          <p class="intro">Une même matière. Trois façons de rendre une idée plus claire.</p>
+          <div class="intent-switch" role="group" aria-label="Transformer l’instrument">
+            <button type="button" data-intent="finapp" aria-pressed="true">Projeter</button>
+            <button type="button" data-intent="garapp" aria-pressed="false">Entretenir</button>
+            <button type="button" data-intent="branchlab" aria-pressed="false">Relier</button>
+          </div>
+          <div class="instrument-app">
+            <p class="mono" id="instrument-app-name">FINAPP / PROJETER</p>
+            <h2 id="instrument-pitch">Mettre ses choix en perspective.</h2>
+            <p id="instrument-description">Comparer deux façons d’avancer, au même horizon.</p>
+            <a class="instrument-open" id="instrument-open" href="https://finapp.siniverse.cc">Ouvrir Finapp <span aria-hidden="true">↗</span></a>
+          </div>
+        </div>
+        <div class="instrument-object">
+          <div class="object-topline"><span class="mono">MATIÈRE / POSITION <span id="instrument-position">01</span></span><span class="demo-label">Exemple fictif</span></div>
+          <div class="object-stage">
+            <svg id="instrument-fallback" class="instrument-fallback" viewBox="0 0 620 400" role="img" aria-label="Un instrument composé de lamelles articulées"><polygon class="fallback-lamella" points="123,200 134,192 134,265 123,273"/><polygon class="fallback-lamella" points="141,189.13675704147155 152,181.13675704147155 152,254.13675704147155 141,262.1367570414716"/><polygon class="fallback-lamella" points="159,178.5698350324909 170,170.5698350324909 170,243.5698350324909 159,251.5698350324909"/><polygon class="fallback-lamella" points="177,168.58747205955314 188,160.58747205955314 188,233.58747205955314 177,241.58747205955314"/><polygon class="fallback-lamella" points="195,159.46196096248192 206,151.46196096248192 206,224.46196096248192 195,232.46196096248192"/><polygon class="fallback-lamella" points="213,151.4422218955733 224,143.4422218955733 224,216.4422218955733 213,224.4422218955733"/><polygon class="fallback-lamella" points="231,144.7470124346731 242,136.7470124346731 242,209.7470124346731 231,217.7470124346731"/><polygon class="fallback-lamella" points="249,139.5589604407662 260,131.5589604407662 260,204.5589604407662 249,212.5589604407662"/><polygon class="fallback-lamella" points="267,136.0195824480042 278,128.0195824480042 278,201.0195824480042 267,209.0195824480042"/><polygon class="fallback-lamella" points="285,134.22542346155979 296,126.22542346155979 296,199.22542346155979 285,207.22542346155979"/><polygon class="fallback-lamella" points="303,134.22542346155979 314,126.22542346155979 314,199.22542346155979 303,207.22542346155979"/><polygon class="fallback-lamella" points="321,136.0195824480042 332,128.0195824480042 332,201.0195824480042 321,209.0195824480042"/><polygon class="fallback-lamella" points="339,139.5589604407662 350,131.5589604407662 350,204.5589604407662 339,212.5589604407662"/><polygon class="fallback-lamella" points="357,144.7470124346731 368,136.7470124346731 368,209.7470124346731 357,217.7470124346731"/><polygon class="fallback-lamella" points="375,151.4422218955733 386,143.4422218955733 386,216.4422218955733 375,224.4422218955733"/><polygon class="fallback-lamella" points="393,159.46196096248192 404,151.46196096248192 404,224.46196096248192 393,232.46196096248192"/><polygon class="fallback-lamella" points="411,168.58747205955314 422,160.58747205955314 422,233.58747205955314 411,241.58747205955314"/><polygon class="fallback-lamella" points="429,178.5698350324909 440,170.5698350324909 440,243.5698350324909 429,251.5698350324909"/><polygon class="fallback-lamella" points="447,189.13675704147155 458,181.13675704147155 458,254.13675704147155 447,262.1367570414716"/><polygon class="fallback-lamella" points="465,200 476,192 476,265 465,273"/></svg>
+            <canvas id="instrument-canvas" width="1000" height="760" aria-hidden="true" hidden></canvas>
+            <span class="object-note note-a" id="instrument-note-a">Scénario A</span>
+            <span class="object-note note-b" id="instrument-note-b">Scénario B</span>
+            <span class="object-ground mono">20 SECTIONS / UNE MÊME MATIÈRE</span>
+          </div>
+          <div class="instrument-controls">
+            <div data-instrument-panel="finapp">
+              <span class="control-label">Ouvrir l’horizon</span>
+              <div class="horizon-switch" role="group" aria-label="Horizon fictif">
+                <button type="button" data-horizon="5" aria-pressed="false">5 ans</button>
+                <button type="button" data-horizon="10" aria-pressed="true">10 ans</button>
+                <button type="button" data-horizon="20" aria-pressed="false">20 ans</button>
+              </div>
+              <p class="control-note">Deux approches illustratives à horizon commun. Aucun rendement calculé.</p>
+            </div>
+            <div data-instrument-panel="garapp" hidden>
+              <span class="control-label">Un repère dans le temps</span>
+              <div class="history-controls"><button type="button" data-history="-1" aria-label="Repère précédent">←</button><p id="instrument-history" aria-live="polite">12 mars 2026 · Contrôle des pneus · 68 €</p><button type="button" data-history="1" aria-label="Repère suivant">→</button></div>
+              <p class="control-note">Historique entièrement fictif. Le geste sélectionne une information, sans la sauvegarder.</p>
+            </div>
+            <div data-instrument-panel="branchlab" hidden>
+              <button id="instrument-spread" class="outline-button" type="button" aria-pressed="false">Écarter les éléments</button>
+              <p class="control-note" id="instrument-connection">Une chaîne vidéo d’exemple : appareil → port → câble → entrée.</p>
+            </div>
+            <button id="instrument-view" class="perspective-button" type="button">Autre perspective <span aria-hidden="true">↗</span></button>
+          </div>
+        </div>
+      </div>
+      <div class="instrument-bottom"><span class="mono">LA FORME SUIT L’INTENTION.</span><p>Ouvrir des possibles. Retrouver un repère. Comprendre un lien. Puis passer à l’outil.</p><span class="bottom-arrow" aria-hidden="true">↗</span></div>
+    </section>
+
+    <section id="concept-fil" class="concept fil" aria-labelledby="fil-title" hidden>
+      <div class="fil-heading"><p class="eyebrow">02 / FIL DES POSSIBLES</p><h1 id="fil-title">Une idée.<br><em>Plusieurs chemins.</em></h1><p>Suivre un trait, déplier ce qu’il raconte.</p><span class="demo-label">Trois démonstrations fictives</span></div>
+      <div class="fil-progress">
+        <nav aria-label="Chapitres du fil"><button type="button" data-chapter="0" aria-current="step">01 Projeter</button><button type="button" data-chapter="1">02 Entretenir</button><button type="button" data-chapter="2">03 Relier</button></nav>
+        <div><button type="button" id="fil-previous" aria-label="Chapitre précédent">←</button><span class="mono" id="fil-count">01 / 03</span><button type="button" id="fil-next" aria-label="Chapitre suivant">→</button></div>
+      </div>
+      <div class="fil-viewport" id="fil-viewport">
+        <div class="fil-strip">
+          <svg class="fil-line fil-line-horizontal" viewBox="0 0 2400 430" preserveAspectRatio="none" aria-hidden="true">
+            <path class="thread-base" d="M0 258C160 258 145 283 235 240S370 265 455 185 585 210 650 145S740 180 800 225H930C980 225 980 150 1040 150S1100 290 1160 290 1220 215 1280 215H1465C1510 215 1500 165 1550 165S1600 245 1660 245H1770C1825 245 1825 170 1900 170H2080C2160 170 2130 270 2210 270H2400"/>
+            <path class="thread-alternate" d="M235 240C350 230 370 180 455 135S580 160 650 95 735 115 800 170"/>
+            <circle class="thread-dot" cx="1040" cy="150" r="10"/><circle class="thread-dot" cx="1160" cy="290" r="10"/><circle class="thread-dot" cx="1280" cy="215" r="10"/>
+            <rect class="thread-plug" x="1888" y="154" width="28" height="32" rx="4"/><rect class="thread-plug" x="2068" y="154" width="28" height="32" rx="4"/>
+          </svg>
+          <svg class="fil-line fil-line-vertical" viewBox="0 0 80 1600" preserveAspectRatio="none" aria-hidden="true"><path class="thread-base" d="M38 0V200C38 240 66 250 66 290S12 350 12 390 38 420 38 470V700C38 740 65 750 65 800S14 860 14 900 38 950 38 980V1220C38 1280 66 1280 66 1340S38 1400 38 1600"/></svg>
+          <article class="fil-chapter fil-finapp" id="fil-chapter-0" aria-labelledby="fil-finapp-title">
+            <div class="chapter-number" aria-hidden="true">01</div><div class="chapter-copy"><p class="mono">FINAPP / PROJETER</p><h2 id="fil-finapp-title">Et si l’on prenait<br>un peu de recul ?</h2><p>Un horizon commun rend deux approches plus faciles à comparer.</p><a href="https://finapp.siniverse.cc">Ouvrir Finapp <span aria-hidden="true">↗</span></a></div>
+            <span class="line-caption">A / B — deux chemins illustratifs</span>
+            <div class="fold-wrap"><button class="unfold-button" type="button" data-unfold="finapp" aria-expanded="false" aria-controls="fold-finapp">Déplier le scénario <span aria-hidden="true">↘</span></button><div class="paper-fold" id="fold-finapp" hidden><p class="mono">EXEMPLE FICTIF / HORIZON COMMUN</p><h3><span data-horizon-text>10</span> ans, deux approches.</h3><p>A suit un effort constant ; B illustre un effort progressif. Le trait raconte une comparaison, sans calcul de performance.</p><div class="horizon-switch" role="group" aria-label="Horizon de l’exemple du fil"><button type="button" data-horizon="5" aria-pressed="false">5 ans</button><button type="button" data-horizon="10" aria-pressed="true">10 ans</button><button type="button" data-horizon="20" aria-pressed="false">20 ans</button></div></div></div>
+          </article>
+          <article class="fil-chapter fil-garapp" id="fil-chapter-1" aria-labelledby="fil-garapp-title">
+            <div class="chapter-number" aria-hidden="true">02</div><div class="chapter-copy"><p class="mono">GARAPP / ENTRETENIR</p><h2 id="fil-garapp-title">Ce qui s’est passé<br>laisse une trace.</h2><p>Une date, une intervention, une dépense : un historique à retrouver.</p><a href="https://garapp.siniverse.cc">Ouvrir Garapp <span aria-hidden="true">↗</span></a></div>
+            <span class="line-caption">Un repère devient un souvenir utile.</span>
+            <div class="fold-wrap"><button class="unfold-button" type="button" data-unfold="garapp" aria-expanded="false" aria-controls="fold-garapp">Dérouler le repère <span aria-hidden="true">↘</span></button><div class="paper-fold ticket-fold" id="fold-garapp" hidden><p class="mono">TICKET FICTIF / AUCUNE SAUVEGARDE</p><h3>12 mars 2026</h3><p>Contrôle des pneus</p><p class="ticket-amount">68 € <span>notés dans l’exemple</span></p><p>Le geste révèle une information ; il ne répare ni ne modifie un véhicule.</p></div></div>
+          </article>
+          <article class="fil-chapter fil-branchlab" id="fil-chapter-2" aria-labelledby="fil-branchlab-title">
+            <div class="chapter-number" aria-hidden="true">03</div><div class="chapter-copy"><p class="mono">BRANCHLAB / RELIER</p><h2 id="fil-branchlab-title">D’un bout à l’autre,<br>comprendre le lien.</h2><p>Une connexion vidéo se lit mieux quand on en voit les étapes.</p><a href="https://branchlab.siniverse.cc">Ouvrir Branchlab <span aria-hidden="true">↗</span></a></div>
+            <span class="line-caption">Le même trait, devenu câble.</span>
+            <div class="fold-wrap"><button class="unfold-button" type="button" data-unfold="branchlab" aria-expanded="false" aria-controls="fold-branchlab">Révéler les extrémités <span aria-hidden="true">↘</span></button><div class="paper-fold" id="fold-branchlab" hidden><p class="mono">CONNEXION VIDÉO FICTIVE</p><h3>Chaque élément a un rôle.</h3><ol class="connection-parts"><li>Appareil</li><li>Sortie vidéo</li><li>Câble</li><li>Entrée écran</li></ol><p>Un exemple de lecture, sans diagnostic ni promesse de compatibilité matérielle.</p></div></div>
+          </article>
+        </div>
+      </div>
+      <p class="fil-endnote"><span aria-hidden="true">↳</span> Une ligne, trois chapitres. Dépliez les détails à votre rythme.</p>
+    </section>
+
+    <section id="concept-machine" class="concept machine" aria-labelledby="machine-title" hidden>
+      <div class="machine-heading"><p class="eyebrow">03 / MACHINE À DÉCLICS</p><h1 id="machine-title">Un petit déclic.<br>Une idée plus claire.</h1><p>Choisissez un mécanisme. Un geste suffit à voir son effet.</p><span class="demo-label">Plateau fictif · aucune donnée enregistrée</span></div>
+      <div class="machine-board">
+        <div class="board-topline mono"><span>ATELIER SINIVERSE</span><span>MODE EXPLORATION / SANS SCORE</span></div>
+        <svg class="machine-rail" viewBox="0 0 1200 500" preserveAspectRatio="none" aria-hidden="true"><path d="M20 180H270C330 180 330 385 410 385H650C720 385 720 190 800 190H1180"/><circle cx="270" cy="180" r="9"/><circle cx="650" cy="385" r="9"/><circle cx="800" cy="190" r="9"/></svg>
+        <div class="mechanism mechanism-finapp">
+          <p class="mechanism-label mono">01 / FINAPP</p>
+          <svg viewBox="0 0 320 250" class="switch-mechanism" aria-hidden="true">
+            <path class="mechanical-shadow" d="M28 60H275V183H28Z"/><path class="mechanical-body" d="M20 50H267V173H20Z"/>
+            <path class="switch-track" d="M28 115H118Q160 115 187 76H251M118 115Q160 115 187 148H251"/>
+            <path class="switch-tongue" d="M118 115 184 77"/><circle class="mechanical-hub" cx="118" cy="115" r="20"/>
+            <circle class="switch-end" cx="248" cy="76" r="11"/><circle class="switch-end second-end" cx="248" cy="148" r="11"/>
+            <path class="lever-stem" d="M118 114 81 202"/><rect class="lever-handle" x="54" y="189" width="52" height="25" rx="7"/>
+            <circle class="screw" cx="36" cy="66" r="4"/><circle class="screw" cx="251" cy="157" r="4"/>
+          </svg>
+          <h2>Deux trajectoires,<br>un même horizon.</h2><button class="machine-action" type="button" data-machine="finapp">Comparer <span aria-hidden="true">↗</span></button>
+        </div>
+        <div class="mechanism mechanism-garapp">
+          <p class="mechanism-label mono">02 / GARAPP</p>
+          <svg viewBox="0 0 320 250" class="wheel-mechanism" aria-hidden="true">
+            <path class="mechanical-shadow" d="M48 209H280V233H48Z"/><path class="mechanical-body" d="M38 201H270V225H38Z"/>
+            <g id="machine-wheel" transform="rotate(0 158 113)"><path class="wheel-teeth" d="m158 19 15 12 21-5 9 19 21 3 2 22 17 12-8 21 9 20-17 14-1 22-21 5-8 20-22-3-15 15-17-13-21 5-10-19-21-3-3-21-17-13 8-21-9-20 17-14 1-22 21-5 9-20 21 3Z"/><circle class="wheel-face" cx="158" cy="113" r="63"/><path class="wheel-spokes" d="M158 60V166M105 113H211"/><circle class="mechanical-hub" cx="158" cy="113" r="17"/><circle class="wheel-dot" cx="158" cy="67" r="8"/></g>
+            <path class="stamp-arm" d="M254 66V157H219"/><rect class="stamp-handle" x="239" y="45" width="30" height="31" rx="5"/>
+          </svg>
+          <h2>Un repère posé,<br>un historique lisible.</h2><button class="machine-action" type="button" data-machine="garapp">Poser un repère <span aria-hidden="true">↓</span></button>
+        </div>
+        <div class="mechanism mechanism-branchlab">
+          <p class="mechanism-label mono">03 / BRANCHLAB</p>
+          <svg viewBox="0 0 320 250" class="bridge-mechanism" aria-hidden="true">
+            <path class="mechanical-shadow" d="M167 44H296V163H167Z"/><rect class="mechanical-body" x="159" y="35" width="128" height="119" rx="8"/><rect class="screen-face" x="174" y="50" width="98" height="70" rx="3"/><path class="screen-stand" d="M222 154V178M191 178H253"/>
+            <path class="cable-body" d="M16 185H71Q98 185 98 146V115H132"/>
+            <g class="plug-left"><rect class="plug-body" x="117" y="101" width="30" height="29" rx="4"/><path class="plug-pins" d="M147 108H156M147 121H156"/></g>
+            <g class="plug-right"><rect class="plug-body" x="172" y="101" width="23" height="29" rx="4"/></g>
+            <path class="screen-check" d="m198 84 15 14 30-31"/>
+          </svg>
+          <h2>Quelques éléments,<br>un lien à comprendre.</h2><button class="machine-action" type="button" data-machine="branchlab">Relier <span aria-hidden="true">→</span></button>
+        </div>
+        <div class="machine-output" id="machine-output" data-app="finapp">
+          <div><p class="mono" id="machine-output-label">À VOUS DE JOUER / FINAPP</p><p id="machine-output-text" role="status" aria-live="polite">Actionnez l’aiguillage pour révéler deux approches fictives à horizon commun.</p></div>
+          <a id="machine-open" href="https://finapp.siniverse.cc">Ouvrir Finapp <span aria-hidden="true">↗</span></a>
+        </div>
+      </div>
+      <p class="machine-endnote"><span class="mono">DÉCLIC → COMPRÉHENSION → OUTIL</span> Aucun son, aucune course. Juste l’effet d’un geste.</p>
+    </section>
+  </main>
+
+  <aside class="comparison-note"><p>Trois pistes à essayer, aucun thème retenu pour l’instant.</p><a href="/">Revenir à l’accueil actuel <span aria-hidden="true">↗</span></a></aside>
+  <footer class="lab-footer"><a class="brand" href="/">siniverse<span>.</span></a><p>Des idées, des outils, votre quotidien. <span class="app-version" data-app-version>v0.0.1</span></p><a href="/confidentialite.html">Confidentialité</a><a href="https://github.com/sinikebe/siniverse">Voir le projet sur GitHub <span aria-hidden="true">↗</span></a></footer>
+</body>
+</html>

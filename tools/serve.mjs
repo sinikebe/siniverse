@@ -8,6 +8,8 @@ const port = Number(process.env.PORT || 4175);
 const types = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.xml': 'application/xml; charset=utf-8',
   '.txt': 'text/plain; charset=utf-8',
@@ -22,7 +24,8 @@ createServer(async (request, response) => {
 
   try {
     const pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
-    const path = resolve(root, `.${pathname === '/' ? '/index.html' : pathname}`);
+    const requested = pathname.endsWith('/') ? pathname + 'index.html' : pathname;
+    const path = resolve(root, '.' + requested);
     const relative = path.slice(root.length);
     if (!path.startsWith(root) || relative.split(/[\\/]/).some(part => part.startsWith('.') || part.startsWith('_'))) {
       response.writeHead(404);
