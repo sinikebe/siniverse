@@ -11,9 +11,17 @@
   },
   "scripts": {
     "dev": "node tools/serve.mjs",
-    "start": "node tools/serve.mjs"
+    "start": "node tools/serve.mjs",
+    "check": "node --check tools/serve.mjs && node --check api/src/worker.js",
+    "test": "node --test",
+    "build": "wrangler deploy --dry-run --outdir .wrangler/build",
+    "deploy": "wrangler deploy",
+    "deploy:preview": "wrangler preview --name dev"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "wrangler": "4.161.0"
   }
 }
