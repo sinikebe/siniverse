@@ -82,7 +82,10 @@ async function ready(url) {
   for (let index = 0; index < 80; index++) {
     try {
       const v2 = new URL(url).pathname.startsWith('/concepts/v2/');
-      const expression = v2
+      const v3 = new URL(url).pathname.startsWith('/concepts/v3/');
+      const expression = v3
+        ? 'location.origin === '+JSON.stringify(new URL(url).origin)+' && location.pathname === "/concepts/v3/explore.html" && document.documentElement.dataset.v3Ready === "true"'
+        : v2
         ? 'location.origin === ' + JSON.stringify(new URL(url).origin) + ' && location.pathname === "/concepts/v2/explore.html" && document.documentElement.dataset.navigationReady === "true"'
         : 'location.href === ' + JSON.stringify(url) + ' && document.documentElement.dataset.conceptsReady === "true"';
       if (await socket.evaluate(expression)) return;
@@ -109,7 +112,7 @@ async function click(selector) {
   await socket.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: point.x, y: point.y, button: 'left', clickCount: 1 });
   await pause(80);
   for(let attempt=0;attempt<100;attempt++) {
-    if(await socket.evaluate('!location.pathname.startsWith("/concepts/v2/") || document.documentElement.dataset.navigationReady === "true"')) return point;
+    if(await socket.evaluate('location.pathname.startsWith("/concepts/v3/") ? document.documentElement.dataset.v3Ready === "true" : !location.pathname.startsWith("/concepts/v2/") || document.documentElement.dataset.navigationReady === "true"')) return point;
     await pause(50);
   }
   throw new Error('The spatial navigation did not settle after clicking '+selector);
@@ -152,7 +155,7 @@ async function run() {
   assert.match(study.headers.get('content-security-policy'), /script-src 'self'/);
   report.checks.push('CSP locale : accueil sans scripts, maquettes self uniquement');
   profile = mkdtempSync(resolve(tmpdir(), 'siniverse-browser-'));
-  chrome = spawn(binary, ['--headless=new', '--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu',
+  chrome = spawn(binary, ['--headless=new', '--no-sandbox', '--disable-dev-shm-usage', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader',
     '--disable-background-networking', '--no-first-run', '--no-default-browser-check', '--hide-scrollbars',
     '--remote-debugging-port=0', '--user-data-dir=' + profile, 'about:blank'], { stdio: ['ignore', 'ignore', 'pipe'] });
   let diagnostics = '';
@@ -406,13 +409,33 @@ async function run() {
   await socket.evaluate('history.back()'); await waitRoute(depth('finapp'));
   report.checks.push('V2 mouvement réduit : mêmes destinations et historique sans dépendre d’une animation');
 
+
+  await socket.send('Emulation.setEmulatedMedia',{features:[]});
+  for(const [format,width,height]of [['desktop',1365,900],['mobile',390,740]]){
+    await socket.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:format==='mobile'});
+    for(const concept of ['plan','reacteur','anamorphose']){
+      await navigate(origin+'/concepts/v3/explore.html?concept='+concept);
+      const result=await socket.evaluate('window.__siniverseV3.inspect()');
+      assert.equal(result.route.concept,concept);
+      assert(!await socket.evaluate('Boolean(document.querySelector("#experience").dataset.sceneError)'),'The scene mounted its error fallback.');
+      if(concept==='plan'){
+        assert.equal(result.scene.kind,'webgl2','The Plan requires a real WebGL2 rendering.');
+        assert(result.scene.triangles>500&&result.scene.pixelColors>2,'The 3D framebuffer is empty.');
+        assert(await socket.evaluate('document.querySelector(".plan-movement").getBoundingClientRect().bottom<=innerHeight'),'Free-movement controls fell below the mobile viewport.');
+      }
+      if(concept==='anamorphose')assert.equal(result.scene.webgl2,true,'The optical scene requires its real WebGL2 relief.');
+      await screenshot('v3-'+concept+'-arrival-'+format,width);
+      report.checks.push('V3 '+concept+'/'+format+': première scène, vrai moteur/relief, capture');
+    }
+  }
+
   assert.deepEqual(report.exceptions, [], 'Browser reported a page exception or resource/CSP error.');
   report.status = 'passed';
 }
 
 let timeout;
 try {
-  await Promise.race([run(), new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('Browser review exceeded 240 seconds.')), 240000); })]);
+  await Promise.race([run(), new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('Browser review exceeded 300 seconds.')), 300000); })]);
 } catch (error) {
   report.status = 'failed'; report.error = error.message; process.exitCode = 1;
   console.error(error.stack || error);
