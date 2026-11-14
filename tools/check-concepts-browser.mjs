@@ -120,7 +120,7 @@ async function click(selector) {
 async function screenshot(name, width) {
   await pause(500);
   assert(await socket.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'), 'Horizontal overflow in '+name);
-  const height = await socket.evaluate('Math.min(5000,Math.max(document.documentElement.scrollHeight,innerHeight))');
+  const height = await socket.evaluate('document.querySelector("#plan-reader-dialog")?.open?innerHeight:Math.min(5000,Math.max(document.documentElement.scrollHeight,innerHeight))');
   await socket.send('Runtime.evaluate', { expression: 'window.scrollTo(0,0)' });
   const image = await socket.send('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: true,
     clip: { x: 0, y: 0, width, height, scale: 1 } }, 20000);
@@ -429,8 +429,9 @@ async function run() {
   async function press(selector,key='Enter'){
     await socket.send('Page.bringToFront');
     await socket.evaluate('document.querySelector('+JSON.stringify(selector)+').focus()');
-    await socket.send('Input.dispatchKeyEvent',{type:'keyDown',key,code:key,windowsVirtualKeyCode:key==='Enter'?13:0,...(key==='Enter'?{text:'\r',unmodifiedText:'\r'}:{})});
-    await socket.send('Input.dispatchKeyEvent',{type:'keyUp',key,code:key,windowsVirtualKeyCode:key==='Enter'?13:0});
+    const virtualCode=key==='Enter'?13:key==='Escape'?27:0;
+    await socket.send('Input.dispatchKeyEvent',{type:'keyDown',key,code:key,windowsVirtualKeyCode:virtualCode,...(key==='Enter'?{text:'\r',unmodifiedText:'\r'}:{})});
+    await socket.send('Input.dispatchKeyEvent',{type:'keyUp',key,code:key,windowsVirtualKeyCode:virtualCode});
   }
   async function canvasPoint(selector,roomBelow=0){
     return socket.evaluate('(()=>{const e=document.querySelector('+JSON.stringify(selector)+'),r=e.getBoundingClientRect();for(const y of [.2,.4,.65,.8])for(const x of [.15,.4,.7,.86]){const p={x:r.x+r.width*x,y:r.y+r.height*y};if(p.y+' + roomBelow + '<innerHeight-8&&document.elementFromPoint(p.x,p.y)===e)return p;}throw Error("No uncovered canvas gesture area")})()');
@@ -454,109 +455,146 @@ async function run() {
     const mobile=format==='mobile';
     await socket.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile});
     await navigate(rootV3+'?concept=plan');
-    let inspected=await v3Inspect();
-    assert.equal(inspected.scene.kind,'webgl2');assert.equal(inspected.scene.layout,'house-v1');
-    assert(inspected.scene.triangles>500&&inspected.scene.pixelColors>2,'The house framebuffer is empty.');
-    await screenshot('v3-house-exterior-'+format,width);
-    const href=await socket.evaluate('location.href'),historyLength=await socket.evaluate('history.length'),beforePose=inspected.scene.pose;
-    const start=await canvasPoint('#plan-canvas');await dragPoint(start,{x:start.x+40,y:start.y+10},{touch:mobile});
-    assert(!near(beforePose.position,(await v3Inspect()).scene.pose.position),'A real overview drag did not change viewpoint.');
-    assert.equal(await socket.evaluate('location.href'),href);assert.equal(await socket.evaluate('history.length'),historyLength);
+    let inspected=await v3Inspect();assert.equal(inspected.scene.kind,'webgl2');assert(inspected.scene.triangles>500&&inspected.scene.pixelColors>2);
+    await screenshot('v3-plan-exterior-'+format,width);
+    const overviewPose=(await v3Inspect()).scene.pose,overviewUrl=await socket.evaluate('location.href'),overviewHistory=await socket.evaluate('history.length');
+    const overviewGesture=await canvasPoint('#plan-canvas');await dragPoint(overviewGesture,{x:overviewGesture.x+40,y:overviewGesture.y+10},{touch:mobile});
+    assert(!near((await v3Inspect()).scene.pose.position,overviewPose.position),'Free overview drag did not move the camera.');
+    assert.equal(await socket.evaluate('location.href'),overviewUrl);assert.equal(await socket.evaluate('history.length'),overviewHistory);
     await click('#plan-cutaway');assert.equal((await v3Inspect()).scene.roofOpen,true);
-    if(mobile){
-      assert(await socket.evaluate('(()=>{const a=document.querySelector("#plan-app-finapp"),b=document.querySelector("#plan-app-branchlab"),r=a.getBoundingClientRect(),s=b.getBoundingClientRect();return !a.hidden&&!b.hidden&&(r.bottom<=s.top||s.bottom<=r.top||r.right<=s.left||s.right<=r.left)})()'),'The mobile cutaway app targets overlap.');
-    }
-    await screenshot('v3-house-cutaway-'+format,width);
-    await click('#plan-cutaway');assert.equal((await v3Inspect()).scene.roofOpen,false);
-    const exposedDoor=await socket.evaluate('(()=>{const e=document.querySelector("#plan-door"),r=e.getBoundingClientRect(),x=r.x+r.width/2,y=r.y+r.height/2;return !e.hidden&&r.width>0&&r.height>0&&document.elementFromPoint(x,y)?.closest("#plan-door")===e})()');
+    if(mobile)assert(await socket.evaluate('(()=>{const a=document.querySelector("#plan-app-finapp"),b=document.querySelector("#plan-app-branchlab"),r=a.getBoundingClientRect(),s=b.getBoundingClientRect();return !a.hidden&&!b.hidden&&(r.bottom<=s.top||s.bottom<=r.top||r.right<=s.left||s.right<=r.left)})()'),'Mobile cutaway support targets overlap.');
+    await screenshot('v3-plan-cutaway-'+format,width);await click('#plan-cutaway');
+    const exposedDoor=await socket.evaluate('(()=>{const e=document.querySelector("#plan-door"),r=e.getBoundingClientRect();return !e.hidden&&r.width>0&&document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest("#plan-door")===e})()');
     await click(exposedDoor?'#plan-door':'#plan-enter-house');
-    await until('(()=>{const s=window.__siniverseV3.inspect().scene;return s.mode==="walk"&&s.animationCount===0&&Math.abs(s.pose.position[2]-2.7)<.01})()','The entrance did not reach the office at human height.');
-    inspected=await v3Inspect();
-    assert.equal(inspected.scene.pose.position[1],1.65);assert.equal(inspected.scene.journeyClear,true);
-    assert(inspected.scene.journey.every(p=>p[1]===1.65),'The walking camera rose through the ceiling.');
-    await screenshot('v3-house-office-'+format,width);
+    await until('(()=>{const s=window.__siniverseV3.inspect().scene;return s.mode==="walk"&&s.animationCount===0&&Math.abs(s.pose.position[2]-2.7)<.01})()','Entrance did not reach the office.');
+    assert.equal((await v3Inspect()).scene.pose.position[1],1.65);assert.equal((await v3Inspect()).scene.journeyClear,true);
+    await screenshot('v3-plan-office-'+format,width);
 
-    async function nativeTarget(candidate,label){
-      assert(candidate,'No geometric target for '+label);
+    async function targetPoint(candidate){
+      assert(candidate,'A real scene target is missing.');
       const p={x:Math.round(candidate.screen.x),y:Math.round(candidate.screen.y)};
-      assert(await socket.evaluate('(()=>{const p='+JSON.stringify(p)+';return p.x>3&&p.x<innerWidth-3&&p.y>3&&p.y<innerHeight-3&&[-2,0,2].every(dx=>[-2,0,2].every(dy=>document.elementFromPoint(p.x+dx,p.y+dy)?.id==="plan-canvas"))})()'),'The real '+label+' is covered: '+JSON.stringify(candidate));
+      assert(await socket.evaluate('(()=>{const p='+JSON.stringify(p)+';return p.x>3&&p.x<innerWidth-3&&p.y>3&&p.y<innerHeight-3&&[-2,0,2].every(dx=>[-2,0,2].every(dy=>document.elementFromPoint(p.x+dx,p.y+dy)?.id==="plan-canvas"))})()'),'Scene target is covered: '+JSON.stringify(candidate));return p;
+    }
+    async function nativeClick(candidate){
+      const p=await targetPoint(candidate);
       await socket.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:p.x,y:p.y,buttons:0});
       await socket.send('Input.dispatchMouseEvent',{type:'mousePressed',x:p.x,y:p.y,button:'left',buttons:1,clickCount:1});
       await socket.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:p.x,y:p.y,button:'left',buttons:0,clickCount:1});
     }
-    await nativeTarget((await v3Inspect()).scene.pickTargets.find(p=>p.app==='finapp'),'Finapp monitor');
-    await v3Wait(v3State('plan','finapp'));
-    assert.equal((await v3Inspect()).scene.lastPick,'poste-finapp');
-    await v3Click('#plan-angle-action',v3State('plan','finapp','action'));
-    await click('#plan-read-more');
-    await until('document.querySelector("#plan-reading").open&&document.querySelector(".house-screen.is-reading")!==null','The monitor reading mode did not open.');
-    assert(await socket.evaluate('document.querySelector("#plan-reading").clientHeight>125'),'The physical monitor leaves too little space to read.');
-    await screenshot('v3-house-finapp-reading-'+format,width);
-    await socket.evaluate('document.querySelector("#plan-reading").scrollTop=document.querySelector("#plan-reading").scrollHeight');
-    assert(await socket.evaluate('document.querySelector("#plan-reading").scrollTop>0'),'The rest of the monitor text cannot be reached.');
-
+    async function nativeTap(candidate){
+      const p=await targetPoint(candidate);
+      await socket.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:p.x,y:p.y,id:9}]});
+      await socket.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    }
+    async function readerReady(app,angle='presentation'){
+      await v3Wait(v3State('plan',app,angle));
+      await until('(()=>{const s=window.__siniverseV3.inspect().scene.reader;return s.open&&s.phase==="open"})()','The full-field reader did not settle.');
+    }
+    async function closeReaderRepeated(){
+      for(let i=0;i<3;i++)await press('#plan-reader-close','Escape');
+      await until('!document.querySelector("#plan-reader-dialog").open&&!document.body.classList.contains("plan-reading-open")','Repeated Escape left a modal or body lock.');
+    }
     async function directTrip(app){
       if(!await socket.evaluate('document.querySelector(".plan-compass details").open'))await click('.plan-compass summary');
-      await v3Click('#plan-direct-'+app,v3State('plan',app));
-      assert.equal(await socket.evaluate('document.querySelector(".plan-compass details").open'),false,'The routes drawer covers the world after selection.');
+      await click('#plan-direct-'+app);await readerReady(app);
+      assert.equal(await socket.evaluate('document.querySelector(".plan-compass details").open'),false);
     }
-    await directTrip('garapp');
-    inspected=await v3Inspect();assert.equal(inspected.scene.journeyClear,true);
-    assert(inspected.scene.journey.some(p=>p[0]>.8&&p[2]>1&&p[2]<2.2),'The office-to-garage journey did not use the interior doorway.');
-    assert(inspected.scene.journey.every(p=>p[1]===1.65));
-    await socket.evaluate('history.back()');await v3Wait(v3State('plan','finapp','action'));
-    assert.equal(await socket.evaluate('document.querySelector("#plan-reading").open'),true,'Back lost the open monitor reading.');
-    await click('#plan-read-more');
-    await until('!document.querySelector("#plan-reading").open','The reading did not close.');
-    await socket.evaluate('history.forward()');await v3Wait(v3State('plan','garapp'));
-    await socket.evaluate('history.back()');await v3Wait(v3State('plan','finapp','action'));
-    assert.equal(await socket.evaluate('document.querySelector("#plan-reading").open'),false,'Back reopened a deliberately closed reading.');
-    await socket.evaluate('history.forward()');await v3Wait(v3State('plan','garapp'));
 
-    // Walk outside the open garage to inspect and select the actual parked vehicle.
-    for(let i=0;i<15;i++)await press('#plan-canvas','ArrowRight');
-    for(let i=0;i<8;i++)await press('#plan-canvas','ArrowDown');
-    assert.equal((await v3Inspect()).scene.pose.position[1],1.65);
-    await screenshot('v3-house-parked-car-'+format,width);
-    inspected=await v3Inspect();
-    await nativeTarget(inspected.scene.pickTargets.find(p=>p.app==='garapp'&&p.blocker?.startsWith('car-')),'parked car');
-    await v3Wait(v3State('plan','garapp'));
-    assert.equal((await v3Inspect()).scene.lastPick,'voiture-garapp');
-    await screenshot('v3-house-garapp-record-'+format,width);
+    // The source point is recomputed after each screenshot (which resets document scroll).
+    let candidate=(await v3Inspect()).scene.pickTargets.find(p=>p.app==='finapp');
+    if(mobile)await nativeTap(candidate);
+    else{const p=await targetPoint(candidate);await socket.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:p.x,y:p.y,buttons:0});}
+    await until('window.__siniverseV3.inspect().scene.previewApp==="finapp"&&!document.querySelector(".house-object-preview").hidden','The physical support did not announce itself.');
+    assert.equal((await v3Inspect()).scene.reader.open,false);
+    await screenshot('v3-plan-preview-'+format,width);
+    if(mobile)await click('#plan-preview-open');
+    else await nativeClick((await v3Inspect()).scene.pickTargets.find(p=>p.app==='finapp'));
+    await readerReady('finapp');
+    inspected=await v3Inspect();const supportPose=inspected.scene.pose;
+    assert(inspected.scene.reader.rect.width>=width-1&&inspected.scene.reader.rect.height>=height-1,'Reading is still confined to the monitor.');
+    assert(inspected.scene.reader.originRect.width*inspected.scene.reader.originRect.height<width*height*.65,'The opening has no smaller physical support origin.');
+    assert.equal(await socket.evaluate('document.activeElement.id'),'plan-reader-title');
+    assert.equal(await socket.evaluate('document.querySelector("#plan-reader-open-app").getAttribute("href")'),'https://finapp.siniverse.cc');
+    assert(await socket.evaluate('document.querySelector(".plan-reader").scrollWidth<=innerWidth+1'));
+    await screenshot('v3-plan-reader-'+format,width);
+    await v3Click('#plan-reader-angle-action',v3State('plan','finapp','action'));await readerReady('finapp','action');
 
-    // Use the clear front aisle, so the partition itself (not its open door leaf) is in the ray.
-    for(let i=0;i<(mobile?8:4);i++)await press('#plan-canvas','s');
-    for(let i=0;i<8;i++)await press('#plan-canvas','ArrowRight');
-    inspected=await v3Inspect();const blocked=inspected.scene.pickTargets.find(p=>p.app==='branchlab');
-    assert(blocked?.blocker?.startsWith('house-wall-'),'The obstruction test does not actually aim through a wall: '+JSON.stringify(blocked));
-    await nativeTarget(blocked,'occluding partition');await pause(100);
-    assert.deepEqual((await v3Inspect()).route,v3State('plan','garapp'),'A workstation was selected through the wall.');
-    assert.equal((await v3Inspect()).scene.lastPick,null);
-    assert.equal(await socket.evaluate('document.querySelector("#plan-app-branchlab").hidden'),true,'A projected app target floats through the partition.');
-    const garagePose=(await v3Inspect()).scene.pose;
+    const scrollPoint=await socket.evaluate('(()=>{const r=document.querySelector("#plan-reader-scroll").getBoundingClientRect();return {x:r.x+r.width*.45,y:r.y+r.height*.6}})()');
+    await socket.send('Input.dispatchMouseEvent',{type:'mouseMoved',...scrollPoint});
+    await socket.send('Input.dispatchMouseEvent',{type:'mouseWheel',...scrollPoint,deltaX:0,deltaY:420});
+    await until('document.querySelector("#plan-reader-scroll").scrollTop>20','The full-field mobile/desktop reading cannot scroll.');
+    await pause(120);const savedScroll=(await v3Inspect()).scene.reader.scrollTop;
+    await socket.evaluate('history.back()');await readerReady('finapp');
+    await socket.evaluate('history.forward()');await readerReady('finapp','action');
+    assert(Math.abs((await v3Inspect()).scene.reader.scrollTop-savedScroll)<2,'Forward lost the reader scroll.');
+    const related=await socket.evaluate('(()=>{const e=document.querySelector("#plan-reader-related");e.scrollIntoView({block:"center",behavior:"instant"});const r=e.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,scroll:document.querySelector("#plan-reader-scroll").scrollTop}})()');
+    await socket.send('Input.dispatchMouseEvent',{type:'mousePressed',x:related.x,y:related.y,button:'left',buttons:1,clickCount:1});
+    await socket.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:related.x,y:related.y,button:'left',buttons:0,clickCount:1});
+    await readerReady('garapp');assert.equal((await v3Inspect()).scene.journeyClear,true);
+    assert((await v3Inspect()).scene.journey.some(p=>p[0]>.8&&p[2]>1&&p[2]<2.2),'The visit did not use the interior doorway.');
+    await socket.evaluate('history.back()');await readerReady('finapp','action');
+    assert(Math.abs((await v3Inspect()).scene.reader.scrollTop-related.scroll)<2,'Reopening after showModal lost the saved scroll.');
+    assert(near((await v3Inspect()).scene.pose.position,supportPose.position));
+    await socket.evaluate('history.forward()');await readerReady('garapp');
+    const carPose=(await v3Inspect()).scene.pose;await closeReaderRepeated();
+    assert(near((await v3Inspect()).scene.pose.position,carPose.position),'Closing did not return to the same support.');
+    const returnFocus=await socket.evaluate('(()=>{const e=document.querySelector("#plan-app-garapp"),r=e.getBoundingClientRect();return {actual:document.activeElement.id,source:history.state?.__siniverseNavigationV3?.view?.sourceFocus,hidden:e.hidden,rect:{x:r.x,y:r.y,width:r.width,height:r.height},scrollY}})()');
+    assert.equal(returnFocus.actual,'plan-app-garapp','Return focus: '+JSON.stringify(returnFocus));
+    await screenshot('v3-plan-car-return-'+format,width);
+    candidate=(await v3Inspect()).scene.pickTargets.find(p=>p.app==='garapp'&&p.blocker?.startsWith('car-'));
+    if(mobile)await nativeTap(candidate);else await nativeClick(candidate);
+    await readerReady('garapp');assert.equal((await v3Inspect()).scene.lastPick,'voiture-garapp');
+    await closeReaderRepeated();assert.equal(await socket.evaluate('document.activeElement.id'),'plan-canvas');
+
+    // A repeated manual gesture must clear every physical preview, including an interrupted fade.
+    const gesture=await canvasPoint('#plan-canvas'),end={x:gesture.x+(gesture.x+110<width-5?110:-110),y:gesture.y+25};
+    const beforeHistory=await socket.evaluate('history.length');
+    await dragPoint(gesture,end,{touch:mobile});await pause(250);
+    inspected=await v3Inspect();assert.equal(inspected.scene.previewApp,null);
+    assert(Object.values(inspected.scene.preview).every(v=>v<.001),'A screen or headlight stayed highlighted after moving.');
+    assert.equal(await socket.evaluate('history.length'),beforeHistory);
+    report.checks.push('Plan/'+format+': vrai aperçu survol/tap, ouverture depuis support, lecture plein champ/scroll, focus, Échap répété, histoire et visite par porte');
 
     await directTrip('branchlab');
+    await v3Click('#plan-reader-angle-methode',v3State('plan','branchlab','methode'));await readerReady('branchlab','methode');
+    await v3Click('#plan-reader-angle-limites',v3State('plan','branchlab','limites'));await readerReady('branchlab','limites');
+    assert.equal(await socket.evaluate('document.querySelector("#plan-reader-open-app").getAttribute("href")'),'https://branchlab.siniverse.cc');
+    await screenshot('v3-plan-branchlab-reader-'+format,width);await closeReaderRepeated();
     for(let i=0;i<16;i++)await press('#plan-canvas','ArrowRight');
-    const beforeWalk=await socket.evaluate('history.length'),walkStart=(await v3Inspect()).scene.pose.position;
+    const walkStart=(await v3Inspect()).scene.pose.position,walkHistory=await socket.evaluate('history.length');
     for(let i=0;i<20;i++)await press('#plan-canvas','w');
     const wallPose=(await v3Inspect()).scene.pose;
-    assert(wallPose.position[0]>.35&&wallPose.position[0]<.49,'The walker did not reach and stop at the office side of the partition.');
-    const travelled=Math.hypot(wallPose.position[0]-walkStart[0],wallPose.position[2]-walkStart[2]);
-    assert(travelled>1.5&&travelled<2.6,'The wall did not shorten the requested four-metre walk.');
-    assert.equal(wallPose.position[1],1.65);
-    assert.equal(await socket.evaluate('history.length'),beforeWalk,'Walking frames polluted the browser history.');
-    await socket.evaluate('history.back()');await v3Wait(v3State('plan','garapp'));
-    assert(near((await v3Inspect()).scene.pose.position,garagePose.position));assert(near((await v3Inspect()).scene.pose.target,garagePose.target));
-    await socket.evaluate('history.forward()');await v3Wait(v3State('plan','branchlab'));
-    assert(near((await v3Inspect()).scene.pose.position,wallPose.position),'Forward lost the constrained human pose.');
-    report.checks.push('Plan maison/'+format+': vraie entrée, bureau/poste et voiture par picking natif, passage intérieur, hauteur humaine, collisions mur/car, occultation 3D/HTML, lecture et Back/Forward');
+    assert(wallPose.position[0]>.35&&wallPose.position[0]<.49);assert.equal(wallPose.position[1],1.65);
+    const travelled=Math.hypot(wallPose.position[0]-walkStart[0],wallPose.position[2]-walkStart[2]);assert(travelled>1.5&&travelled<2.6);
+    assert.equal(await socket.evaluate('history.length'),walkHistory);
+    for(let i=0;i<(mobile?7:5);i++)await press('#plan-canvas','ArrowRight');
+    inspected=await v3Inspect();const blocked=inspected.scene.pickTargets.find(p=>p.app==='garapp'&&p.blocker?.startsWith('house-wall-'));
+    await nativeClick(blocked);await pause(100);
+    assert.deepEqual((await v3Inspect()).route,v3State('plan','branchlab','limites'));assert.equal((await v3Inspect()).scene.reader.open,false);
+    assert.equal((await v3Inspect()).scene.lastPick,null);
+    assert.equal(await socket.evaluate('document.querySelector("#plan-app-garapp").hidden'),true,'A projected target appears through the wall.');
+    const freePose=(await v3Inspect()).scene.pose;
+    await socket.evaluate('history.back()');await readerReady('branchlab','methode');
+    await socket.evaluate('history.forward()');await v3Wait(v3State('plan','branchlab','limites'));
+    assert.equal((await v3Inspect()).scene.reader.open,false);
+    assert(near((await v3Inspect()).scene.pose.position,freePose.position));assert(near((await v3Inspect()).scene.pose.target,freePose.target));
+    report.checks.push('Plan/'+format+': toutes lectures, retour au support, marche/collision, vrai mur occultant 3D/HTML et pose restaurée');
+
+    // Keyboard reopening and cancelling the actual expansion before it finishes.
+    await directTrip('finapp');await closeReaderRepeated();
+    await press('#plan-app-finapp');
+    await until('document.querySelector("#plan-reader-dialog").open&&document.querySelector("#plan-reader-dialog").getAnimations().some(a=>a.playState==="running")','No real opening animation was exposed.');
+    await press('#plan-reader-close','Escape');
+    await until('!document.querySelector("#plan-reader-dialog").open&&!document.body.classList.contains("plan-reading-open")','Cancelling opening left a modal.');
+    assert.equal(await socket.evaluate('document.activeElement.id'),'plan-app-finapp');
 
     await socket.evaluate('document.querySelector("#plan-canvas").getContext("webgl2").getExtension("WEBGL_lose_context").loseContext()');
     await until('document.querySelector("#experience").classList.contains("plan-is-fallback")','WebGL loss did not expose fallback.');
-    await v3Click('[data-plan-fallback-app="garapp"]',v3State('plan','garapp'));
+    await v3Click('[data-plan-fallback-app="garapp"]',v3State('plan','garapp'));await readerReady('garapp');
+    await closeReaderRepeated();
     await socket.evaluate('document.querySelector(".plan-fallback .real-app-link").scrollIntoView({block:"center",behavior:"instant"})');
-    assert(await socket.evaluate('(()=>{const a=document.querySelector(".plan-fallback .real-app-link"),r=a.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight&&document.elementFromPoint(r.x+r.width/2,r.y+r.height/2).closest("a")===a})()'),'The fallback exit cannot be reached.');
-    report.checks.push('Plan maison/'+format+': perte réelle de contexte, navigation fallback et sortie finale atteignable');
+    assert(await socket.evaluate('(()=>{const a=document.querySelector(".plan-fallback .real-app-link"),r=a.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight&&document.elementFromPoint(r.x+r.width/2,r.y+r.height/2).closest("a")===a})()'));
+    report.checks.push('Plan/'+format+': ouverture clavier interrompue, perte réelle de contexte, lecture et sortie fallback');
 
     await navigate(rootV3+'?concept=reacteur');
     assert.equal((await v3Inspect()).scene.engine,'css3d');

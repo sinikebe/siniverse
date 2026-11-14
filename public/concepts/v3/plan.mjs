@@ -87,7 +87,7 @@ export function mountPlan(host,initialState,api){
     }
     previewPanel.hidden=!app||!show||pendingOpen||reader?.isOpen();
     if(!previewPanel.hidden)placePreview();
-    if(same){if(app)house.setPreview?.(app,1,phase);world.requestRender();return;}
+    if(same){for(const id of Object.keys(api.apps))house.setPreview?.(id,id===app?1:0,phase);world.requestRender();return;}
     void world.animate(api.reducedMotion?0:180,t=>{if(token!==previewRevision||destroyed)return;for(const id of Object.keys(api.apps)){const from=amounts[id]||0;house.setPreview?.(id,from+((id===app?1:0)-from)*t,phase);}});
   }
   function sourceRect(app){
