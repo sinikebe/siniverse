@@ -469,9 +469,15 @@ async function run() {
       if(await socket.evaluate('(()=>{const p='+JSON.stringify(point)+';return p.z<1&&p.x>0&&p.x<innerWidth&&p.y>0&&p.y<innerHeight&&document.elementFromPoint(p.x,p.y)?.id==="plan-canvas"})()')){native=point;break;}
     }
     assert(native,'No actual portion of the vehicle is exposed for native picking: '+JSON.stringify(vehiclePoints));
+    report.nativePickBefore=await socket.evaluate('(()=>{const c=document.querySelector("#plan-canvas"),r=c.getBoundingClientRect(),p='+JSON.stringify(native)+';return {point:p,hit:document.elementFromPoint(p.x,p.y)?.outerHTML.slice(0,180),rect:{x:r.x,y:r.y,width:r.width,height:r.height},scroll:[scrollX,scrollY],active:document.activeElement.id,ready:document.documentElement.dataset.v3Ready,hidden:document.hidden,inspect:window.__siniverseV3.inspect()}})()');
+    console.log('NATIVE_PICK_BEFORE '+JSON.stringify(report.nativePickBefore));
     await socket.send('Input.dispatchMouseEvent',{type:'mousePressed',x:native.x,y:native.y,button:'left',clickCount:1});
     await socket.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:native.x,y:native.y,button:'left',clickCount:1});
-    await v3Wait(v3State('plan','garapp'));
+    try{await v3Wait(v3State('plan','garapp'));}
+    catch(error){
+      report.nativePickAfter=await socket.evaluate('(()=>{const c=document.querySelector("#plan-canvas"),r=c?.getBoundingClientRect();return {rect:r?{x:r.x,y:r.y,width:r.width,height:r.height}:null,scroll:[scrollX,scrollY],active:document.activeElement.id,ready:document.documentElement.dataset.v3Ready,renderedState:document.documentElement.dataset.v3State,hidden:document.hidden,error:document.querySelector("#experience").dataset.sceneError,inspect:window.__siniverseV3.inspect()}})()');
+      console.log('NATIVE_PICK_AFTER '+JSON.stringify(report.nativePickAfter));throw error;
+    }
     await socket.evaluate('history.back()');await v3Wait(v3State('plan'));
     assert(near((await v3Inspect()).scene.pose.position,free.position),'Back lost the free camera pose.');
     await socket.evaluate('history.forward()');await v3Wait(v3State('plan','garapp'));

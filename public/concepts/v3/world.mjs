@@ -95,6 +95,16 @@ export function createWorld(host,{reducedMotion=false,onContextLost=()=>{}}={}){
     }
     return null;
   }
+  function probe(clientX,clientY){
+    const r=canvas.getBoundingClientRect();
+    pointer.set((clientX-r.left)/r.width*2-1,-(clientY-r.top)/r.height*2+1);
+    raycaster.setFromCamera(pointer,camera);
+    return {client:[clientX,clientY],rect:{x:r.x,y:r.y,width:r.width,height:r.height},scroll:[scrollX,scrollY],ndc:pointer.toArray(),
+      cameraAspect:camera.aspect,intersections:raycaster.intersectObjects(picks.map(item=>item.mesh),true).slice(0,5).map(hit=>{
+        const index=picks.findIndex(p=>p.mesh===hit.object||p.mesh.children.includes(hit.object)||p.mesh===hit.object.parent);
+        return {index,rootType:picks[index]?.mesh.type,objectType:hit.object.type,geometry:hit.object.geometry?.type,distance:hit.distance,point:hit.point.toArray()};
+      })};
+  }
   const resize=()=>{const rect=host.getBoundingClientRect();renderer.setSize(Math.max(1,rect.width),Math.max(1,rect.height),false);camera.aspect=rect.width/Math.max(1,rect.height);camera.fov=rect.width<760?62:43;camera.updateProjectionMatrix();request();};
   const observer=new ResizeObserver(resize);observer.observe(host);
   const visibility=()=>{if(document.hidden){cancelAnimationFrame(frameId);frameId=0;}else request();};
@@ -102,6 +112,7 @@ export function createWorld(host,{reducedMotion=false,onContextLost=()=>{}}={}){
   canvas.addEventListener('webglcontextlost',contextLost);
   document.addEventListener('visibilitychange',visibility);resize();
   return {THREE,scene,camera,canvas,renderer,mesh,box,line,material,label,requestRender:request,animate,getPose,setPose,flyTo,cancelFlight,
+    probe,
     addPick(mesh,action){picks.push({mesh,action});},
     cleanup(fn){cleanups.push(fn);},
     project(point){const p=point.clone().project(camera),r=canvas.getBoundingClientRect();return {x:r.left+(p.x*.5+.5)*r.width,y:r.top+(-p.y*.5+.5)*r.height,z:p.z};},
