@@ -474,6 +474,11 @@ async function run() {
       const point={x:Math.round(projected.x),y:Math.round(projected.y),z:projected.z};
       if(await socket.evaluate('(()=>{const p='+JSON.stringify(point)+';return p.z<1&&p.x>2&&p.x<innerWidth-2&&p.y>2&&p.y<innerHeight-2&&[-2,0,2].every(dx=>[-2,0,2].every(dy=>document.elementFromPoint(p.x+dx,p.y+dy)?.id==="plan-canvas"))})()')){native=point;break;}
     }
+    if(!native){
+      const visibility=await socket.evaluate('(()=>{const points='+JSON.stringify(vehiclePoints)+',rect=e=>{const r=e?.getBoundingClientRect();return r?{x:r.x,y:r.y,width:r.width,height:r.height}:null;};return {points:points.map(p=>({point:p,hit:document.elementFromPoint(Math.round(p.x),Math.round(p.y))?.outerHTML.slice(0,280)})),station:rect(document.querySelector("#plan-app-garapp").closest(".world-station")),reading:rect(document.querySelector(".world-reading")),canvas:rect(document.querySelector("#plan-canvas")),pose:window.__siniverseV3.inspect().scene.pose}})()');
+      report.vehicleVisibility={format,...visibility};console.log('PLAN_VEHICLE_VISIBILITY '+JSON.stringify(report.vehicleVisibility));
+      await screenshot('v3-plan-vehicle-occlusion-'+format,width);
+    }
     assert(native,'No actual portion of the vehicle is exposed for native picking: '+JSON.stringify(vehiclePoints));
     report.nativePickBefore=await socket.evaluate('(()=>{const c=document.querySelector("#plan-canvas"),r=c.getBoundingClientRect(),p='+JSON.stringify(native)+';return {point:p,hit:document.elementFromPoint(p.x,p.y)?.outerHTML.slice(0,180),rect:{x:r.x,y:r.y,width:r.width,height:r.height},scroll:[scrollX,scrollY],pointerEvents:window.__qaPointerEvents,active:document.activeElement.id,ready:document.documentElement.dataset.v3Ready,hidden:document.hidden,inspect:window.__siniverseV3.inspect()}})()');
     console.log('NATIVE_PICK_BEFORE '+JSON.stringify(report.nativePickBefore));
