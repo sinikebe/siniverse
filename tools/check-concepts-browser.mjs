@@ -468,7 +468,8 @@ async function run() {
     }
     await screenshot('v3-house-cutaway-'+format,width);
     await click('#plan-cutaway');assert.equal((await v3Inspect()).scene.roofOpen,false);
-    await click('#plan-door');
+    const exposedDoor=await socket.evaluate('(()=>{const e=document.querySelector("#plan-door"),r=e.getBoundingClientRect(),x=r.x+r.width/2,y=r.y+r.height/2;return !e.hidden&&r.width>0&&r.height>0&&document.elementFromPoint(x,y)?.closest("#plan-door")===e})()');
+    await click(exposedDoor?'#plan-door':'#plan-enter-house');
     await until('(()=>{const s=window.__siniverseV3.inspect().scene;return s.mode==="walk"&&s.animationCount===0&&Math.abs(s.pose.position[2]-2.7)<.01})()','The entrance did not reach the office at human height.');
     inspected=await v3Inspect();
     assert.equal(inspected.scene.pose.position[1],1.65);assert.equal(inspected.scene.journeyClear,true);
