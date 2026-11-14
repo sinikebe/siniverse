@@ -536,11 +536,13 @@ async function run() {
 
     await directTrip('branchlab');
     for(let i=0;i<16;i++)await press('#plan-canvas','ArrowRight');
-    const beforeWalk=await socket.evaluate('history.length');
+    const beforeWalk=await socket.evaluate('history.length'),walkStart=(await v3Inspect()).scene.pose.position;
     for(let i=0;i<20;i++)await press('#plan-canvas','w');
     const wallPose=(await v3Inspect()).scene.pose;
-    assert(wallPose.position[0]<.49,'The walker crossed the partition.');
-    assert.equal(wallPose.position[1],1.65);assert((await v3Inspect()).scene.blockedMoves>0);
+    assert(wallPose.position[0]>.35&&wallPose.position[0]<.49,'The walker did not reach and stop at the office side of the partition.');
+    const travelled=Math.hypot(wallPose.position[0]-walkStart[0],wallPose.position[2]-walkStart[2]);
+    assert(travelled>1.5&&travelled<2.6,'The wall did not shorten the requested four-metre walk.');
+    assert.equal(wallPose.position[1],1.65);
     assert.equal(await socket.evaluate('history.length'),beforeWalk,'Walking frames polluted the browser history.');
     await socket.evaluate('history.back()');await v3Wait(v3State('plan','garapp'));
     assert(near((await v3Inspect()).scene.pose.position,garagePose.position));assert(near((await v3Inspect()).scene.pose.target,garagePose.target));
