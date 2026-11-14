@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { dirname, extname, basename, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -133,10 +133,6 @@ async function run() {
     '/usr/bin/chromium', '/usr/bin/chromium-browser'].filter(Boolean);
   const binary = candidates.find(path => existsSync(path));
   if (!binary) throw new Error('Chrome système absent : aucun navigateur ni package ne sera téléchargé.');
-  const version = spawnSync(binary, ['--version'], { encoding: 'utf8', timeout: 5000 });
-  assert.equal(version.status, 0, 'System Chrome did not respond.');
-  report.browser = version.stdout.trim();
-  console.log('Using installed browser: ' + report.browser);
   assert(existsSync(resolve(dist, 'concepts/index.html')), 'Build dist before browser review.');
   server = createServer((request, response) => {
     try {
@@ -158,15 +154,23 @@ async function run() {
   chrome = spawn(binary, ['--headless=new', '--no-sandbox', '--disable-dev-shm-usage', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader',
     '--disable-background-networking', '--no-first-run', '--no-default-browser-check', '--hide-scrollbars',
     '--remote-debugging-port=0', '--user-data-dir=' + profile, 'about:blank'], { stdio: ['ignore', 'ignore', 'pipe'] });
-  let diagnostics = '';
+  let diagnostics = '',launchError=null;
+  chrome.on('error',error=>{launchError=error.message;});
   chrome.stderr.on('data', chunk => { diagnostics = (diagnostics + String(chunk)).slice(-6000); });
+  const launchDetails=()=>({binary,exitCode:chrome.exitCode,signal:chrome.signalCode,error:launchError,stderr:diagnostics});
   const portFile = resolve(profile, 'DevToolsActivePort');
-  for (let index = 0; index < 120 && !existsSync(portFile); index++) {
-    if (chrome.exitCode !== null) throw new Error('System Chrome exited: ' + diagnostics);
+  for (let index = 0; index < 200 && !existsSync(portFile); index++) {
+    if (launchError || chrome.exitCode !== null || chrome.signalCode !== null) {
+      report.launch=launchDetails();throw new Error('Installed Chrome failed to start: '+JSON.stringify(report.launch));
+    }
     await pause(100);
   }
-  assert(existsSync(portFile), 'Chrome debugging endpoint did not start.');
+  if(!existsSync(portFile)){report.launch=launchDetails();throw new Error('Chrome debugging endpoint did not start: '+JSON.stringify(report.launch));}
   const port = readFileSync(portFile, 'utf8').split(/\r?\n/)[0];
+  const version=await (await fetch('http://127.0.0.1:'+port+'/json/version',{signal:AbortSignal.timeout(8000)})).json();
+  assert.equal(typeof version.Browser,'string','The running browser did not expose its version.');
+  report.browser=version.Browser;report.launch={binary,probe:'DevTools /json/version'};
+  console.log('Using installed running browser: '+report.browser);
   const target = await (await fetch('http://127.0.0.1:' + port + '/json/new?about:blank', { method: 'PUT' })).json();
   const connection = new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((resolve, reject) => {
