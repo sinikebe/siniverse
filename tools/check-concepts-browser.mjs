@@ -490,9 +490,10 @@ async function run() {
       await v3Wait(v3State('plan',app,angle));
       await until('(()=>{const s=window.__siniverseV3.inspect().scene.reader;return s.open&&s.phase==="open"})()','The full-field reader did not settle.');
     }
-    async function closeReaderRepeated(){
+    async function closeReaderRepeated(focusId=null){
       for(let i=0;i<3;i++)await press('#plan-reader-close','Escape');
       await until('!document.querySelector("#plan-reader-dialog").open&&!document.body.classList.contains("plan-reading-open")','Repeated Escape left a modal or body lock.');
+      if(focusId)await until('(()=>{const e=document.getElementById('+JSON.stringify(focusId)+'),r=e?.getBoundingClientRect();return e===document.activeElement&&!e.closest("[hidden]")&&r.width>0&&r.height>0})()','Closing did not restore visible focus to '+focusId+'.');
     }
     async function directTrip(app){
       if(!await socket.evaluate('document.querySelector(".plan-compass details").open'))await click('.plan-compass summary');
@@ -536,7 +537,7 @@ async function run() {
     assert(Math.abs((await v3Inspect()).scene.reader.scrollTop-related.scroll)<2,'Reopening after showModal lost the saved scroll.');
     assert(near((await v3Inspect()).scene.pose.position,supportPose.position));
     await socket.evaluate('history.forward()');await readerReady('garapp');
-    const carPose=(await v3Inspect()).scene.pose;await closeReaderRepeated();
+    const carPose=(await v3Inspect()).scene.pose;await closeReaderRepeated('plan-app-garapp');
     assert(near((await v3Inspect()).scene.pose.position,carPose.position),'Closing did not return to the same support.');
     const returnFocus=await socket.evaluate('(()=>{const e=document.querySelector("#plan-app-garapp"),r=e.getBoundingClientRect();return {actual:document.activeElement.id,source:history.state?.__siniverseNavigationV3?.view?.sourceFocus,hidden:e.hidden,rect:{x:r.x,y:r.y,width:r.width,height:r.height},scrollY}})()');
     assert.equal(returnFocus.actual,'plan-app-garapp','Return focus: '+JSON.stringify(returnFocus));
@@ -544,7 +545,7 @@ async function run() {
     candidate=(await v3Inspect()).scene.pickTargets.find(p=>p.app==='garapp'&&p.blocker?.startsWith('car-'));
     if(mobile)await nativeTap(candidate);else await nativeClick(candidate);
     await readerReady('garapp');assert.equal((await v3Inspect()).scene.lastPick,'voiture-garapp');
-    await closeReaderRepeated();assert.equal(await socket.evaluate('document.activeElement.id'),'plan-canvas');
+    await closeReaderRepeated('plan-canvas');assert.equal(await socket.evaluate('document.activeElement.id'),'plan-canvas');
 
     // A repeated manual gesture must clear every physical preview, including an interrupted fade.
     const gesture=await canvasPoint('#plan-canvas'),end={x:gesture.x+(gesture.x+110<width-5?110:-110),y:gesture.y+25};
@@ -585,7 +586,7 @@ async function run() {
     await press('#plan-app-finapp');
     await until('document.querySelector("#plan-reader-dialog").open&&document.querySelector("#plan-reader-dialog").getAnimations().some(a=>a.playState==="running")','No real opening animation was exposed.');
     await press('#plan-reader-close','Escape');
-    await until('!document.querySelector("#plan-reader-dialog").open&&!document.body.classList.contains("plan-reading-open")','Cancelling opening left a modal.');
+    await until('!document.querySelector("#plan-reader-dialog").open&&!document.body.classList.contains("plan-reading-open")&&document.activeElement.id==="plan-app-finapp"','Cancelling opening did not restore the Finapp focus.');
     assert.equal(await socket.evaluate('document.activeElement.id'),'plan-app-finapp');
 
     await socket.evaluate('document.querySelector("#plan-canvas").getContext("webgl2").getExtension("WEBGL_lose_context").loseContext()');
