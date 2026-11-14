@@ -456,6 +456,7 @@ async function run() {
     await navigate(rootV3+'?concept=plan');
     let inspected=await v3Inspect();
     assert.equal(inspected.scene.kind,'webgl2');
+    await socket.evaluate('window.__qaPointerEvents=[];for(const type of ["pointerdown","pointermove","pointerup","pointercancel"]){document.addEventListener(type,e=>{const q=window.__qaPointerEvents;q.push({type:e.type,id:e.pointerId,button:e.button,buttons:e.buttons,x:e.clientX,y:e.clientY,target:e.target.id,classes:e.target.getAttribute?.("class")});if(q.length>36)q.shift();},true)}');
     assert(inspected.scene.triangles>500&&inspected.scene.pixelColors>2,'The world framebuffer is empty.');
     await screenshot('v3-plan-arrival-'+format,width);
     assert(await socket.evaluate('[...document.querySelectorAll(".world-station")].filter(e=>!e.hidden).length===3'),'The arrival hides a destination.');
@@ -469,19 +470,21 @@ async function run() {
     assert.equal(await socket.evaluate('history.length'),historyLength,'Camera frames polluted browser history.');
     const vehiclePoints=(await v3Inspect()).scene.pickTargets.filter(p=>p.app==='garapp').map(p=>p.screen);
     let native;
-    for(const point of vehiclePoints){
-      if(await socket.evaluate('(()=>{const p='+JSON.stringify(point)+';return p.z<1&&p.x>0&&p.x<innerWidth&&p.y>0&&p.y<innerHeight&&document.elementFromPoint(p.x,p.y)?.id==="plan-canvas"})()')){native=point;break;}
+    for(const projected of vehiclePoints){
+      const point={x:Math.round(projected.x),y:Math.round(projected.y),z:projected.z};
+      if(await socket.evaluate('(()=>{const p='+JSON.stringify(point)+';return p.z<1&&p.x>2&&p.x<innerWidth-2&&p.y>2&&p.y<innerHeight-2&&[-2,0,2].every(dx=>[-2,0,2].every(dy=>document.elementFromPoint(p.x+dx,p.y+dy)?.id==="plan-canvas"))})()')){native=point;break;}
     }
     assert(native,'No actual portion of the vehicle is exposed for native picking: '+JSON.stringify(vehiclePoints));
-    report.nativePickBefore=await socket.evaluate('(()=>{const c=document.querySelector("#plan-canvas"),r=c.getBoundingClientRect(),p='+JSON.stringify(native)+';return {point:p,hit:document.elementFromPoint(p.x,p.y)?.outerHTML.slice(0,180),rect:{x:r.x,y:r.y,width:r.width,height:r.height},scroll:[scrollX,scrollY],active:document.activeElement.id,ready:document.documentElement.dataset.v3Ready,hidden:document.hidden,inspect:window.__siniverseV3.inspect()}})()');
+    report.nativePickBefore=await socket.evaluate('(()=>{const c=document.querySelector("#plan-canvas"),r=c.getBoundingClientRect(),p='+JSON.stringify(native)+';return {point:p,hit:document.elementFromPoint(p.x,p.y)?.outerHTML.slice(0,180),rect:{x:r.x,y:r.y,width:r.width,height:r.height},scroll:[scrollX,scrollY],pointerEvents:window.__qaPointerEvents,active:document.activeElement.id,ready:document.documentElement.dataset.v3Ready,hidden:document.hidden,inspect:window.__siniverseV3.inspect()}})()');
     console.log('NATIVE_PICK_BEFORE '+JSON.stringify(report.nativePickBefore));
     await socket.send('Input.dispatchMouseEvent',{type:'mousePressed',x:native.x,y:native.y,button:'left',clickCount:1});
     await socket.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:native.x,y:native.y,button:'left',clickCount:1});
     try{await v3Wait(v3State('plan','garapp'));}
     catch(error){
       report.nativePickAfter=await socket.evaluate('(()=>{const c=document.querySelector("#plan-canvas"),r=c?.getBoundingClientRect();return {rect:r?{x:r.x,y:r.y,width:r.width,height:r.height}:null,scroll:[scrollX,scrollY],active:document.activeElement.id,ready:document.documentElement.dataset.v3Ready,renderedState:document.documentElement.dataset.v3State,hidden:document.hidden,error:document.querySelector("#experience").dataset.sceneError,inspect:window.__siniverseV3.inspect()}})()');
-      console.log('NATIVE_PICK_AFTER '+JSON.stringify(report.nativePickAfter));throw error;
+      report.nativePickAfter.exceptions=[...report.exceptions];console.log('NATIVE_PICK_AFTER '+JSON.stringify(report.nativePickAfter));throw error;
     }
+    console.log('NATIVE_PICK_SUCCESS '+JSON.stringify({route:(await v3Inspect()).route,lastPick:(await v3Inspect()).scene.lastPick,pointerTrace:(await v3Inspect()).scene.pointerTrace}));
     await socket.evaluate('history.back()');await v3Wait(v3State('plan'));
     assert(near((await v3Inspect()).scene.pose.position,free.position),'Back lost the free camera pose.');
     await socket.evaluate('history.forward()');await v3Wait(v3State('plan','garapp'));
