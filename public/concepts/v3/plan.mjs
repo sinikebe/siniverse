@@ -2,6 +2,7 @@ import { createWorld, THREE } from './world.mjs';
 import { orbitPose, panPose, zoomPose, dragTracker } from './camera-math.mjs';
 const CENTRES={finapp:[-15,0,-8],garapp:[13,0,-7],branchlab:[0,0,15]};
 const INITIAL={position:[34,30,42],target:[0,0,1]};
+const MOBILE_INITIAL={position:[47,44,5],target:[0,0,3]};
 const VIEWS={
   finapp:{presentation:{position:[-1,13,8],target:[-14,1,-8]},action:{position:[-13,9,-24],target:[-15,1,-15]},methode:{position:[-28,8,2],target:[-20,.7,-4]},limites:{position:[-4,8,-14],target:[-12,1,-10]}},
   garapp:{presentation:{position:[27,12,8],target:[13,1,-7]},action:{position:[18,8,-20],target:[12,1,-10]},methode:{position:[28,8,-10],target:[17,.7,-6]},limites:{position:[4,8,-18],target:[10,.6,-8]}},
@@ -24,7 +25,7 @@ export function mountPlan(host,initialState,api){
   host.append(hud);
   const instruction=document.createElement('p');instruction.className='plan-instruction';instruction.textContent='Glisser : regarder · Maj + glisser : se déplacer · W A S D / flèches : avancer et tourner';
   host.append(instruction);
-  let state=initialState,world,failed=false,destroyed=false,dragging=false,saved=false;
+  let state=initialState,world,failed=false,destroyed=false,dragging=false,saved=false,updateGeneration=0;
   const cleanups=[],angleLabels=[],signals=[],moving=new Set();
   const navigate=(destination,focusId)=>api.navigate(destination,{focusId});
   for(const id of Object.keys(api.apps)){
@@ -139,10 +140,13 @@ export function mountPlan(host,initialState,api){
   function drawReading(){
     const c=api.content(state.app,state.angle);
     reading.classList.toggle('is-global',state.app==='ensemble');reading.className='world-reading world-label '+(state.app==='ensemble'?'is-global':'reading-'+state.app);
+    const compact=viewport.clientWidth<760,global=state.app==='ensemble';
+    const body=c.body.map(p=>'<p>'+api.escape(p)+'</p>').join('');
+    const facts=c.facts?.length?'<dl>'+c.facts.map(f=>'<div><dt>'+api.escape(f.label)+'</dt><dd>'+api.escape(f.value)+'</dd></div>').join('')+'</dl>':'';
     reading.innerHTML='<p class="scene-kicker">'+api.escape(c.eyebrow)+'</p><h1 id="view-title" tabindex="-1">'+api.escape(c.title)+'</h1>'
-      +c.body.map(p=>'<p>'+api.escape(p)+'</p>').join('')
-      +(c.facts?.length?'<dl>'+c.facts.map(f=>'<div><dt>'+api.escape(f.label)+'</dt><dd>'+api.escape(f.value)+'</dd></div>').join('')+'</dl>':'')
-      +(api.apps[state.app]?'<a class="real-app-link" id="plan-open" href="'+api.apps[state.app].url+'">Ouvrir '+api.apps[state.app].name+' ↗</a>':'<p class="world-fiction">Maquette fictive · les applications restent des sites distincts.</p>');
+      +(global?body+'<p class="world-fiction">Maquette fictive · les applications restent des sites distincts.</p>'
+        :'<details class="plan-reading" id="plan-reading"'+(compact?'':' open')+'><summary id="plan-read-more">Lire l’explication</summary>'+body+facts+'</details><a class="real-app-link" id="plan-open" href="'+api.apps[state.app].url+'">Ouvrir '+api.apps[state.app].name+' ↗</a>');
+    reading.querySelector('details')?.addEventListener('toggle',()=>{world.requestRender();api.saveView();});
     for(const item of angleLabels){
       item.handle.setEnabled(state.app!=='ensemble');
       if(state.app!=='ensemble')item.handle.setPosition(POINTS[state.app][item.angle]);
@@ -190,21 +194,27 @@ export function mountPlan(host,initialState,api){
     world.canvas.addEventListener(name,fn,options);cleanups.push(()=>world.canvas.removeEventListener(name,fn,options));
   }
   async function update(next,{snapshot=null,instant=false}={}){
-    state=next;if(failed){fallback();return;}drawReading();
+    const token=++updateGeneration;state=next;if(failed){fallback();return;}drawReading();
     const global=state.app==='ensemble';
-    const view=global?INITIAL:VIEWS[state.app][state.angle];
+    const portrait=viewport.clientWidth<760;
+    const base=global?(portrait?MOBILE_INITIAL:INITIAL):VIEWS[state.app][state.angle];
+    const centre=global?null:[CENTRES[state.app][0],.8,CENTRES[state.app][2]];
+    const direction=base.position.map((n,i)=>n-base.target[i]),length=Math.hypot(...direction);
+    const view=!global&&portrait?{target:centre,position:centre.map((n,i)=>n+direction[i]/length*39)}:base;
     // The reading stand travels with its region; it is never an unrelated page below the world.
     const point=global?[-10,5,10]:POINTS[state.app][state.angle];
-    readingLabel.setPosition([point[0]+(global?0:5),point[1]+3.5,point[2]+3]);
+    readingLabel.setPosition(portrait&&!global?[centre[0],18,centre[2]]:[point[0]+(global?0:5),point[1]+3.5,point[2]+3]);
+    if(typeof snapshot?.readingOpen==='boolean'&&reading.querySelector('details'))reading.querySelector('details').open=snapshot.readingOpen;
     if(snapshot?.pose){world.setPose(snapshot.pose);}
     else await world.flyTo(view,{instant});
+    if(token!==updateGeneration)return;
     if(state.app==='branchlab'&&state.angle==='action'){
       await world.animate(850,t=>{signal.position.copy(cableCurve.getPoint(t));});
     }
     world.requestRender();
   }
   drawReading();world.setPose(INITIAL);world.requestRender();
-  return {update,snapshot:()=>({pose:world.getPose()}),inspect:()=>({...world.inspect(),app:state.app,angle:state.angle,dragging,historySaved:saved,
-      stations:Object.keys(CENTRES),signalPosition:signal.position.toArray()}),
+  return {update,snapshot:()=>({pose:world.getPose(),readingOpen:Boolean(reading.querySelector('details')?.open)}),inspect:()=>({...world.inspect(),app:state.app,angle:state.angle,dragging,historySaved:saved,
+      stations:Object.keys(CENTRES),pickTargets:[{app:'garapp',angle:'presentation',screen:world.project(new THREE.Box3().setFromObject(car).getCenter(new THREE.Vector3()))},{app:'branchlab',angle:'methode',screen:world.project(source.position)},{app:'finapp',angle:'action',screen:world.project(new THREE.Vector3(...roadA[2]))}],signalPosition:signal.position.toArray()}),
     destroy(){destroyed=true;for(const fn of cleanups)fn();world.destroy();host.replaceChildren();host.classList.remove('plan-host');}};
 }

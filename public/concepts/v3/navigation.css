@@ -71,3 +71,16 @@ button{color:inherit}button:focus-visible,a:focus-visible,summary:focus-visible{
 @media(max-width:760px){.plan-host{height:calc(100svh - 48px);min-height:560px}.world-reading{max-height:calc(100svh - 250px);overflow-y:auto}}.world-reading{z-index:160!important}.plan-controls{z-index:300}
 
 .plan-host.plan-is-fallback{height:auto;min-height:calc(100svh - 48px);overflow:visible}.plan-is-fallback .plan-viewport{position:relative;overflow:visible}.plan-is-fallback .plan-fallback{padding-bottom:45px}
+
+.world-reading.is-global{left:22px!important;top:20px!important;transform:none!important;width:300px;padding:12px 15px;background:#f2efe3cf;border-left-width:2px;backdrop-filter:none}
+.world-reading.is-global::before,.world-reading.is-global>.scene-kicker{display:none}
+.world-reading.is-global h1{font-size:25px;line-height:1.03;margin:0 0 9px}
+.world-reading.is-global>p:not(.scene-kicker){font-size:11px;line-height:1.55;margin:5px 0}
+.world-reading.is-global .world-fiction{font-size:8px!important;line-height:1.5!important}
+@media(max-width:760px){.world-reading.is-global{left:15px!important;top:15px!important;width:calc(100% - 30px);max-width:350px;padding:10px 13px}.world-reading.is-global h1{font-size:22px;max-width:290px}.world-reading.is-global>p:not(.scene-kicker){max-width:300px;font-size:10px}}
+
+.plan-reading{border-top:1px solid #17292326;margin:15px 0 5px;padding-top:5px}
+.plan-reading>summary{font:10px ui-monospace,monospace;min-height:35px;display:flex;align-items:center;cursor:pointer}
+.plan-reading>summary::after{content:'+';font-size:16px;margin-left:auto}.plan-reading[open]>summary::after{content:'−'}
+.plan-reading>p{font-size:12px;line-height:1.7;margin:9px 0}
+@media(max-width:760px){.world-reading:not(.is-global){width:232px;padding:12px 15px 9px}.world-reading:not(.is-global) h1{font-size:21px;margin:8px 0 10px}.plan-reading{margin-top:10px}.plan-reading>summary{font-size:9px;min-height:36px}.plan-reading>p{font-size:11px;line-height:1.65}.world-reading:not(.is-global) .real-app-link{min-height:35px;font-size:11px}}

@@ -42,6 +42,7 @@ export function createWorld(host,{reducedMotion=false,onContextLost=()=>{}}={}){
       if(!inFront||item.disabled)continue;
       const width=item.element.offsetWidth,height=item.element.offsetHeight;
       let x=(projected.x*.5+.5)*rect.width,y=(-projected.y*.5+.5)*rect.height;
+      if(!item.clamp&&(x-width/2<5||x+width/2>rect.width-5||y-height/2<5||y+height/2>rect.height-8)){item.element.hidden=true;continue;}
       if(item.clamp){x=Math.max(width/2+10,Math.min(rect.width-width/2-10,x));y=Math.max(height/2+12,Math.min(rect.height-height/2-item.bottom,y));}
       item.element.style.transform='translate('+Math.round(x)+'px,'+Math.round(y)+'px) translate(-50%,-50%)';
       item.element.style.zIndex=String(100-Math.round(projected.z*40));
@@ -103,7 +104,9 @@ export function createWorld(host,{reducedMotion=false,onContextLost=()=>{}}={}){
   return {THREE,scene,camera,canvas,renderer,mesh,box,line,material,label,requestRender:request,animate,getPose,setPose,flyTo,cancelFlight,
     addPick(mesh,action){picks.push({mesh,action});},
     cleanup(fn){cleanups.push(fn);},
+    project(point){const p=point.clone().project(camera),r=canvas.getBoundingClientRect();return {x:r.left+(p.x*.5+.5)*r.width,y:r.top+(-p.y*.5+.5)*r.height,z:p.z};},
     inspect(){
+      if(lost)return {kind:'contextlost',pose:getPose(),triangles:0,pixelColors:0};
       render();
       const sample=new Uint8Array(4),colors=new Set();
       for(let y=1;y<5;y++)for(let x=1;x<6;x++){gl.readPixels(Math.floor(canvas.width*x/6),Math.floor(canvas.height*y/5),1,1,gl.RGBA,gl.UNSIGNED_BYTE,sample);colors.add([...sample].join(','));}

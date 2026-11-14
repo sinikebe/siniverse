@@ -62,6 +62,7 @@ async function render(record,{instant=false}={}){
     document.documentElement.dataset.v3State=JSON.stringify(state);
     document.documentElement.dataset.v3Concept=state.concept;
     document.documentElement.dataset.v3Ready='true';host.setAttribute('aria-busy','false');
+    writeHistory('replaceState');
   }
 }
 async function navigate(destination,{focusId='view-title'}={}){
@@ -90,4 +91,3 @@ document.querySelector('#resume-rotation').addEventListener('click',resume);
 window.addEventListener('pagehide',()=>writeHistory('replaceState'));
 Object.defineProperty(window,'__siniverseV3',{value:Object.freeze({inspect:()=>({route:{...state},scene:mounted?.inspect?.()??{kind:'unavailable'}})})});
 await render(restored?previous:null,{instant:true});
-writeHistory('replaceState',restored?previous:snapshot());

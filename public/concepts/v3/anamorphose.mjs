@@ -18,10 +18,11 @@ export function mountAnamorphose(host, initialState, api) {
     <div class="an-world-dom">
       <article class="an-inscription">
         <p class="an-eyebrow"></p>
-        <h1 id="view-title" tabindex="-1"></h1>
+        <h1 class="an-semantic-title" id="view-title" tabindex="-1"></h1>
         <div class="an-reading" tabindex="0" aria-label="Lire la présentation complète">
           <div class="an-body"></div><dl class="an-facts"></dl>
         </div>
+        <button class="an-reading-more" id="an-read-more" type="button">Lire la suite ↓</button>
         <a class="an-open" id="an-open-app"></a>
       </article>
     </div>
@@ -36,6 +37,9 @@ export function mountAnamorphose(host, initialState, api) {
   const body = root.querySelector('.an-body');
   const facts = root.querySelector('.an-facts');
   const open = root.querySelector('.an-open');
+  const more = root.querySelector('.an-reading-more');
+  const eyebrow = root.querySelector('.an-eyebrow');
+  const inscriptions = [eyebrow, reading, more, open];
   const status = root.querySelector('[role="status"]');
   const fallbackNote = root.querySelector('.an-fallback-note');
   const scene = new THREE.Scene();
@@ -62,6 +66,8 @@ export function mountAnamorphose(host, initialState, api) {
   let layout;
   let pose = { yaw: 0.2, pitch: 0.08, radius: 23, lookY: -0.5 };
   let pending = [];
+  let inscriptionMetrics = [];
+  let inscriptionHeight = 0;
 
   function normalize(value) {
     const app = APPS.includes(value?.app) ? value.app : 'ensemble';
@@ -147,6 +153,7 @@ export function mountAnamorphose(host, initialState, api) {
     });
     listen(renderer.domElement, 'webglcontextrestored', () => {
       fallback = null;
+      renderer.domElement.style.display = '';
       root.classList.remove('an-is-fallback');
       fallbackNote.hidden = true;
       resize();
@@ -172,17 +179,33 @@ export function mountAnamorphose(host, initialState, api) {
     root.classList.remove('an-is-dragging');
     root.classList.add('an-is-fallback');
     fallbackNote.hidden = false;
+    if (renderer) renderer.domElement.style.display = 'none';
+    more.hidden = true;
     surfaces.forEach(({ el }) => { el.style.transform = ''; });
     controls.forEach(({ el }) => { el.style.transform = ''; });
     settle();
   }
+
+  function updateReadingCue() {
+    const overflow = reading.scrollHeight - reading.clientHeight;
+    const hasMore = overflow > 2;
+    more.hidden = !hasMore;
+    more.textContent = reading.scrollTop < overflow - 8 ? 'Lire la suite ↓' : 'Revenir au début ↑';
+  }
+  listen(reading, 'scroll', updateReadingCue, { passive: true });
+  listen(more, 'click', () => {
+    const atEnd = reading.scrollTop >= reading.scrollHeight - reading.clientHeight - 8;
+    reading.scrollTo({ top: atEnd ? 0 : reading.scrollTop + reading.clientHeight * 0.8,
+      behavior: api.reducedMotion ? 'instant' : 'smooth' });
+    reading.focus({ preventScroll: true });
+  });
 
   function fillContent() {
     const content = api.content(state.app, state.angle);
     root.style.setProperty('--an-accent', accent());
     root.dataset.app = state.app;
     root.dataset.angle = state.angle;
-    root.querySelector('.an-eyebrow').textContent = content.eyebrow || '';
+    eyebrow.textContent = (api.apps[state.app]?.name || 'Siniverse') + ' · ' + (content.eyebrow || '');
     title.textContent = content.title;
     body.replaceChildren(...(content.body || []).map((text) => {
       const p = document.createElement('p'); p.textContent = text; return p;
@@ -238,14 +261,24 @@ export function mountAnamorphose(host, initialState, api) {
   }
   function drawWord(text, color) {
     const canvas = document.createElement('canvas');
-    canvas.width = 2048; canvas.height = 256;
+    canvas.width = 2048; canvas.height = 512;
     const ctx = canvas.getContext('2d');
-    let size = 166;
+    const words = text.split(' ');
+    let lines = [text];
+    if (text.length > 26) {
+      let best = 1;
+      for (let i = 1; i < words.length; i++) {
+        if (Math.abs(words.slice(0, i).join(' ').length - words.slice(i).join(' ').length) <
+          Math.abs(words.slice(0, best).join(' ').length - words.slice(best).join(' ').length)) best = i;
+      }
+      lines = [words.slice(0, best).join(' '), words.slice(best).join(' ')];
+    }
+    let size = 184;
     ctx.font = '900 ' + size + 'px "Arial Black", Arial, sans-serif';
-    size *= Math.min(1, 1950 / ctx.measureText(text).width);
+    size *= Math.min(1, 1950 / Math.max(...lines.map((line) => ctx.measureText(line).width)));
     ctx.font = '900 ' + size + 'px "Arial Black", Arial, sans-serif';
     ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(text, 1024, 132);
+    lines.forEach((line, index) => ctx.fillText(line, 1024, 266 + (index - (lines.length - 1) / 2) * size * 1.04));
     const texture = keep(new THREE.CanvasTexture(canvas));
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.anisotropy = Math.min(4, renderer?.capabilities.getMaxAnisotropy() || 1);
@@ -257,7 +290,6 @@ export function mountAnamorphose(host, initialState, api) {
     const graphite = mat('#19312b');
     const edge = mat('#263f36', { metalness: 0.35 });
     const brass = mat(BRASS, { roughness: 0.48, metalness: 0.55 });
-    const tint = mat(accent(), { roughness: 0.43, metalness: 0.2 });
     const boardH = layout.top - layout.bottom;
     box(layout.boardW, boardH, 0.32, graphite, v3(0, layout.centerY, -3.1));
     box(layout.boardW + 0.16, 0.12, 0.5, edge, v3(0, layout.top, -2.9));
@@ -268,13 +300,21 @@ export function mountAnamorphose(host, initialState, api) {
         box(i % 3 === 0 ? 0.24 : 0.11, 0.022, 0.08, brass,
           v3(side * (layout.boardW / 2 - 0.25), layout.bottom + 0.45 + i * (boardH - 0.9) / 13, -2.59));
     });
-    // The reading area is an inset in this same relief, not a separate rotating page.
-    box(layout.panelW + 0.24, layout.panelH + 0.18, 0.14, mat('#1e362e'),
-      v3(layout.panelX, layout.panelY, 1.2));
-    box(0.035, layout.panelH - 0.2, 0.17, tint,
-      v3(layout.panelX - layout.panelW / 2 - 0.16, layout.panelY, 1.23));
-    surfaces.push({ el: article, center: v3(layout.panelX, layout.panelY, 1.29),
-      width: layout.panelW, quaternion: new THREE.Quaternion() });
+    // Each real HTML inscription is calibrated on its own depth in the same optical apparatus.
+    // At the guided eye all the words share one reading plane; a free view separates the layers.
+    const eye = cameraPoint(guide());
+    const depths = [0.83, 1.06, 0.9, 0.97];
+    const unit = layout.panelW / article.offsetWidth;
+    inscriptionMetrics.forEach((metric, index) => {
+      const { el, x, y, w, h } = metric;
+      if (el.hidden) return;
+      const flat = v3(layout.panelX + (x + w / 2 - article.offsetWidth / 2) * unit,
+        layout.panelTop - (y + h / 2) * unit, 0.8);
+      const depth = depths[index];
+      surfaces.push({ el, center: eye.clone().lerp(flat, depth), width: w * unit * depth,
+        quaternion: new THREE.Quaternion(), idealCenter: flat, depth });
+      el.style.position = 'absolute'; el.style.left = '0'; el.style.top = '0'; el.style.width = w + 'px';
+    });
 
     (state.app === 'ensemble' ? ['presentation'] : ANGLES).forEach((angle, groupIndex) => {
       const design = guide(angle);
@@ -285,21 +325,20 @@ export function mountAnamorphose(host, initialState, api) {
       const right = v3(1, 0, 0).applyQuaternion(designCamera.quaternion);
       const up = v3(0, 1, 0).applyQuaternion(designCamera.quaternion);
       const normal = v3(0, 0, 1).applyQuaternion(designCamera.quaternion);
-      const center = v3(layout.panelX, 2.8, 0.4);
-      const word = (state.app === 'ensemble' ? 'SINIVERSE' : api.apps[state.app].name.toUpperCase()) +
-        ' / ' + NAMES[angle].toUpperCase();
+      const center = v3(layout.panelX, layout.mobile ? 2.0 : 2.8, 0.4);
+      const word = api.content(state.app, angle).title;
       const texture = drawWord(word, IVORY);
       const ink = keep(new THREE.MeshBasicMaterial({ map: texture, transparent: true, alphaTest: 0.08,
         side: THREE.DoubleSide, depthWrite: false }));
       const stock = mat('#365047', { transparent: true, depthWrite: false });
       const field = { angle, ink, stock, fragments: [], design, designCamera, center };
-      const wordW = layout.panelW * 1.15;
-      const wordH = layout.mobile ? 0.88 : 1.12;
+      const wordW = layout.panelW * (layout.mobile ? 1.04 : 1.1);
+      const wordH = layout.mobile ? 1.7 : 2.2;
       const count = 14;
       for (let i = 0; i < count; i++) {
         const x = (i + 0.5) / count * wordW - wordW / 2;
         const flat = center.clone().addScaledVector(right, x);
-        const depth = 0.77 + ((i * 7 + groupIndex * 3) % 13) / 12 * 0.36;
+        const depth = 0.79 + ((i * 7 + groupIndex * 3) % 13) / 12 * 0.28;
         const point = eye.clone().lerp(flat, depth);
         const stripW = wordW / count;
         const geometry = new THREE.PlaneGeometry(stripW * depth, wordH * depth);
@@ -308,7 +347,7 @@ export function mountAnamorphose(host, initialState, api) {
         const plane = mesh(geometry, ink, point);
         plane.quaternion.copy(designCamera.quaternion);
         plane.castShadow = false;
-        const backing = box(stripW * depth * 0.94, wordH * depth, 0.085, stock,
+        const backing = box(stripW * depth * 0.13, wordH * depth * 1.15, 0.085, stock,
           point.clone().addScaledVector(normal, -0.06));
         backing.quaternion.copy(designCamera.quaternion);
         backing.castShadow = false;
@@ -325,17 +364,20 @@ export function mountAnamorphose(host, initialState, api) {
       const i = control.kind === 'app' ? APPS.indexOf(control.value) : ANGLES.indexOf(control.value);
       let p;
       if (control.kind === 'app') p = v3((i - 1) * (layout.mobile ? 2.55 : 6.1), layout.appY, 1.5);
-      else if (control.kind === 'overview') p = layout.mobile ? v3(0, 6.0, 0.8) : v3(7.7, 4.55, 0.8);
-      else p = layout.mobile ? v3((i % 2 ? 1 : -1) * 1.75, 5.0 - Math.floor(i / 2) * 1.05, 1.25) :
+      else if (control.kind === 'overview') p = layout.mobile ? v3(0, 6.8, 0.8) : v3(7.7, 4.55, 0.8);
+      else p = layout.mobile ? v3((i % 2 ? 1 : -1) * 1.75, 5.15 - Math.floor(i / 2) * 1.7, 1.25) :
         v3(-7.9, 3.25 - i * 1.88, 1.25);
       control.center.copy(p);
       control.width = control.kind === 'app' ? (layout.mobile ? 2.35 : 4.6) :
-        control.kind === 'overview' ? (layout.mobile ? 2.7 : 3.7) : (layout.mobile ? 3.1 : 3.9);
+        control.kind === 'overview' ? (layout.mobile ? 3.1 : 3.7) : (layout.mobile ? 3.1 : 3.9);
       control.el.style.width = (control.kind === 'app' && layout.mobile ? 110 :
         control.kind === 'angle' && layout.mobile ? 152 : 210) + 'px';
       const color = control.kind === 'app' ? api.apps[control.value].color : accent();
       const strip = mat(color, { metalness: 0.3, roughness: 0.42 });
-      box(control.width, 0.075, 0.17, strip, p.clone().add(v3(0, -0.42, -0.08)));
+      const target = p.clone().add(v3(-control.width / 2 - 0.14, 0, 0));
+      mesh(new THREE.RingGeometry(0.105, 0.145, 24), keep(new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide })), target);
+      box(0.39, 0.018, 0.04, strip, target.clone());
+      box(0.018, 0.39, 0.04, strip, target.clone());
       const hit = mesh(new THREE.SphereGeometry(control.width * 0.43, 8, 6),
         keep(new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false })), p);
       hit.scale.y = 0.42;
@@ -360,22 +402,42 @@ export function mountAnamorphose(host, initialState, api) {
     width = Math.max(280, rect.width); height = Math.max(560, rect.height);
     const mobile = width < 700;
     root.classList.toggle('an-mobile', mobile);
-    root.style.setProperty('--an-reading-height', Math.max(170, Math.min(285, height * 0.285)) + 'px');
+    const readingHeight = mobile ? Math.max(190, Math.min(275, height * 0.3)) :
+      Math.max(260, Math.min(360, height * 0.38));
+    root.style.setProperty('--an-reading-height', readingHeight + 'px');
     const cssW = Math.min(mobile ? 340 : 620, width * (mobile ? 0.84 : 0.54));
     article.style.width = cssW + 'px';
+    article.style.height = '';
+    inscriptions.forEach((el) => {
+      for (const key of ['position', 'left', 'top', 'width', 'transform', 'visibility']) el.style[key] = '';
+    });
+    updateReadingCue();
+    inscriptionHeight = article.offsetHeight;
+    inscriptionMetrics = inscriptions.map((el) => ({ el, x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight }));
+    article.style.height = inscriptionHeight + 'px';
     const panelW = mobile ? 6.4 : 11.4;
-    const panelH = article.offsetHeight * panelW / cssW;
-    const panelY = 1.08 - panelH / 2;
-    const appY = 1.08 - panelH - 1.05;
-    const top = 6.6;
+    // The apparatus keeps the same dimensions between overview and applications.
+    // In overview the camera can therefore genuinely recede from the same object.
+    const reservedHeight = Math.max(inscriptionHeight, readingHeight + (mobile ? 185 : 170));
+    const panelH = reservedHeight * panelW / cssW;
+    const panelY = 0.65 - panelH / 2;
+    const appY = 0.65 - panelH - 1.05;
+    const top = mobile ? 7.55 : 6.6;
     const bottom = appY - 0.82;
     const boardW = mobile ? 8.2 : 21;
     const tan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
     const fitRadius = Math.max((top - bottom) / (2 * tan * 0.88), boardW / (2 * tan * (width / height) * 0.87));
     const old = layout;
-    if (!force && old && old.width === width && old.height === height && Math.abs(old.panelH - panelH) < 0.01) return;
+    if (!force && old && old.width === width && old.height === height && Math.abs(old.panelH - panelH) < 0.01) {
+      surfaces.forEach(({ el, width: worldWidth, depth }) => {
+        const metric = inscriptionMetrics.find((entry) => entry.el === el);
+        el.style.position = 'absolute'; el.style.left = '0'; el.style.top = '0';
+        el.style.width = (metric?.w || worldWidth / (panelW / cssW) / depth) + 'px';
+      });
+      render(); return;
+    }
     const ratio = old ? pose.radius / old.fitRadius : 1;
-    layout = { width, height, mobile, panelW, panelH, panelX: mobile ? 0 : 0.55, panelY, appY, top, bottom,
+    layout = { width, height, mobile, panelW, panelH, panelTop: 0.65, panelX: mobile ? 0 : 0.55, panelY, appY, top, bottom,
       boardW, centerY: (top + bottom) / 2, fitRadius };
     camera.aspect = width / height; camera.updateProjectionMatrix();
     renderer?.setSize(width, height, false);
@@ -495,6 +557,8 @@ export function mountAnamorphose(host, initialState, api) {
       dragging.moved = Math.max(dragging.moved, Math.hypot(dx, dy));
       pose.yaw = clamp(dragging.pose.yaw - dx / width * 0.9, -0.5, 0.55);
       pose.pitch = clamp(dragging.pose.pitch + dy / height * 0.42, -0.2, 0.3);
+      pose.radius = Math.min(layout.fitRadius * 1.35, Math.max(dragging.pose.radius,
+        guide().radius * (1 + Math.min(1, Math.hypot(dx / width, dy / height)) * 0.2)));
       free = true; render();
     });
     const release = (event) => {
@@ -559,6 +623,11 @@ export function mountAnamorphose(host, initialState, api) {
       squared += (actual.x - ideal.x) ** 2 + (actual.y - ideal.y) ** 2; samples++;
     }));
     const all = selected?.fragments.flatMap((f) => f.actualCorners) || [];
+    let inscriptionSquared = 0;
+    surfaces.forEach((surface) => {
+      const actual = project(surface.center); const ideal = project(surface.idealCenter);
+      inscriptionSquared += (actual.x - ideal.x) ** 2 + (actual.y - ideal.y) ** 2;
+    });
     const gl = renderer?.getContext();
     return {
       concept: 'anamorphose', engine: 'three', revision: THREE.REVISION, state: { ...state },
@@ -568,6 +637,10 @@ export function mountAnamorphose(host, initialState, api) {
       alignment: { samples, rmsPixels: samples ? Math.sqrt(squared / samples) : null,
         depthSpan: all.length ? Math.max(...all.map((p) => p.z)) - Math.min(...all.map((p) => p.z)) : 0,
         fragmentCount: selected?.fragments.length || 0 },
+      inscriptions: { count: surfaces.length,
+        rmsPixels: surfaces.length ? Math.sqrt(inscriptionSquared / surfaces.length) : null,
+        layers: surfaces.map((surface) => ({ name: surface.el.className, depth: surface.depth,
+          world: surface.center.toArray() })) },
       controls: controls.filter((c) => !c.el.hidden).map((c) => ({ id: c.el.id, world: c.center.toArray(), projected: project(c.center) })),
       size: { width, height },
     };
