@@ -34,7 +34,7 @@ export function createPlanReader(host,api,{onNavigate,onClose,onViewChange=()=>{
     scroll.innerHTML='<div class="plan-reader-content"><nav class="plan-reader-angles" aria-label="Angles de lecture">'+Object.entries(TITLES).map(([id,label])=>'<a id="plan-reader-angle-'+id+'" data-reader-angle="'+id+'" href="'+api.href({app,angle:id})+'" aria-current="'+(id===angle?'page':'false')+'">'+label+'</a>').join('')+'</nav><article><header class="plan-reader-heading"><p class="reader-eyebrow">'+api.escape(name)+' / '+api.escape(content.eyebrow)+'</p><h1 id="plan-reader-title" tabindex="-1">'+api.escape(content.title)+'</h1></header><div class="plan-reader-layout"><div class="plan-reader-prose">'+content.body.map(p=>'<p>'+api.escape(p)+'</p>').join('')+(content.facts?.length?'<dl class="plan-reader-facts">'+content.facts.map(f=>'<div><dt>'+api.escape(f.label)+'</dt><dd>'+api.escape(f.value)+'</dd></div>').join('')+'</dl>':'')+(content.related?'<button type="button" id="plan-reader-related">'+api.escape(content.related.label)+' <span aria-hidden="true">→</span></button>':'')+'</div><figure class="plan-reader-figure">'+illustration(app)+'</figure></div><footer class="plan-reader-foot"><a class="reader-launch" href="'+api.apps[app].url+'">Continuer dans '+api.escape(name)+' <span aria-hidden="true">↗</span></a><span>Le portail vous ramène à votre point de départ.</span></footer></article></div>';
     for(const link of scroll.querySelectorAll('[data-reader-angle]'))link.addEventListener('click',event=>{if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();onNavigate({app,angle:link.dataset.readerAngle});});
     scroll.querySelector('#plan-reader-related')?.addEventListener('click',()=>onNavigate({app:content.related.app,angle:'presentation'}));
-    scroll.scrollTop=scrollTop;
+    scroll.scrollTo({top:scrollTop,left:0,behavior:'instant'});
     if(focus)dialog.querySelector('#plan-reader-title').focus({preventScroll:true});
   }
   const cleanRect=rect=>{
@@ -57,7 +57,7 @@ export function createPlanReader(host,api,{onNavigate,onClose,onViewChange=()=>{
     if(!alreadyOpen){dialog.style.visibility='hidden';if(typeof dialog.showModal==='function')dialog.showModal();else{dialog.setAttribute('open','');dialog.setAttribute('aria-modal','true');}}
     await nextFrame();if(destroyed||token!==generation)return;
     sourceRect=cleanRect(origin());dialog.style.visibility='';
-    scroll.scrollTop=scrollTop;
+    scroll.scrollTo({top:scrollTop,left:0,behavior:'instant'});
     dialog.querySelector('#plan-reader-title').focus({preventScroll:true});
     await transition([from||{transform:transform(sourceRect),opacity:.25,borderRadius:'18px'},{transform:'none',opacity:1,borderRadius:'0px'}],instant?0:620);
     if(dialog.open&&!destroyed&&token===generation)phase='open';

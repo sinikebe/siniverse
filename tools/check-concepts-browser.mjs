@@ -526,6 +526,7 @@ async function run() {
     await until('document.querySelector("#plan-reader-scroll").scrollTop>20','The full-field mobile/desktop reading cannot scroll.');
     await pause(120);const savedScroll=(await v3Inspect()).scene.reader.scrollTop;
     await socket.evaluate('history.back()');await readerReady('finapp');
+    assert.equal(await socket.evaluate('document.querySelector("#plan-reader-scroll").scrollTop'),0,'Back did not restore the initial reading position immediately.');
     await socket.evaluate('history.forward()');await readerReady('finapp','action');
     assert(Math.abs((await v3Inspect()).scene.reader.scrollTop-savedScroll)<2,'Forward lost the reader scroll.');
     const related=await socket.evaluate('(()=>{const e=document.querySelector("#plan-reader-related");e.scrollIntoView({block:"center",behavior:"instant"});const r=e.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,scroll:document.querySelector("#plan-reader-scroll").scrollTop}})()');
