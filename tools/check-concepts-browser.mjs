@@ -428,8 +428,8 @@ async function run() {
     await socket.send('Input.dispatchKeyEvent',{type:'keyDown',key,code:key,windowsVirtualKeyCode:key==='Enter'?13:0,...(key==='Enter'?{text:'\r',unmodifiedText:'\r'}:{})});
     await socket.send('Input.dispatchKeyEvent',{type:'keyUp',key,code:key,windowsVirtualKeyCode:key==='Enter'?13:0});
   }
-  async function canvasPoint(selector){
-    return socket.evaluate('(()=>{const e=document.querySelector('+JSON.stringify(selector)+'),r=e.getBoundingClientRect();for(const y of [.2,.4,.65,.8])for(const x of [.15,.4,.7,.86]){const p={x:r.x+r.width*x,y:r.y+r.height*y};if(document.elementFromPoint(p.x,p.y)===e)return p;}throw Error("No uncovered canvas gesture area")})()');
+  async function canvasPoint(selector,roomBelow=0){
+    return socket.evaluate('(()=>{const e=document.querySelector('+JSON.stringify(selector)+'),r=e.getBoundingClientRect();for(const y of [.2,.4,.65,.8])for(const x of [.15,.4,.7,.86]){const p={x:r.x+r.width*x,y:r.y+r.height*y};if(p.y+' + roomBelow + '<innerHeight-8&&document.elementFromPoint(p.x,p.y)===e)return p;}throw Error("No uncovered canvas gesture area")})()');
   }
   async function dragPoint(start,end,{touch=false}={}){
     if(touch){
@@ -463,8 +463,12 @@ async function run() {
     assert(!near(beforePose.position,free.position),'A real drag did not move the camera.');
     assert.equal(await socket.evaluate('location.href'),href,'A camera drag navigated to an app.');
     assert.equal(await socket.evaluate('history.length'),historyLength,'Camera frames polluted browser history.');
-    const native=(await v3Inspect()).scene.pickTargets.find(p=>p.app==='garapp').screen;
-    assert(await socket.evaluate('document.elementFromPoint('+native.x+','+native.y+')?.id==="plan-canvas"'),'The physical vehicle is occluded by a label.');
+    const vehiclePoints=(await v3Inspect()).scene.pickTargets.filter(p=>p.app==='garapp').map(p=>p.screen);
+    let native;
+    for(const point of vehiclePoints){
+      if(await socket.evaluate('(()=>{const p='+JSON.stringify(point)+';return p.z<1&&p.x>0&&p.x<innerWidth&&p.y>0&&p.y<innerHeight&&document.elementFromPoint(p.x,p.y)?.id==="plan-canvas"})()')){native=point;break;}
+    }
+    assert(native,'No actual portion of the vehicle is exposed for native picking: '+JSON.stringify(vehiclePoints));
     await socket.send('Input.dispatchMouseEvent',{type:'mousePressed',x:native.x,y:native.y,button:'left',clickCount:1});
     await socket.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:native.x,y:native.y,button:'left',clickCount:1});
     await v3Wait(v3State('plan','garapp'));
@@ -479,13 +483,20 @@ async function run() {
     await click('#plan-read-more');
     await until('document.querySelector("#plan-reading").open==='+JSON.stringify(!panel),'The spatial reading did not toggle.');
     await screenshot('v3-plan-read-'+format,width);
-    await v3Click('#plan-angle-methode',v3State('plan','finapp','methode'));
+    async function leaveByDirectTrip(){
+      if(!await socket.evaluate('document.querySelector(".plan-compass details").open'))await click('.plan-compass summary');
+      await v3Click('#plan-direct-garapp',v3State('plan','garapp'));
+    }
+    await leaveByDirectTrip();
     await socket.evaluate('history.back()');await v3Wait(v3State('plan','finapp','action'));
     assert.equal(await socket.evaluate('document.querySelector("#plan-reading").open'),!panel,'Back lost the reading state.');
-    await socket.evaluate('history.forward()');await v3Wait(v3State('plan','finapp','methode'));
+    await socket.evaluate('history.back()');await v3Wait(v3State('plan','finapp'));
+    await socket.evaluate('history.forward()');await v3Wait(v3State('plan','finapp','action'));
+    assert.equal(await socket.evaluate('document.querySelector("#plan-reading").open'),!panel,'Forward lost the reading state.');
+    await socket.evaluate('history.forward()');await v3Wait(v3State('plan','garapp'));
     await socket.evaluate('history.back()');await v3Wait(v3State('plan','finapp','action'));
     await click('#plan-read-more');
-    await v3Click('#plan-angle-limites',v3State('plan','finapp','limites'));
+    await leaveByDirectTrip();
     await socket.evaluate('history.back()');await v3Wait(v3State('plan','finapp','action'));
     assert.equal(await socket.evaluate('document.querySelector("#plan-reading").open'),panel,'A deliberately closed reading reopened.');
     await navigate(rootV3+'?concept=plan&app=branchlab&angle=methode');
@@ -533,8 +544,8 @@ async function run() {
     assert.equal(aligned.webgl2,true);assert(aligned.alignment.fragmentCount>=12&&aligned.alignment.depthSpan>1);
     assert(aligned.alignment.rmsPixels<.5,'The guided optical alignment is not legible.');
     await screenshot('v3-anamorphose-aligned-'+format,width);
-    const freePoint=await canvasPoint('#an-relief');
-    await dragPoint(freePoint,{x:freePoint.x+60,y:freePoint.y+12});
+    const freePoint=await canvasPoint('#an-relief',360);
+    await dragPoint(freePoint,{x:freePoint.x,y:freePoint.y+360});
     const opticalFree=(await v3Inspect()).scene;
     assert(opticalFree.alignment.rmsPixels>3,'The relief does not change under a real viewpoint movement.');
     assert.equal(opticalFree.free,true);

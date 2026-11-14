@@ -215,6 +215,6 @@ export function mountPlan(host,initialState,api){
   }
   drawReading();world.setPose(INITIAL);world.requestRender();
   return {update,snapshot:()=>({pose:world.getPose(),readingOpen:Boolean(reading.querySelector('details')?.open)}),inspect:()=>({...world.inspect(),app:state.app,angle:state.angle,dragging,historySaved:saved,
-      stations:Object.keys(CENTRES),pickTargets:[{app:'garapp',angle:'presentation',screen:world.project(new THREE.Box3().setFromObject(car).getCenter(new THREE.Vector3()))},{app:'branchlab',angle:'methode',screen:world.project(source.position)},{app:'finapp',angle:'action',screen:world.project(new THREE.Vector3(...roadA[2]))}],signalPosition:signal.position.toArray()}),
+      stations:Object.keys(CENTRES),pickTargets:[...[[0,1.1,0],[0,.45,1.18],[0,.45,-1.18],[2.3,.6,0],[-2.3,.6,0]].map(point=>({app:'garapp',angle:'presentation',screen:world.project(car.localToWorld(new THREE.Vector3(...point)))})),{app:'branchlab',angle:'methode',screen:world.project(source.position)},{app:'finapp',angle:'action',screen:world.project(new THREE.Vector3(...roadA[2]))}],signalPosition:signal.position.toArray()}),
     destroy(){destroyed=true;for(const fn of cleanups)fn();world.destroy();host.replaceChildren();host.classList.remove('plan-host');}};
 }
