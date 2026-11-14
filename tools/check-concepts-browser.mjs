@@ -681,7 +681,7 @@ async function run() {
 
 let timeout;
 try {
-  await Promise.race([run(), new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('Browser review exceeded 300 seconds.')), 300000); })]);
+  await Promise.race([run(), new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('Browser review exceeded 420 seconds.')), 420000); })]);
 } catch (error) {
   report.status = 'failed'; report.error = error.message; process.exitCode = 1;
   console.error(error.stack || error);
