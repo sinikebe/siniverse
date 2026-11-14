@@ -41,7 +41,9 @@ jobs:
         with:
           node-version-file: .node-version
           package-manager-cache: false
-      - name: Build review assets with Node core only
+      - name: Install locked local rendering tools without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Build review assets and local Three modules
         run: node tools/build.mjs
       - name: Exercise the installed system Chrome without downloads
         run: node tools/check-concepts-browser.mjs

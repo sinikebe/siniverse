@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { dirname, extname, basename, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -82,7 +82,10 @@ async function ready(url) {
   for (let index = 0; index < 80; index++) {
     try {
       const v2 = new URL(url).pathname.startsWith('/concepts/v2/');
-      const expression = v2
+      const v3 = new URL(url).pathname.startsWith('/concepts/v3/');
+      const expression = v3
+        ? 'location.origin === '+JSON.stringify(new URL(url).origin)+' && location.pathname === "/concepts/v3/explore.html" && document.documentElement.dataset.v3Ready === "true"'
+        : v2
         ? 'location.origin === ' + JSON.stringify(new URL(url).origin) + ' && location.pathname === "/concepts/v2/explore.html" && document.documentElement.dataset.navigationReady === "true"'
         : 'location.href === ' + JSON.stringify(url) + ' && document.documentElement.dataset.conceptsReady === "true"';
       if (await socket.evaluate(expression)) return;
@@ -109,7 +112,7 @@ async function click(selector) {
   await socket.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: point.x, y: point.y, button: 'left', clickCount: 1 });
   await pause(80);
   for(let attempt=0;attempt<100;attempt++) {
-    if(await socket.evaluate('!location.pathname.startsWith("/concepts/v2/") || document.documentElement.dataset.navigationReady === "true"')) return point;
+    if(await socket.evaluate('location.pathname.startsWith("/concepts/v3/") ? document.documentElement.dataset.v3Ready === "true" : !location.pathname.startsWith("/concepts/v2/") || document.documentElement.dataset.navigationReady === "true"')) return point;
     await pause(50);
   }
   throw new Error('The spatial navigation did not settle after clicking '+selector);
@@ -130,10 +133,6 @@ async function run() {
     '/usr/bin/chromium', '/usr/bin/chromium-browser'].filter(Boolean);
   const binary = candidates.find(path => existsSync(path));
   if (!binary) throw new Error('Chrome système absent : aucun navigateur ni package ne sera téléchargé.');
-  const version = spawnSync(binary, ['--version'], { encoding: 'utf8', timeout: 5000 });
-  assert.equal(version.status, 0, 'System Chrome did not respond.');
-  report.browser = version.stdout.trim();
-  console.log('Using installed browser: ' + report.browser);
   assert(existsSync(resolve(dist, 'concepts/index.html')), 'Build dist before browser review.');
   server = createServer((request, response) => {
     try {
@@ -152,18 +151,26 @@ async function run() {
   assert.match(study.headers.get('content-security-policy'), /script-src 'self'/);
   report.checks.push('CSP locale : accueil sans scripts, maquettes self uniquement');
   profile = mkdtempSync(resolve(tmpdir(), 'siniverse-browser-'));
-  chrome = spawn(binary, ['--headless=new', '--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu',
+  chrome = spawn(binary, ['--headless=new', '--no-sandbox', '--disable-dev-shm-usage', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader',
     '--disable-background-networking', '--no-first-run', '--no-default-browser-check', '--hide-scrollbars',
     '--remote-debugging-port=0', '--user-data-dir=' + profile, 'about:blank'], { stdio: ['ignore', 'ignore', 'pipe'] });
-  let diagnostics = '';
+  let diagnostics = '',launchError=null;
+  chrome.on('error',error=>{launchError=error.message;});
   chrome.stderr.on('data', chunk => { diagnostics = (diagnostics + String(chunk)).slice(-6000); });
+  const launchDetails=()=>({binary,exitCode:chrome.exitCode,signal:chrome.signalCode,error:launchError,stderr:diagnostics});
   const portFile = resolve(profile, 'DevToolsActivePort');
-  for (let index = 0; index < 120 && !existsSync(portFile); index++) {
-    if (chrome.exitCode !== null) throw new Error('System Chrome exited: ' + diagnostics);
+  for (let index = 0; index < 200 && !existsSync(portFile); index++) {
+    if (launchError || chrome.exitCode !== null || chrome.signalCode !== null) {
+      report.launch=launchDetails();throw new Error('Installed Chrome failed to start: '+JSON.stringify(report.launch));
+    }
     await pause(100);
   }
-  assert(existsSync(portFile), 'Chrome debugging endpoint did not start.');
+  if(!existsSync(portFile)){report.launch=launchDetails();throw new Error('Chrome debugging endpoint did not start: '+JSON.stringify(report.launch));}
   const port = readFileSync(portFile, 'utf8').split(/\r?\n/)[0];
+  const version=await (await fetch('http://127.0.0.1:'+port+'/json/version',{signal:AbortSignal.timeout(8000)})).json();
+  assert.equal(typeof version.Browser,'string','The running browser did not expose its version.');
+  report.browser=version.Browser;report.launch={binary,probe:'DevTools /json/version'};
+  console.log('Using installed running browser: '+report.browser);
   const target = await (await fetch('http://127.0.0.1:' + port + '/json/new?about:blank', { method: 'PUT' })).json();
   const connection = new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((resolve, reject) => {
@@ -406,16 +413,211 @@ async function run() {
   await socket.evaluate('history.back()'); await waitRoute(depth('finapp'));
   report.checks.push('V2 mouvement réduit : mêmes destinations et historique sans dépendre d’une animation');
 
+
+  // V3 verifies physical gestures and camera/relief state in addition to semantic routes.
+  const v3State=(concept,app='ensemble',angle='presentation')=>({concept,app,angle});
+  const v3Inspect=()=>socket.evaluate('window.__siniverseV3.inspect()');
+  async function until(expression,message){
+    for(let attempt=0;attempt<125;attempt++){if(await socket.evaluate(expression))return;await pause(60);}
+    throw Error(message);
+  }
+  async function v3Wait(expected){
+    await until('document.documentElement.dataset.v3Ready==="true" && document.documentElement.dataset.v3State==='+JSON.stringify(JSON.stringify(expected)), 'V3 route did not settle: '+JSON.stringify(expected));
+    assert.deepEqual((await v3Inspect()).route,expected);
+  }
+  async function v3Click(selector,expected){await click(selector);await v3Wait(expected);}
+  async function press(selector,key='Enter'){
+    await socket.send('Page.bringToFront');
+    await socket.evaluate('document.querySelector('+JSON.stringify(selector)+').focus()');
+    await socket.send('Input.dispatchKeyEvent',{type:'keyDown',key,code:key,windowsVirtualKeyCode:key==='Enter'?13:0,...(key==='Enter'?{text:'\r',unmodifiedText:'\r'}:{})});
+    await socket.send('Input.dispatchKeyEvent',{type:'keyUp',key,code:key,windowsVirtualKeyCode:key==='Enter'?13:0});
+  }
+  async function canvasPoint(selector,roomBelow=0){
+    return socket.evaluate('(()=>{const e=document.querySelector('+JSON.stringify(selector)+'),r=e.getBoundingClientRect();for(const y of [.2,.4,.65,.8])for(const x of [.15,.4,.7,.86]){const p={x:r.x+r.width*x,y:r.y+r.height*y};if(p.y+' + roomBelow + '<innerHeight-8&&document.elementFromPoint(p.x,p.y)===e)return p;}throw Error("No uncovered canvas gesture area")})()');
+  }
+  async function dragPoint(start,end,{touch=false}={}){
+    if(touch){
+      await socket.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:start.x,y:start.y,id:1}]});
+      for(let i=1;i<=8;i++)await socket.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:start.x+(end.x-start.x)*i/8,y:start.y+(end.y-start.y)*i/8,id:1}]});
+      await socket.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    }else{
+      await socket.send('Input.dispatchMouseEvent',{type:'mousePressed',x:start.x,y:start.y,button:'left',clickCount:1});
+      for(let i=1;i<=8;i++)await socket.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:start.x+(end.x-start.x)*i/8,y:start.y+(end.y-start.y)*i/8,button:'left',buttons:1});
+      await socket.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:end.x,y:end.y,button:'left',clickCount:1});
+    }
+    await pause(100);
+  }
+  const near=(a,b)=>a.length===b.length&&a.every((n,i)=>Math.abs(n-b[i])<1e-5);
+  const rootV3=origin+'/concepts/v3/explore.html';
+  await socket.send('Emulation.setEmulatedMedia',{features:[]});
+  for(const [format,width,height]of [['desktop',1365,900],['mobile',390,740]]){
+    const mobile=format==='mobile';
+    await socket.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile});
+    await navigate(rootV3+'?concept=plan');
+    let inspected=await v3Inspect();
+    assert.equal(inspected.scene.kind,'webgl2');
+    assert(inspected.scene.triangles>500&&inspected.scene.pixelColors>2,'The world framebuffer is empty.');
+    await screenshot('v3-plan-arrival-'+format,width);
+    assert(await socket.evaluate('[...document.querySelectorAll(".world-station")].filter(e=>!e.hidden).length===3'),'The arrival hides a destination.');
+    assert(await socket.evaluate('document.querySelector(".plan-movement").getBoundingClientRect().bottom<=innerHeight'),'Movement controls are outside the viewport.');
+    const href=await socket.evaluate('location.href'),historyLength=await socket.evaluate('history.length'),beforePose=inspected.scene.pose;
+    const start=await canvasPoint('#plan-canvas');
+    await dragPoint(start,{x:start.x+45,y:start.y+15},{touch:mobile});
+    const free=(await v3Inspect()).scene.pose;
+    assert(!near(beforePose.position,free.position),'A real drag did not move the camera.');
+    assert.equal(await socket.evaluate('location.href'),href,'A camera drag navigated to an app.');
+    assert.equal(await socket.evaluate('history.length'),historyLength,'Camera frames polluted browser history.');
+    if(mobile)await screenshot('v3-plan-free-mobile',width);
+    const vehiclePoints=(await v3Inspect()).scene.pickTargets.filter(p=>p.app==='garapp').map(p=>p.screen);
+    let native;
+    for(const projected of vehiclePoints){
+      const point={x:Math.round(projected.x),y:Math.round(projected.y),z:projected.z};
+      if(await socket.evaluate('(()=>{const p='+JSON.stringify(point)+';return p.z<1&&p.x>2&&p.x<innerWidth-2&&p.y>2&&p.y<innerHeight-2&&[-2,0,2].every(dx=>[-2,0,2].every(dy=>document.elementFromPoint(p.x+dx,p.y+dy)?.id==="plan-canvas"))})()')){native=point;break;}
+    }
+    if(!native){
+      const visibility=await socket.evaluate('(()=>{const points='+JSON.stringify(vehiclePoints)+',rect=e=>{const r=e?.getBoundingClientRect();return r?{x:r.x,y:r.y,width:r.width,height:r.height}:null;};return {points:points.map(p=>({point:p,hit:document.elementFromPoint(Math.round(p.x),Math.round(p.y))?.outerHTML.slice(0,280)})),station:rect(document.querySelector("#plan-app-garapp").closest(".world-station")),reading:rect(document.querySelector(".world-reading")),canvas:rect(document.querySelector("#plan-canvas")),pose:window.__siniverseV3.inspect().scene.pose}})()');
+      report.vehicleVisibility={format,...visibility};console.log('PLAN_VEHICLE_VISIBILITY '+JSON.stringify(report.vehicleVisibility));
+      await screenshot('v3-plan-vehicle-occlusion-'+format,width);
+    }
+    assert(native,'No actual portion of the vehicle is exposed for native picking: '+JSON.stringify(vehiclePoints));
+    await socket.send('Input.dispatchMouseEvent',{type:'mousePressed',x:native.x,y:native.y,button:'left',clickCount:1});
+    await socket.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:native.x,y:native.y,button:'left',clickCount:1});
+    await v3Wait(v3State('plan','garapp'));
+    await socket.evaluate('history.back()');await v3Wait(v3State('plan'));
+    assert(near((await v3Inspect()).scene.pose.position,free.position),'Back lost the free camera pose.');
+    await socket.evaluate('history.forward()');await v3Wait(v3State('plan','garapp'));
+    await v3Click('#plan-origin',v3State('plan'));
+    await v3Click('#plan-app-finapp',v3State('plan','finapp'));
+    if(await socket.evaluate('document.querySelector("#plan-reading").open'))await click('#plan-read-more');
+    await screenshot('v3-plan-finapp-presentation-'+format,width);
+    const actionControl=await socket.evaluate('(()=>{const a=document.querySelector("#plan-angle-action"),r=a.getBoundingClientRect(),p=document.querySelector("#plan-reading"),b=p.getBoundingClientRect(),x=r.x+r.width/2,y=r.y+r.height/2,h=document.elementFromPoint(x,y);return {hidden:a.hidden,hiddenAncestor:a.closest("[hidden]")?.tagName||null,rect:{x:r.x,y:r.y,width:r.width,height:r.height},center:{x,y},hit:h?{tag:h.tagName,id:h.id,className:h.className}:null,exposed:h?.closest("#plan-angle-action")===a,stand:{x:b.x,y:b.y,width:b.width,height:b.height,open:p.open},pose:window.__siniverseV3.inspect().scene.pose}})()');
+    (report.planControls??=[]).push({format,...actionControl});
+    assert(actionControl.exposed,'The physical Action control is not exposed: '+JSON.stringify(actionControl));
+    await v3Click('#plan-angle-action',v3State('plan','finapp','action'));
+    await screenshot('v3-plan-action-'+format,width);
+    const panel=await socket.evaluate('document.querySelector("#plan-reading").open');
+    await click('#plan-read-more');
+    await until('document.querySelector("#plan-reading").open==='+JSON.stringify(!panel),'The spatial reading did not toggle.');
+    await screenshot('v3-plan-read-'+format,width);
+    async function leaveByDirectTrip(){
+      if(!await socket.evaluate('document.querySelector(".plan-compass details").open'))await click('.plan-compass summary');
+      await v3Click('#plan-direct-garapp',v3State('plan','garapp'));
+    }
+    await leaveByDirectTrip();
+    await socket.evaluate('history.back()');await v3Wait(v3State('plan','finapp','action'));
+    assert.equal(await socket.evaluate('document.querySelector("#plan-reading").open'),!panel,'Back lost the reading state.');
+    await socket.evaluate('history.back()');await v3Wait(v3State('plan','finapp'));
+    await socket.evaluate('history.forward()');await v3Wait(v3State('plan','finapp','action'));
+    assert.equal(await socket.evaluate('document.querySelector("#plan-reading").open'),!panel,'Forward lost the reading state.');
+    await socket.evaluate('history.forward()');await v3Wait(v3State('plan','garapp'));
+    await socket.evaluate('history.back()');await v3Wait(v3State('plan','finapp','action'));
+    await click('#plan-read-more');
+    await leaveByDirectTrip();
+    await socket.evaluate('history.back()');await v3Wait(v3State('plan','finapp','action'));
+    assert.equal(await socket.evaluate('document.querySelector("#plan-reading").open'),panel,'A deliberately closed reading reopened.');
+    await navigate(rootV3+'?concept=plan&app=branchlab&angle=methode');
+    const signal=(await v3Inspect()).scene.signalPosition;
+    if(await socket.evaluate('document.querySelector("#plan-reading").open'))await click('#plan-read-more');
+    await v3Click('#plan-angle-action',v3State('plan','branchlab','action'));
+    assert.notDeepEqual((await v3Inspect()).scene.signalPosition,signal,'The physical signal did not cross the cable.');
+    assert.equal(await socket.evaluate('document.querySelector("#plan-open").getAttribute("href")'),'https://branchlab.siniverse.cc');
+    report.checks.push('V3 Plan/'+format+': WebGL2/pixels, vrai déplacement et picking du véhicule, pas de clic après drag, caméra Back/Forward, lecture ouverte/fermée, signal');
+    // Genuine context loss must reveal an entirely reachable semantic route, not a blank spinner.
+    await socket.evaluate('document.querySelector("#plan-canvas").getContext("webgl2").getExtension("WEBGL_lose_context").loseContext()');
+    await until('document.querySelector("#experience").classList.contains("plan-is-fallback")','WebGL loss did not expose fallback.');
+    await v3Click('[data-plan-fallback-app="garapp"]',v3State('plan','garapp','action'));
+    await socket.evaluate('document.querySelector(".plan-fallback .real-app-link").scrollIntoView({block:"center",behavior:"instant"})');
+    assert(await socket.evaluate('(()=>{const a=document.querySelector(".plan-fallback .real-app-link"),r=a.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight&&document.elementFromPoint(r.x+r.width/2,r.y+r.height/2).closest("a")===a})()'),'The fallback exit cannot be reached.');
+    report.checks.push('V3 Plan/'+format+': perte réelle de contexte, navigation fallback et sortie finale atteignable');
+
+    await navigate(rootV3+'?concept=reacteur');
+    assert.equal((await v3Inspect()).scene.engine,'css3d');
+    await v3Click('#reactor-angle-methode',v3State('reacteur','ensemble','methode'));
+    if(mobile)await v3Click('#reactor-app-finapp',v3State('reacteur','finapp','methode'));
+    else{
+      const points=await socket.evaluate('(()=>{const a=document.querySelector("#reactor-app-finapp").getBoundingClientRect(),b=document.querySelector("#reactor-app-socket").getBoundingClientRect();return [{x:a.x+a.width/2,y:a.y+a.height/2},{x:b.x+b.width/2,y:b.y+b.height/2}]})()');
+      await dragPoint(points[0],points[1]);await v3Wait(v3State('reacteur','finapp','methode'));
+    }
+    const assembled=(await v3Inspect()).scene;
+    assert.equal(assembled.appSocket.occupied,true);assert.equal(assembled.angleSocket.occupied,true);assert.equal(assembled.parts.length,18);
+    assert(assembled.parts.some(p=>p.transform.includes('matrix3d')),'The reactor is flat.');
+    await screenshot('v3-reactor-assembly-'+format,width);
+    const pose=assembled.pose;
+    await press('#reactor-tilt-grip','ArrowRight');
+    assert.notDeepEqual((await v3Inspect()).scene.pose,pose,'The physical grip did not tilt the bench.');
+    await v3Click('#reactor-app-garapp',v3State('reacteur','garapp','methode'));
+    assert.notDeepEqual((await v3Inspect()).scene.parts.map(p=>p.transform),assembled.parts.map(p=>p.transform),'Replacing an ingredient changed only text.');
+    await socket.evaluate('history.back()');await v3Wait(v3State('reacteur','finapp','methode'));
+    await socket.evaluate('history.forward()');await v3Wait(v3State('reacteur','garapp','methode'));
+    await v3Click('#reactor-next-angle',v3State('reacteur','garapp','limites'));
+    assert.equal(await socket.evaluate('document.activeElement.id'),'reactor-next-angle','The reading dial lost its focus.');
+    await screenshot('v3-reactor-recomposed-'+format,width);
+    report.checks.push('V3 Réacteur/'+format+': assemblage libre, vrai drag/sélection, relief18pièces, inclinaison, recomposition, molettes et Back/Forward');
+
+    await navigate(rootV3+'?concept=anamorphose');
+    await v3Click('#an-app-finapp',v3State('anamorphose','finapp'));
+    await v3Click('#an-angle-action',v3State('anamorphose','finapp','action'));
+    const aligned=(await v3Inspect()).scene;
+    assert.equal(aligned.webgl2,true);assert(aligned.alignment.fragmentCount>=12&&aligned.alignment.depthSpan>1);
+    assert(aligned.alignment.rmsPixels<.5,'The guided optical alignment is not legible.');
+    await screenshot('v3-anamorphose-aligned-'+format,width);
+    const freePoint=await canvasPoint('#an-relief',360);
+    await dragPoint(freePoint,{x:freePoint.x,y:freePoint.y+360});
+    const opticalFree=(await v3Inspect()).scene;
+    assert(opticalFree.alignment.rmsPixels>3,'The relief does not change under a real viewpoint movement.');
+    assert.equal(opticalFree.free,true);
+    await screenshot('v3-anamorphose-free-'+format,width);
+    await v3Click('#an-app-garapp',v3State('anamorphose','garapp','action'));
+    await socket.evaluate('history.back()');await v3Wait(v3State('anamorphose','finapp','action'));
+    assert.equal((await v3Inspect()).scene.free,true,'Back lost the free optical view.');
+    await socket.evaluate('history.forward()');await v3Wait(v3State('anamorphose','garapp','action'));
+    await press('#an-relief','ArrowRight');
+    await until('document.documentElement.dataset.v3Ready==="true"','Optical keyboard move did not settle.');
+    assert.equal(await socket.evaluate('document.activeElement.id'),'an-relief','The optical keyboard lost focus.');
+    await press('#an-relief','ArrowLeft');
+    await until('document.documentElement.dataset.v3Ready==="true"','Second optical keyboard move did not settle.');
+    assert.equal(await socket.evaluate('document.activeElement.id'),'an-relief');
+    await v3Click('#an-overview',v3State('anamorphose'));
+    await navigate(rootV3+'?concept=anamorphose&app=branchlab&angle=limites');
+    assert.equal((await v3Inspect()).scene.webgl2,true);
+    assert.equal(await socket.evaluate('document.querySelector("#an-open-app").getAttribute("href")'),'https://branchlab.siniverse.cc');
+    report.checks.push('V3 Anamorphose/'+format+': vrai relief/profondeur, alignement RMS, geste libre, état restauré, clavier répété, recul et lien profond');
+  }
+  await socket.send('Emulation.setDeviceMetricsOverride',{width:1280,height:900,deviceScaleFactor:1,mobile:false});
+  await socket.evaluate('localStorage.removeItem("siniverse.navigation-concepts.v3");sessionStorage.removeItem("siniverse.navigation-concepts.v3");history.replaceState({},"")');
+  await navigate(rootV3);await v3Wait(v3State('plan'));
+  await reload();await v3Wait(v3State('reacteur'));
+  await click('.journey-settings>summary');await press('#pin-theme');
+  await until('document.querySelector("#pin-theme").getAttribute("aria-pressed")==="true"','Keyboard pin did not settle.');
+  await reload();await v3Wait(v3State('reacteur'));
+  await navigate(rootV3+'?concept=anamorphose');
+  assert.equal(await socket.evaluate('JSON.parse(localStorage.getItem("siniverse.navigation-concepts.v3")).pinned'),'reacteur');
+  await click('.journey-settings>summary');await click('#resume-rotation');
+  assert.equal(await socket.evaluate('location.search'),'');await v3Wait(v3State('anamorphose'));
+  await reload();await v3Wait(v3State('plan'));
+  report.checks.push('V3 rotation au rechargement, épingle clavier, lien direct indépendant et reprise sans saut');
+  await socket.evaluate('history.replaceState({},"")');
+  const deniedV3=await socket.send('Page.addScriptToEvaluateOnNewDocument',{source:'for(const key of ["localStorage","sessionStorage"])Object.defineProperty(window,key,{get(){throw new DOMException("blocked","SecurityError")}});'});
+  await navigate(rootV3);await v3Wait(v3State('plan'));
+  await reload();await v3Wait(v3State('reacteur'));
+  assert.match(await socket.evaluate('document.querySelector("#storage-state").textContent'),/onglet/);
+  await socket.send('Page.removeScriptToEvaluateOnNewDocument',{identifier:deniedV3.identifier});
+  await socket.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+  await navigate(rootV3+'?concept=plan&app=finapp&angle=action');await v3Wait(v3State('plan','finapp','action'));
+  assert.equal((await v3Inspect()).scene.animationCount,0,'Reduced motion retained a cosmetic animation loop.');
+  report.checks.push('V3 stockage bloqué et mouvement réduit, mêmes destinations sans boucle cosmétique');
+
   assert.deepEqual(report.exceptions, [], 'Browser reported a page exception or resource/CSP error.');
   report.status = 'passed';
 }
 
 let timeout;
 try {
-  await Promise.race([run(), new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('Browser review exceeded 240 seconds.')), 240000); })]);
+  await Promise.race([run(), new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('Browser review exceeded 300 seconds.')), 300000); })]);
 } catch (error) {
   report.status = 'failed'; report.error = error.message; process.exitCode = 1;
   console.error(error.stack || error);
+  if(report.exceptions.length)console.error('PAGE_EXCEPTIONS '+JSON.stringify(report.exceptions));
 } finally {
   clearTimeout(timeout);
   writeFileSync(resolve(output, 'review.json'), JSON.stringify(report, null, 2) + '\n');

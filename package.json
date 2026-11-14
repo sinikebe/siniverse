@@ -13,7 +13,7 @@
   "scripts": {
     "dev": "node tools/serve.mjs",
     "start": "node tools/serve.mjs",
-    "check": "node --check tools/serve.mjs && node --check api/src/worker.js && node --check public/concepts/model.mjs && node --check public/concepts/concepts.mjs && node --check public/concepts/instrument.mjs && node --check tools/check-concepts-browser.mjs && node --check public/concepts/v2/model.mjs && node --check public/concepts/v2/views.mjs && node --check public/concepts/v2/story.mjs && node --check public/concepts/v2/explore.mjs && node --check public/concepts/v2/depth-arrival.mjs",
+    "check": "node --check tools/serve.mjs && node --check api/src/worker.js && node --check public/concepts/model.mjs && node --check public/concepts/concepts.mjs && node --check public/concepts/instrument.mjs && node --check tools/check-concepts-browser.mjs && node --check public/concepts/v2/model.mjs && node --check public/concepts/v2/views.mjs && node --check public/concepts/v2/story.mjs && node --check public/concepts/v2/explore.mjs && node --check public/concepts/v2/depth-arrival.mjs && node --check tools/three-assets.mjs && node --check public/concepts/v3/model.mjs && node --check public/concepts/v3/world.mjs && node --check public/concepts/v3/plan.mjs && node --check public/concepts/v3/reactor.mjs && node --check public/concepts/v3/anamorphose.mjs && node --check public/concepts/v3/explore.mjs",
     "test": "node --test",
     "test:automation": "node --test automation/ci.test.mjs",
     "ci:check": "npm run check && npm test",
@@ -29,6 +29,8 @@
     "node": ">=24"
   },
   "devDependencies": {
+    "esbuild": "0.28.2",
+    "three": "0.187.0",
     "wrangler": "4.161.0"
   }
 }
