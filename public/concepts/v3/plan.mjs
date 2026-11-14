@@ -1,12 +1,14 @@
 import { createWorld, THREE } from './world.mjs';
 import { orbitPose, zoomPose, dragTracker } from './camera-math.mjs';
 import { buildHouse } from './house-scene.mjs';
-import { EYE_HEIGHT, canStand, segmentClear, stepOnFloor, lookOnFloor, floorPath, pointAlong } from './house-navigation.mjs';
+import { EYE_HEIGHT, canStand, segmentClear, stepOnFloor, lookOnFloor, blendLook, floorPath, pointAlong } from './house-navigation.mjs';
 
 const APPROACH={position:[-2.3,EYE_HEIGHT,5.7],target:[-2.3,EYE_HEIGHT,1.8]};
 const BUREAU={position:[-2.5,EYE_HEIGHT,2.7],target:[-2.5,1.5,-2.6]};
 const OVERVIEW={position:[10,7,12],target:[0,1.2,0]};
 const MOBILE_OVERVIEW={position:[11,7,14],target:[0,1.2,0]};
+const GARAGE_PASSAGE={position:[1.65,EYE_HEIGHT,1.65],target:[3.1,1,-.3]};
+const CAR_VIEW={position:[2.8,EYE_HEIGHT,4.8],target:[3.1,.85,-.3]};
 const ANGLES={presentation:'Le rôle',action:'En action',methode:'Méthode',limites:'Limites'};
 const button=(id,label,className='')=>{const b=document.createElement('button');b.type='button';b.id=id;b.textContent=label;b.className=className;return b;};
 const mix=(a,b,t)=>a.map((n,i)=>n+(b[i]-n)*t);
@@ -19,7 +21,7 @@ export function mountPlan(host,initialState,api){
   host.append(hud);
   const introduction=document.createElement('aside');introduction.className='house-intro';introduction.innerHTML='<p>PLAN-SÉQUENCE / UNE MAISON À EXPLORER</p><h2>Les outils ont leur place.</h2><p>Finapp et Branchlab dans le bureau. Garapp auprès de la voiture, dans le garage.</p>';host.append(introduction);
   const instruction=document.createElement('p');instruction.className='plan-instruction';instruction.textContent='Entrer, puis glisser pour regarder · W A S D / flèches pour marcher';host.append(instruction);
-  let state=initialState,world,house,failed=false,destroyed=false,mode='overview',roofOpen=false,readingOpen=true,revision=0,dragging=false,lastPick=null,lastJourney=[],blockedMoves=0;
+  let state=initialState,world,house,failed=false,destroyed=false,mode='overview',roofOpen=false,readingOpen=false,revision=0,dragging=false,lastPick=null,lastJourney=[],blockedMoves=0;
   const cleanups=[],surfaces=new Map(),stationLabels=[],tracker=dragTracker(6);
   const navigate=(destination,focusId='view-title')=>api.navigate(destination,{focusId});
   const isMobile=()=>viewport.clientWidth<760;
@@ -41,15 +43,18 @@ export function mountPlan(host,initialState,api){
     const p=world.getPose().position,inside=p[0]>-5.3&&p[0]<5.3&&p[2]>-3.6&&p[2]<3.6;
     hud.querySelector('#plan-location').textContent=mode==='overview'?'La maison / vue d’ensemble':inside?(p[0]<.8?'Dans le bureau':'Dans le garage'):'Devant la maison';
     introduction.hidden=mode!=='overview'||state.app!=='ensemble';hud.querySelector('#plan-enter-house').hidden=mode==='walk';
+    for(const station of stationLabels){const separated=mode==='overview'&&isMobile()&&roofOpen&&station.id!=='garapp';station.handle.setEnabled(station.id!==state.app);station.handle.setPosition(separated?station.cutPosition:station.position);if(station.guide)station.guide.visible=separated;}
   }
-  function setRoof(open){roofOpen=open;house.roof.visible=!open;hud.querySelector('#plan-cutaway').setAttribute('aria-pressed',String(open));hud.querySelector('#plan-cutaway').textContent=open?'Remettre le toit':'Voir en coupe';world.requestRender();}
+  function setRoof(open){roofOpen=open;house.roof.visible=!open;hud.querySelector('#plan-cutaway').setAttribute('aria-pressed',String(open));hud.querySelector('#plan-cutaway').textContent=open?'Remettre le toit':'Voir en coupe';updateLocation();world.requestRender();}
   hud.querySelector('#plan-cutaway').addEventListener('click',()=>{setRoof(!roofOpen);api.saveView();});
   for(const [id,app]of Object.entries(api.apps)){
-    const link=document.createElement('a');link.id='plan-direct-'+id;link.href=api.href({app:id,angle:'presentation'});link.textContent=app.name+' / '+(id==='garapp'?'garage':'bureau');link.addEventListener('click',event=>{if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();navigate({app:id,angle:'presentation'});});hud.querySelector('.plan-direct-routes').append(link);
+    const link=document.createElement('a');link.id='plan-direct-'+id;link.href=api.href({app:id,angle:'presentation'});link.textContent=app.name+' / '+(id==='garapp'?'garage':'bureau');link.addEventListener('click',event=>{if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();hud.querySelector('.plan-compass details').open=false;navigate({app:id,angle:'presentation'});});hud.querySelector('.plan-direct-routes').append(link);
     const station=button('plan-app-'+id,app.name,'house-station');
     station.addEventListener('click',()=>navigate({app:id,angle:'presentation'}));
     const spec=house.surfaces[id],position=id==='garapp'?[3.1,1.8,1.6]:[spec.position[0],spec.position[1]+spec.height/2+.12,spec.position[2]+.08];
-    stationLabels.push({id,handle:world.label(position,station,{clamp:false})});
+    const cutPosition=id==='finapp'?[position[0],4.5,position[2]]:id==='branchlab'?[position[0],2.5,position[2]]:position;
+    const guide=id==='garapp'?null:world.line([position,cutPosition],'#52685b',.012);if(guide)guide.visible=false;
+    stationLabels.push({id,position,cutPosition,guide,handle:world.label(position,station,{clamp:false})});
     const article=document.createElement('article');article.className='house-screen screen-'+id;article.setAttribute('aria-label',app.name+' : inscription dans '+(id==='garapp'?'le garage':'le bureau'));
     surfaces.set(id,{article,handle:world.surface(spec,article)});
   }
@@ -60,14 +65,14 @@ export function mountPlan(host,initialState,api){
 
   function drawReading(){
     const c=api.content(state.app,state.angle);hud.querySelector('#view-title').textContent=state.app==='ensemble'?'La maison Siniverse':api.apps[state.app].name+' / '+c.title;
-    for(const station of stationLabels)station.handle.setEnabled(station.id!==state.app);
     for(const [id,item]of surfaces){
       item.handle.setEnabled(id===state.app);
       if(id!==state.app){item.article.replaceChildren();continue;}
-      item.article.innerHTML='<header><span>'+api.escape(api.apps[id].name)+' / '+api.escape(c.eyebrow)+'</span><h2>'+api.escape(c.title)+'</h2></header><nav aria-label="Angles de lecture">'+Object.entries(ANGLES).map(([angle,label])=>'<button type="button" id="plan-angle-'+angle+'" data-house-angle="'+angle+'" aria-pressed="'+String(angle===state.angle)+'">'+label+'</button>').join('')+'</nav><details class="plan-reading" id="plan-reading"'+(readingOpen?' open':'')+'><summary id="plan-read-more">Lire l’explication</summary>'+c.body.map(p=>'<p>'+api.escape(p)+'</p>').join('')+(c.facts?.length?'<dl>'+c.facts.map(f=>'<div><dt>'+api.escape(f.label)+'</dt><dd>'+api.escape(f.value)+'</dd></div>').join('')+'</dl>':'')+(c.related?'<button type="button" class="house-related">'+api.escape(c.related.label)+' →</button>':'')+'</details><a class="real-app-link" id="plan-open" href="'+api.apps[id].url+'">Ouvrir '+api.apps[id].name+' ↗</a>';
+      item.article.classList.toggle('is-reading',readingOpen);
+      item.article.innerHTML='<header><span>'+api.escape(api.apps[id].name)+' / '+api.escape(ANGLES[state.angle])+'</span><h2>'+api.escape(c.title)+'</h2></header><nav aria-label="Angles de lecture">'+Object.entries(ANGLES).map(([angle,label])=>'<button type="button" id="plan-angle-'+angle+'" data-house-angle="'+angle+'" aria-pressed="'+String(angle===state.angle)+'">'+label+'</button>').join('')+'</nav><details class="plan-reading" id="plan-reading"'+(readingOpen?' open':'')+'><summary id="plan-read-more">'+(readingOpen?'← Revenir aux angles':'Lire l’explication')+'</summary><p class="house-reading-eyebrow">'+api.escape(c.eyebrow)+'</p>'+c.body.map(p=>'<p>'+api.escape(p)+'</p>').join('')+(c.facts?.length?'<dl>'+c.facts.map(f=>'<div><dt>'+api.escape(f.label)+'</dt><dd>'+api.escape(f.value)+'</dd></div>').join('')+'</dl>':'')+(c.related?'<button type="button" class="house-related">'+api.escape(c.related.label)+' →</button>':'')+'</details><a class="real-app-link" id="plan-open" href="'+api.apps[id].url+'">Ouvrir '+api.apps[id].name+' ↗</a>';
       for(const b of item.article.querySelectorAll('[data-house-angle]'))b.addEventListener('click',()=>navigate({app:state.app,angle:b.dataset.houseAngle}));
       item.article.querySelector('.house-related')?.addEventListener('click',()=>navigate({app:c.related.app,angle:'presentation'}));
-      item.article.querySelector('details').addEventListener('toggle',event=>{readingOpen=event.target.open;api.saveView();});
+      item.article.querySelector('details').addEventListener('toggle',event=>{if(!event.target.isConnected||id!==state.app)return;readingOpen=event.target.open;item.article.classList.toggle('is-reading',readingOpen);event.target.querySelector('summary').textContent=readingOpen?'← Revenir aux angles':'Lire l’explication';api.saveView();});
     }
     updateLocation();world.requestRender();
   }
@@ -85,15 +90,15 @@ export function mountPlan(host,initialState,api){
       await interpolatePose(APPROACH,350,token);if(token!==revision||failed)return;mode='walk';
     }
     const start=world.getPose(),a=[start.position[0],start.position[2]],b=[end.position[0],end.position[2]],path=floorPath(a,b,obstacles,bounds);
-    lastJourney=path.map(p=>[p[0],EYE_HEIGHT,p[1]]);
+    lastJourney.push(...path.map(p=>[p[0],EYE_HEIGHT,p[1]]));
     const length=path.slice(1).reduce((n,p,i)=>n+Math.hypot(p[0]-path[i][0],p[1]-path[i][1]),0),fromDirection=start.target.map((v,i)=>v-start.position[i]),toDirection=end.target.map((v,i)=>v-end.position[i]);
     await world.animate(api.reducedMotion?0:Math.min(2200,400+length*100),t=>{
-      if(token!==revision||failed)return;const s=t*t*(3-2*t),p=pointAlong(path,s),position=[p[0],EYE_HEIGHT,p[1]],direction=mix(fromDirection,toDirection,s);setPose({position,target:position.map((v,i)=>v+direction[i])});
+      if(token!==revision||failed)return;const s=t*t*(3-2*t),p=pointAlong(path,s),position=[p[0],EYE_HEIGHT,p[1]],direction=blendLook(fromDirection,toDirection,s);setPose({position,target:position.map((v,i)=>v+direction[i])});
     });
     if(token===revision&&!failed)setPose(end);
   }
   async function enterHouse(){
-    const token=++revision;await walkTo(BUREAU,{token});if(token===revision&&!failed){api.saveView();world.canvas.focus({preventScroll:true});}
+    const token=++revision;lastJourney=[];await walkTo(BUREAU,{token});if(token===revision&&!failed){api.saveView();world.canvas.focus({preventScroll:true});}
   }
   hud.querySelector('#plan-enter-house').addEventListener('click',enterHouse);
   hud.querySelector('#plan-origin').addEventListener('click',()=>navigate({app:'ensemble',angle:'presentation'}));
@@ -127,13 +132,21 @@ export function mountPlan(host,initialState,api){
   for(const b of hud.querySelectorAll('[data-move]'))b.addEventListener('click',()=>{const a=b.dataset.move;moveOnFloor(a==='forward'||a==='in'?.25:a==='back'||a==='out'?-.25:0,a==='left'?-.25:a==='right'?.25:0);});
   for(const [name,fn,options]of [['pointerdown',down],['pointermove',move],['pointerup',up],['pointercancel',cancel],['wheel',wheel,{passive:false}],['keydown',key]]){world.canvas.addEventListener(name,fn,options);cleanups.push(()=>world.canvas.removeEventListener(name,fn,options));}
   async function update(next,{snapshot=null,instant=false}={}){
-    const token=++revision;state=next;if(failed){fallback();return;}
+    const token=++revision,previousApp=state.app;state=next;if(failed){fallback();return;}
     const restored=snapshot?.layout==='house-v1';if(restored){roofOpen=Boolean(snapshot.roofOpen);readingOpen=Boolean(snapshot.readingOpen);}
     drawReading();setRoof(roofOpen);
     if(restored&&snapshot.pose&&['walk','overview'].includes(snapshot.mode)){
       const p=snapshot.pose.position;if(snapshot.mode==='overview'||canStand([p[0],p[2]],obstacles,bounds)){mode=snapshot.mode;setPose(snapshot.pose);return;}
     }
-    if(state.app!=='ensemble')await walkTo(targetPose(state.app),{instant,token});
+    lastJourney=[];
+    if(state.app!=='ensemble'){
+      if(!instant&&state.app==='garapp'&&(previousApp!=='garapp'||mode==='overview')){
+        await walkTo(GARAGE_PASSAGE,{token});if(token!==revision||failed)return;
+        await walkTo(CAR_VIEW,{token});if(token!==revision||failed)return;
+        await world.animate(api.reducedMotion?0:350,()=>{});if(token!==revision||failed)return;
+      }
+      await walkTo(targetPose(state.app),{instant,token});
+    }
     else{
       if(mode==='walk')await walkTo(APPROACH,{instant,token});
       if(token!==revision||failed)return;mode='overview';await interpolatePose(isMobile()?MOBILE_OVERVIEW:OVERVIEW,instant?0:650,token);
@@ -141,5 +154,6 @@ export function mountPlan(host,initialState,api){
     if(token!==revision||failed)return;updateLocation();world.requestRender();
   }
   setPose(isMobile()?MOBILE_OVERVIEW:OVERVIEW);drawReading();
-  return {update,snapshot:()=>({layout:'house-v1',mode,pose:world.getPose(),roofOpen,readingOpen}),inspect:()=>({...world.inspect(),layout:'house-v1',mode,room:mode==='overview'?'outside':world.getPose().position[0]<.8?'bureau':'garage',app:state.app,angle:state.angle,roofOpen,dragging,lastPick,blockedMoves,journey:lastJourney,journeyClear:lastJourney.slice(1).every((p,i)=>segmentClear([lastJourney[i][0],lastJourney[i][2]],[p[0],p[2]],obstacles,bounds)),obstacles,bounds,stations:Object.keys(api.apps),pickTargets:[...[[0,.75,1.95],[-.8,.7,.9],[.8,.7,.9]].map(p=>({app:'garapp',screen:world.project(house.car.localToWorld(new THREE.Vector3(...p)))})),...Object.entries(house.surfaces).map(([app,s])=>({app,screen:world.project(new THREE.Vector3(...s.position))}))]}),destroy(){destroyed=true;revision++;for(const fn of cleanups)fn();world.destroy();host.replaceChildren();host.classList.remove('plan-host','plan-house');}};
+  function pickInfo(app,point){const screen=world.project(point);return {app,screen,blocker:world.probe(screen.x,screen.y).intersections[0]?.name||null,occluded:!world.visiblePoint(point)};}
+  return {update,snapshot:()=>({layout:'house-v1',mode,pose:world.getPose(),roofOpen,readingOpen}),inspect:()=>({...world.inspect(),layout:'house-v1',mode,room:mode==='overview'?'outside':world.getPose().position[0]<.8?'bureau':'garage',app:state.app,angle:state.angle,roofOpen,dragging,lastPick,blockedMoves,journey:lastJourney,journeyClear:lastJourney.slice(1).every((p,i)=>segmentClear([lastJourney[i][0],lastJourney[i][2]],[p[0],p[2]],obstacles,bounds)),obstacles,bounds,stations:Object.keys(api.apps),pickTargets:[...[[0,.75,1.95],[-.8,.7,.9],[.8,.7,.9]].map(p=>pickInfo('garapp',house.car.localToWorld(new THREE.Vector3(...p)))),...Object.entries(house.surfaces).map(([app,s])=>pickInfo(app,new THREE.Vector3(...s.position)))]}),destroy(){destroyed=true;revision++;for(const fn of cleanups)fn();world.destroy();host.replaceChildren();host.classList.remove('plan-host','plan-house');}};
 }

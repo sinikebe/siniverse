@@ -128,7 +128,7 @@ export function createWorld(host,{reducedMotion=false,onContextLost=()=>{},carto
     return {client:[clientX,clientY],rect:{x:r.x,y:r.y,width:r.width,height:r.height},scroll:[scrollX,scrollY],ndc:pointer.toArray(),
       cameraAspect:camera.aspect,intersections:intersections().slice(0,5).map(hit=>{
         const index=picks.indexOf(pickedRoot(hit.object));
-        return {index,rootType:picks[index]?.mesh.type,objectType:hit.object.type,geometry:hit.object.geometry?.type,distance:hit.distance,point:hit.point.toArray()};
+        return {index,name:hit.object.name,rootType:picks[index]?.mesh.type,objectType:hit.object.type,geometry:hit.object.geometry?.type,distance:hit.distance,point:hit.point.toArray()};
       })};
   }
   const resize=()=>{const rect=host.getBoundingClientRect();renderer.setSize(Math.max(1,rect.width),Math.max(1,rect.height),false);camera.aspect=rect.width/Math.max(1,rect.height);camera.fov=rect.width<760?mobileFov:desktopFov;camera.updateProjectionMatrix();request();};

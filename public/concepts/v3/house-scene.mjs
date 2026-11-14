@@ -7,6 +7,7 @@ export function buildHouse(world, apps) {
   const roof = new T.Group(); roof.name = 'house-roof'; root.add(roof);
   const shell = [], obstacles = [], materials = new Map();
   const ramp = new T.DataTexture(new Uint8Array([82, 164, 245]), 3, 1, T.RedFormat);
+  ramp.colorSpace = T.NoColorSpace;
   ramp.minFilter = T.NearestFilter; ramp.magFilter = T.NearestFilter; ramp.unpackAlignment = 1; ramp.needsUpdate = true;
   function material(color, double = false) {
     const key = color + (double ? ':double' : '');
@@ -113,7 +114,8 @@ export function buildHouse(world, apps) {
   triangle([[-5.19, 2.8, 3.49], [.8, 2.8, 3.49], [-2.25, 4.03, 3.49]], palette.wall, roof, 'house-front-gable');
   triangle([[.8, 2.8, -3.49], [-5.19, 2.8, -3.49], [-2.25, 4.03, -3.49]], palette.wall, roof, 'house-rear-gable');
   box([4.8, .16, 7.62], palette.roof, [3.08, 2.94, 0], roof, 'house-garage-roof');
-  line([[-5.55, 2.84, 3.82], [-2.25, 4.15, 3.82], [1.05, 2.84, 3.82]], palette.frame, .045, roof, 'house-front-roof-edge');
+  line([[-5.55, 2.84, 3.82], [-2.25, 4.15, 3.82]], palette.frame, .045, roof, 'house-front-roof-edge-left');
+  line([[-2.25, 4.15, 3.82], [1.05, 2.84, 3.82]], palette.frame, .045, roof, 'house-front-roof-edge-right');
   line([[-2.25, 4.15, 3.82], [-2.25, 4.15, -3.82]], palette.frame, .035, roof, 'house-roof-ridge');
 
   // A single functional office bench, with two distinct actual workstations.
@@ -182,18 +184,18 @@ export function buildHouse(world, apps) {
   // Toon materials need one soft daylight direction, not decorative lamp meshes.
   const lights = world.scene.children.filter(item => item.isLight);
   for (const light of lights) {
-    if (light.isHemisphereLight) light.intensity = 1.15;
-    if (light.isDirectionalLight) light.intensity = light.position.y > 20 ? 2.05 : .35;
+    if (light.isHemisphereLight) { light.intensity = 2.5; light.groundColor.set('#B4AB94'); }
+    if (light.isDirectionalLight) light.intensity = light.position.y > 20 ? 2.05 : .65;
   }
   const sun = lights.find(item => item.isDirectionalLight && item.position.y > 20);
   if (world.renderer?.shadowMap && sun) {
     world.renderer.shadowMap.enabled = true; world.renderer.shadowMap.type = T.PCFSoftShadowMap;
-    sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024);
+    sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
     Object.assign(sun.shadow.camera, { left: -13, right: 13, top: 13, bottom: -13, near: .5, far: 90 });
-    sun.shadow.camera.updateProjectionMatrix(); sun.shadow.bias = -.0003; sun.shadow.normalBias = .025;
+    sun.shadow.camera.updateProjectionMatrix(); sun.shadow.bias = -.0007; sun.shadow.normalBias = .065;
   }
   world.cleanup?.(() => { for (const item of materials.values()) item.dispose(); glazing.dispose(); ramp.dispose(); });
   root.updateMatrixWorld(true);
-  return { roof, car, screens, surfaces, shell, obstacles,
+  return { roof, entry, car, screens, surfaces, shell, obstacles,
     bounds: { minX: -6.4, maxX: 6.4, minZ: -4.5, maxZ: 7.0 } };
 }

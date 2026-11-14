@@ -33,6 +33,11 @@ export function lookOnFloor(pose, dx, dy) {
   const yaw = Math.atan2(v[0], v[2]) + dx, pitch = clamp(Math.asin(v[1] / length) + dy, -.65, .65);
   return {position: [...pose.position], target: [pose.position[0] + 4 * Math.sin(yaw) * Math.cos(pitch), pose.position[1] + 4 * Math.sin(pitch), pose.position[2] + 4 * Math.cos(yaw) * Math.cos(pitch)]};
 }
+export function blendLook(from, to, t) {
+  const a=Math.atan2(from[0],from[2]),b=Math.atan2(to[0],to[2]),yaw=a+Math.atan2(Math.sin(b-a),Math.cos(b-a))*t;
+  const pitchA=Math.atan2(from[1],Math.hypot(from[0],from[2])),pitchB=Math.atan2(to[1],Math.hypot(to[0],to[2])),pitch=pitchA+(pitchB-pitchA)*t;
+  return [4*Math.sin(yaw)*Math.cos(pitch),4*Math.sin(pitch),4*Math.cos(yaw)*Math.cos(pitch)];
+}
 export function floorPath(start, end, obstacles, bounds) {
   if (!canStand(start, obstacles, bounds) || !canStand(end, obstacles, bounds)) throw Error('Le trajet doit commencer et finir dans un passage libre.');
   if (segmentClear(start, end, obstacles, bounds)) return [[...start], [...end]];
