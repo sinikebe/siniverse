@@ -2,11 +2,11 @@ export const clamp=(value,min,max)=>Math.min(max,Math.max(min,value));
 export function finiteTriplet(value,fallback) {
   return Array.isArray(value)&&value.length===3&&value.every(Number.isFinite)?value.map(n=>clamp(n,-100,100)):[...fallback];
 }
-export function cleanPose(value,fallback) {
+export function cleanPose(value,fallback,{minHeight=2,minDistance=2}={}) {
   const position=finiteTriplet(value?.position,fallback.position);
   const target=finiteTriplet(value?.target,fallback.target);
-  position[1]=clamp(position[1],2,45);
-  if(Math.hypot(...position.map((n,i)=>n-target[i]))<2)return {position:[...fallback.position],target:[...fallback.target]};
+  position[1]=clamp(position[1],minHeight,45);
+  if(Math.hypot(...position.map((n,i)=>n-target[i]))<minDistance)return {position:[...fallback.position],target:[...fallback.target]};
   return {position,target};
 }
 export function orbitPose(pose,dx,dy) {
