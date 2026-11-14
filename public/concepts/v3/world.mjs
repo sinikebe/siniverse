@@ -111,7 +111,7 @@ export function createWorld(host,{reducedMotion=false,onContextLost=()=>{}}={}){
   const contextLost=event=>{event.preventDefault();lost=true;cancelAnimationFrame(frameId);frameId=0;for(const a of animations)a.resolve();animations.clear();onContextLost();};
   canvas.addEventListener('webglcontextlost',contextLost);
   document.addEventListener('visibilitychange',visibility);resize();
-  return {THREE,scene,camera,canvas,renderer,mesh,box,line,material,label,requestRender:request,animate,getPose,setPose,flyTo,cancelFlight,
+  return {THREE,scene,camera,canvas,renderer,mesh,box,line,material,label,requestRender:request,animate,getPose,setPose,flyTo,cancelFlight,pick,
     probe,
     addPick(mesh,action){picks.push({mesh,action});},
     cleanup(fn){cleanups.push(fn);},
