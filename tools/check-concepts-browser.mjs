@@ -583,6 +583,7 @@ async function run() {
 
     // Keyboard reopening and cancelling the actual expansion before it finishes.
     await directTrip('finapp');await closeReaderRepeated();
+    await until('(()=>{const e=document.querySelector("#plan-app-finapp"),r=e.getBoundingClientRect();if(e.closest("[hidden]")||!r.width||!r.height)return false;e.focus({preventScroll:true});return document.activeElement===e})()','The Finapp support was not ready for keyboard activation.');
     await press('#plan-app-finapp');
     await until('document.querySelector("#plan-reader-dialog").open&&document.querySelector("#plan-reader-dialog").getAnimations().some(a=>a.playState==="running")','No real opening animation was exposed.');
     await press('#plan-reader-close','Escape');
