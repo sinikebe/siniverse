@@ -490,6 +490,7 @@ async function run() {
     await socket.evaluate('history.forward()');await v3Wait(v3State('plan','garapp'));
     await v3Click('#plan-origin',v3State('plan'));
     await v3Click('#plan-app-finapp',v3State('plan','finapp'));
+    if(await socket.evaluate('document.querySelector("#plan-reading").open'))await click('#plan-read-more');
     await v3Click('#plan-angle-action',v3State('plan','finapp','action'));
     await screenshot('v3-plan-action-'+format,width);
     const panel=await socket.evaluate('document.querySelector("#plan-reading").open');
@@ -514,6 +515,7 @@ async function run() {
     assert.equal(await socket.evaluate('document.querySelector("#plan-reading").open'),panel,'A deliberately closed reading reopened.');
     await navigate(rootV3+'?concept=plan&app=branchlab&angle=methode');
     const signal=(await v3Inspect()).scene.signalPosition;
+    if(await socket.evaluate('document.querySelector("#plan-reading").open'))await click('#plan-read-more');
     await v3Click('#plan-angle-action',v3State('plan','branchlab','action'));
     assert.notDeepEqual((await v3Inspect()).scene.signalPosition,signal,'The physical signal did not cross the cable.');
     assert.equal(await socket.evaluate('document.querySelector("#plan-open").getAttribute("href")'),'https://branchlab.siniverse.cc');
@@ -613,6 +615,7 @@ try {
 } catch (error) {
   report.status = 'failed'; report.error = error.message; process.exitCode = 1;
   console.error(error.stack || error);
+  if(report.exceptions.length)console.error('PAGE_EXCEPTIONS '+JSON.stringify(report.exceptions));
 } finally {
   clearTimeout(timeout);
   writeFileSync(resolve(output, 'review.json'), JSON.stringify(report, null, 2) + '\n');
