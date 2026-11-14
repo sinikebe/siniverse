@@ -468,6 +468,7 @@ async function run() {
     assert(!near(beforePose.position,free.position),'A real drag did not move the camera.');
     assert.equal(await socket.evaluate('location.href'),href,'A camera drag navigated to an app.');
     assert.equal(await socket.evaluate('history.length'),historyLength,'Camera frames polluted browser history.');
+    if(mobile)await screenshot('v3-plan-free-mobile',width);
     const vehiclePoints=(await v3Inspect()).scene.pickTargets.filter(p=>p.app==='garapp').map(p=>p.screen);
     let native;
     for(const projected of vehiclePoints){

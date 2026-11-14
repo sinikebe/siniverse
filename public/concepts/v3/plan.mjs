@@ -128,7 +128,8 @@ export function mountPlan(host,initialState,api){
     const enter=button('plan-app-'+id,api.apps[id].name,'world-station-name');
     enter.addEventListener('click',()=>navigate({app:id,angle:'presentation'},'view-title'));
     const open=document.createElement('a');open.href=api.apps[id].url;open.textContent='Ouvrir ↗';open.setAttribute('aria-label','Ouvrir '+api.apps[id].name+' sur son site');
-    element.append(enter,open);appLabels.push(world.label([point[0],4,point[2]],element,{clamp:false}));
+    const anchor=id==='garapp'&&viewport.clientWidth<760?[point[0]-1,9,point[2]]:[point[0],4,point[2]];
+    element.append(enter,open);appLabels.push(world.label(anchor,element,{clamp:false}));
   }
   for(const [angle,label]of Object.entries(ANGLES)){
     const element=button('plan-angle-'+angle,label,'world-angle-stop');

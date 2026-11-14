@@ -84,3 +84,5 @@ button{color:inherit}button:focus-visible,a:focus-visible,summary:focus-visible{
 .plan-reading>summary::after{content:'+';font-size:16px;margin-left:auto}.plan-reading[open]>summary::after{content:'−'}
 .plan-reading>p{font-size:12px;line-height:1.7;margin:9px 0}
 @media(max-width:760px){.world-reading:not(.is-global){width:232px;padding:12px 15px 9px}.world-reading:not(.is-global) h1{font-size:21px;margin:8px 0 10px}.plan-reading{margin-top:10px}.plan-reading>summary{font-size:9px;min-height:36px}.plan-reading>p{font-size:11px;line-height:1.65}.world-reading:not(.is-global) .real-app-link{min-height:35px;font-size:11px}}
+
+@media(max-width:760px){.station-garapp::after{content:"";position:absolute;left:50%;top:100%;height:24px;border-left:1px solid #a79561;pointer-events:none}}
