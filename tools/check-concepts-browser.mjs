@@ -484,7 +484,7 @@ async function run() {
       await socket.send('Input.dispatchMouseEvent',{type:'mousePressed',x:p.x,y:p.y,button:'left',buttons:1,clickCount:1});
       await socket.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:p.x,y:p.y,button:'left',buttons:0,clickCount:1});
     }
-    await nativeTarget(inspected.scene.pickTargets.find(p=>p.app==='finapp'),'Finapp monitor');
+    await nativeTarget((await v3Inspect()).scene.pickTargets.find(p=>p.app==='finapp'),'Finapp monitor');
     await v3Wait(v3State('plan','finapp'));
     assert.equal((await v3Inspect()).scene.lastPick,'poste-finapp');
     await v3Click('#plan-angle-action',v3State('plan','finapp','action'));
