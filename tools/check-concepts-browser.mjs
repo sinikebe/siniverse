@@ -491,6 +491,11 @@ async function run() {
     await v3Click('#plan-origin',v3State('plan'));
     await v3Click('#plan-app-finapp',v3State('plan','finapp'));
     if(await socket.evaluate('document.querySelector("#plan-reading").open'))await click('#plan-read-more');
+    await screenshot('v3-plan-finapp-presentation-'+format,width);
+    const actionControl=await socket.evaluate('(()=>{const a=document.querySelector("#plan-angle-action"),r=a.getBoundingClientRect(),p=document.querySelector("#plan-reading"),b=p.getBoundingClientRect(),x=r.x+r.width/2,y=r.y+r.height/2,h=document.elementFromPoint(x,y);return {hidden:a.hidden,hiddenAncestor:a.closest("[hidden]")?.tagName||null,rect:{x:r.x,y:r.y,width:r.width,height:r.height},center:{x,y},hit:h?{tag:h.tagName,id:h.id,className:h.className}:null,exposed:h?.closest("#plan-angle-action")===a,stand:{x:b.x,y:b.y,width:b.width,height:b.height,open:p.open},pose:window.__siniverseV3.inspect().scene.pose}})()');
+    (report.planControls??=[]).push({format,...actionControl});
+    console.log('PLAN_ACTION_CONTROL '+JSON.stringify({format,...actionControl}));
+    assert(actionControl.exposed,'The physical Action control is not exposed: '+JSON.stringify(actionControl));
     await v3Click('#plan-angle-action',v3State('plan','finapp','action'));
     await screenshot('v3-plan-action-'+format,width);
     const panel=await socket.evaluate('document.querySelector("#plan-reading").open');

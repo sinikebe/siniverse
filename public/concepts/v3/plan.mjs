@@ -207,7 +207,7 @@ export function mountPlan(host,initialState,api){
     const view=!global&&portrait?{target:centre,position:centre.map((n,i)=>n+direction[i]/length*39)}:base;
     // The reading stand travels with its region; it is never an unrelated page below the world.
     const point=global?[-10,5,10]:POINTS[state.app][state.angle];
-    readingLabel.setPosition(portrait&&!global?[centre[0],18,centre[2]]:[point[0]+(global?0:5),point[1]+3.5,point[2]+3]);
+    readingLabel.setPosition(portrait&&!global?[centre[0],18,centre[2]]:[point[0]+(global?0:12),point[1]+3.5,point[2]+3]);
     if(typeof snapshot?.readingOpen==='boolean'&&reading.querySelector('details'))reading.querySelector('details').open=snapshot.readingOpen;
     if(snapshot?.pose){world.setPose(snapshot.pose);}
     else await world.flyTo(view,{instant});
