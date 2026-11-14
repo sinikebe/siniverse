@@ -456,7 +456,6 @@ async function run() {
     await navigate(rootV3+'?concept=plan');
     let inspected=await v3Inspect();
     assert.equal(inspected.scene.kind,'webgl2');
-    await socket.evaluate('window.__qaPointerEvents=[];for(const type of ["pointerdown","pointermove","pointerup","pointercancel"]){document.addEventListener(type,e=>{const q=window.__qaPointerEvents;q.push({type:e.type,id:e.pointerId,button:e.button,buttons:e.buttons,x:e.clientX,y:e.clientY,target:e.target.id,classes:e.target.getAttribute?.("class")});if(q.length>36)q.shift();},true)}');
     assert(inspected.scene.triangles>500&&inspected.scene.pixelColors>2,'The world framebuffer is empty.');
     await screenshot('v3-plan-arrival-'+format,width);
     assert(await socket.evaluate('[...document.querySelectorAll(".world-station")].filter(e=>!e.hidden).length===3'),'The arrival hides a destination.');
@@ -481,16 +480,9 @@ async function run() {
       await screenshot('v3-plan-vehicle-occlusion-'+format,width);
     }
     assert(native,'No actual portion of the vehicle is exposed for native picking: '+JSON.stringify(vehiclePoints));
-    report.nativePickBefore=await socket.evaluate('(()=>{const c=document.querySelector("#plan-canvas"),r=c.getBoundingClientRect(),p='+JSON.stringify(native)+';return {point:p,hit:document.elementFromPoint(p.x,p.y)?.outerHTML.slice(0,180),rect:{x:r.x,y:r.y,width:r.width,height:r.height},scroll:[scrollX,scrollY],pointerEvents:window.__qaPointerEvents,active:document.activeElement.id,ready:document.documentElement.dataset.v3Ready,hidden:document.hidden,inspect:window.__siniverseV3.inspect()}})()');
-    console.log('NATIVE_PICK_BEFORE '+JSON.stringify(report.nativePickBefore));
     await socket.send('Input.dispatchMouseEvent',{type:'mousePressed',x:native.x,y:native.y,button:'left',clickCount:1});
     await socket.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:native.x,y:native.y,button:'left',clickCount:1});
-    try{await v3Wait(v3State('plan','garapp'));}
-    catch(error){
-      report.nativePickAfter=await socket.evaluate('(()=>{const c=document.querySelector("#plan-canvas"),r=c?.getBoundingClientRect();return {rect:r?{x:r.x,y:r.y,width:r.width,height:r.height}:null,scroll:[scrollX,scrollY],active:document.activeElement.id,ready:document.documentElement.dataset.v3Ready,renderedState:document.documentElement.dataset.v3State,hidden:document.hidden,error:document.querySelector("#experience").dataset.sceneError,inspect:window.__siniverseV3.inspect()}})()');
-      report.nativePickAfter.exceptions=[...report.exceptions];console.log('NATIVE_PICK_AFTER '+JSON.stringify(report.nativePickAfter));throw error;
-    }
-    console.log('NATIVE_PICK_SUCCESS '+JSON.stringify({route:(await v3Inspect()).route,lastPick:(await v3Inspect()).scene.lastPick,pointerTrace:(await v3Inspect()).scene.pointerTrace}));
+    await v3Wait(v3State('plan','garapp'));
     await socket.evaluate('history.back()');await v3Wait(v3State('plan'));
     assert(near((await v3Inspect()).scene.pose.position,free.position),'Back lost the free camera pose.');
     await socket.evaluate('history.forward()');await v3Wait(v3State('plan','garapp'));
@@ -500,7 +492,6 @@ async function run() {
     await screenshot('v3-plan-finapp-presentation-'+format,width);
     const actionControl=await socket.evaluate('(()=>{const a=document.querySelector("#plan-angle-action"),r=a.getBoundingClientRect(),p=document.querySelector("#plan-reading"),b=p.getBoundingClientRect(),x=r.x+r.width/2,y=r.y+r.height/2,h=document.elementFromPoint(x,y);return {hidden:a.hidden,hiddenAncestor:a.closest("[hidden]")?.tagName||null,rect:{x:r.x,y:r.y,width:r.width,height:r.height},center:{x,y},hit:h?{tag:h.tagName,id:h.id,className:h.className}:null,exposed:h?.closest("#plan-angle-action")===a,stand:{x:b.x,y:b.y,width:b.width,height:b.height,open:p.open},pose:window.__siniverseV3.inspect().scene.pose}})()');
     (report.planControls??=[]).push({format,...actionControl});
-    console.log('PLAN_ACTION_CONTROL '+JSON.stringify({format,...actionControl}));
     assert(actionControl.exposed,'The physical Action control is not exposed: '+JSON.stringify(actionControl));
     await v3Click('#plan-angle-action',v3State('plan','finapp','action'));
     await screenshot('v3-plan-action-'+format,width);
