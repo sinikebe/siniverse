@@ -121,6 +121,19 @@ export function createWorld(host,{reducedMotion=false,onContextLost=()=>{},carto
     if(item){item.action();return item.mesh.name||true;}
     return null;
   }
+  function hit(clientX,clientY){
+    camera.updateMatrixWorld();const rect=canvas.getBoundingClientRect();pointer.set((clientX-rect.left)/rect.width*2-1,-(clientY-rect.top)/rect.height*2+1);raycaster.setFromCamera(pointer,camera);
+    const first=intersections()[0],item=first&&pickedRoot(first.object);
+    return item?{key:item.key,name:item.mesh.name,point:first.point.toArray()}:null;
+  }
+  function projectBounds(object){
+    if(!object)return null;
+    const rect=canvas.getBoundingClientRect();camera.aspect=rect.width/Math.max(1,rect.height);camera.updateProjectionMatrix();camera.updateMatrixWorld();object.updateWorldMatrix(true,true);
+    const bounds=new THREE.Box3();object.traverse(node=>{if(!visibleObject(node)||!node.geometry)return;node.geometry.computeBoundingBox();bounds.union(node.geometry.boundingBox.clone().applyMatrix4(node.matrixWorld));});
+    if(bounds.isEmpty())return null;
+    const points=[];for(const x of [bounds.min.x,bounds.max.x])for(const y of [bounds.min.y,bounds.max.y])for(const z of [bounds.min.z,bounds.max.z]){const p=new THREE.Vector3(x,y,z).project(camera);if(p.z>-1&&p.z<1)points.push({x:rect.left+(p.x*.5+.5)*rect.width,y:rect.top+(-p.y*.5+.5)*rect.height});}
+    if(!points.length)return null;const x=Math.min(...points.map(p=>p.x)),y=Math.min(...points.map(p=>p.y));return {x,y,width:Math.max(...points.map(p=>p.x))-x,height:Math.max(...points.map(p=>p.y))-y};
+  }
   function probe(clientX,clientY){
     const r=canvas.getBoundingClientRect();
     pointer.set((clientX-r.left)/r.width*2-1,-(clientY-r.top)/r.height*2+1);
@@ -137,9 +150,10 @@ export function createWorld(host,{reducedMotion=false,onContextLost=()=>{},carto
   const contextLost=event=>{event.preventDefault();lost=true;cancelAnimationFrame(frameId);frameId=0;for(const a of animations)a.resolve();animations.clear();onContextLost();};
   canvas.addEventListener('webglcontextlost',contextLost);
   document.addEventListener('visibilitychange',visibility);resize();
-  return {THREE,scene,camera,canvas,renderer,mesh,box,line,material,label,surface,visiblePoint,requestRender:request,animate,getPose,setPose,flyTo,cancelFlight,pick,
+  return {THREE,scene,camera,canvas,renderer,mesh,box,line,material,label,surface,visiblePoint,requestRender:request,animate,getPose,setPose,flyTo,cancelFlight,pick,hit,projectBounds,
+    refresh(){resize();render();},
     probe,
-    addPick(mesh,action){picks.push({mesh,action});},
+    addPick(mesh,action,{key=null}={}){picks.push({mesh,action,key});},
     cleanup(fn){cleanups.push(fn);},
     project(point){const p=point.clone().project(camera),r=canvas.getBoundingClientRect();return {x:r.left+(p.x*.5+.5)*r.width,y:r.top+(-p.y*.5+.5)*r.height,z:p.z};},
     inspect(){
