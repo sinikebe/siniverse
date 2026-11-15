@@ -6,7 +6,7 @@ import { createHouseInteractions } from './house-interactions.mjs';
 import { EYE_HEIGHT, canStand, segmentClear, stepOnFloor, lookOnFloor, blendLook, floorPath, pointAlong } from './house-navigation.mjs';
 
 const APPROACH={position:[-2.3,EYE_HEIGHT,5.7],target:[-2.3,EYE_HEIGHT,1.8]};
-const BUREAU={position:[-2.5,EYE_HEIGHT,2.7],target:[-2.5,1.5,-2.6]};
+const BUREAU={position:[-2.85,EYE_HEIGHT,2.7],target:[-2.85,1.5,-2.6]};
 const OVERVIEW={position:[12.5,8.5,16],target:[-1.1,1.3,1.1]};
 const MOBILE_OVERVIEW={position:[11,7,14],target:[0,1.2,0]};
 const GARAGE_PASSAGE={position:[1.65,EYE_HEIGHT,1.65],target:[3.1,1,-.3]};
