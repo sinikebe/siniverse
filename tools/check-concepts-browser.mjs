@@ -71,8 +71,9 @@ class Protocol {
       const remove = this.on(method, value => { clearTimeout(timer); remove(); resolve(value); });
     });
   }
-  async evaluate(expression) {
-    const result = await this.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
+  async evaluate(expression, timeout = 10000) {
+    const result = await this.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }, timeout)
+      .catch(error => { throw new Error(error.message + ' Expression: ' + expression.slice(0, 220)); });
     if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description || 'Browser evaluation failed.');
     return result.result.value;
   }
@@ -122,6 +123,8 @@ async function screenshot(name, width) {
   assert(await socket.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'), 'Horizontal overflow in '+name);
   const height = await socket.evaluate('document.querySelector("#plan-reader-dialog")?.open?innerHeight:Math.min(5000,Math.max(document.documentElement.scrollHeight,innerHeight))');
   await socket.send('Runtime.evaluate', { expression: 'window.scrollTo(0,0)' });
+  const visual = await socket.evaluate('window.__siniverseV3 ? window.__siniverseV3.inspect().scene : null', 20000);
+  if (visual?.kind === 'webgl2') assert(visual.pixelColors > 2, 'Uniform WebGL frame in ' + name);
   const image = await socket.send('Page.captureScreenshot', { format: 'png', fromSurface: true, captureBeyondViewport: true,
     clip: { x: 0, y: 0, width, height, scale: 1 } }, 20000);
   writeFileSync(resolve(output, name + '.png'), Buffer.from(image.data, 'base64'));
@@ -416,7 +419,8 @@ async function run() {
 
   // V3 verifies physical gestures and camera/relief state in addition to semantic routes.
   const v3State=(concept,app='ensemble',angle='presentation')=>({concept,app,angle:concept==='plan'?'presentation':angle});
-  const v3Inspect=()=>socket.evaluate('window.__siniverseV3.inspect()');
+  // Read GPU pixels at visual/picking checkpoints, and reuse scene state for other assertions.
+  const v3Inspect=({full=false}={})=>socket.evaluate(full?'window.__siniverseV3.inspect()':'window.__siniverseV3.inspect({fast:true})',full?20000:10000);
   async function until(expression,message){
     const poll=expression.replaceAll('window.__siniverseV3.inspect()','window.__siniverseV3.inspect({fast:true})');
     for(let attempt=0;attempt<200;attempt++){if(await socket.evaluate(poll))return;await pause(60);}
@@ -457,7 +461,7 @@ async function run() {
     const mobile=format==='mobile';
     await socket.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile});
     await navigate(rootV3+'?concept=plan');
-    let inspected=await v3Inspect();assert.equal(inspected.scene.kind,'webgl2');assert(inspected.scene.triangles>500&&inspected.scene.pixelColors>2);
+    let inspected=await v3Inspect({full:true});assert.equal(inspected.scene.kind,'webgl2');assert(inspected.scene.triangles>500&&inspected.scene.pixelColors>2);
     await screenshot('v3-plan-exterior-'+format,width);
     const overviewPose=(await v3Inspect()).scene.pose,overviewUrl=await socket.evaluate('location.href'),overviewHistory=await socket.evaluate('history.length');
     const overviewGesture=await canvasPoint('#plan-canvas');await dragPoint(overviewGesture,{x:overviewGesture.x+40,y:overviewGesture.y+10},{touch:mobile});
@@ -477,6 +481,12 @@ async function run() {
       assert(candidate,'A real scene target is missing.');
       const p={x:Math.round(candidate.screen.x),y:Math.round(candidate.screen.y)};
       assert(await socket.evaluate('(()=>{const p='+JSON.stringify(p)+';return p.x>3&&p.x<innerWidth-3&&p.y>3&&p.y<innerHeight-3&&[-2,0,2].every(dx=>[-2,0,2].every(dy=>document.elementFromPoint(p.x+dx,p.y+dy)?.id==="plan-canvas"))})()'),'Scene target is covered: '+JSON.stringify(candidate));return p;
+    }
+    async function exposedCarTarget(){
+      const candidates=(await v3Inspect({full:true})).scene.pickTargets.filter(p=>p.app==='garapp'&&p.blocker?.startsWith('car-'));
+      const result=await socket.evaluate('(()=>{const candidates='+JSON.stringify(candidates)+';return candidates.map(c=>{const x=Math.round(c.screen.x),y=Math.round(c.screen.y);return {candidate:c,exposed:x>3&&x<innerWidth-3&&y>3&&y<innerHeight-3&&[-2,0,2].every(dx=>[-2,0,2].every(dy=>document.elementFromPoint(x+dx,y+dy)?.id==="plan-canvas")),cover:document.elementFromPoint(x,y)?.outerHTML.slice(0,180)}})})()');
+      const target=result.find(item=>item.exposed)?.candidate;
+      assert(target,'No exposed native car target: '+JSON.stringify(result));return target;
     }
     async function nativeClick(candidate){
       const p=await targetPoint(candidate);
@@ -505,14 +515,14 @@ async function run() {
     }
 
     // The source point is recomputed after each screenshot (which resets document scroll).
-    let candidate=(await v3Inspect()).scene.pickTargets.find(p=>p.app==='finapp');
+    let candidate=(await v3Inspect({full:true})).scene.pickTargets.find(p=>p.app==='finapp');
     if(mobile)await nativeTap(candidate);
     else{const p=await targetPoint(candidate);await socket.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:p.x,y:p.y,buttons:0});}
     await until('window.__siniverseV3.inspect().scene.previewApp==="finapp"&&!document.querySelector(".house-object-preview").hidden','The physical support did not announce itself.');
     assert.equal((await v3Inspect()).scene.reader.open,false);
     await screenshot('v3-plan-preview-'+format,width);
     if(mobile)await click('#plan-preview-open');
-    else await nativeClick((await v3Inspect()).scene.pickTargets.find(p=>p.app==='finapp'));
+    else await nativeClick((await v3Inspect({full:true})).scene.pickTargets.find(p=>p.app==='finapp'));
     await readerReady('finapp');
     inspected=await v3Inspect();const supportPose=inspected.scene.pose;
     assert(inspected.scene.reader.rect.width>=width-1&&inspected.scene.reader.rect.height>=height-1,'Reading is still confined to the monitor.');
@@ -545,7 +555,7 @@ async function run() {
     const returnFocus=await socket.evaluate('(()=>{const e=document.querySelector("#plan-app-garapp"),r=e.getBoundingClientRect();return {actual:document.activeElement.id,source:history.state?.__siniverseNavigationV3?.view?.sourceFocus,hidden:e.hidden,rect:{x:r.x,y:r.y,width:r.width,height:r.height},scrollY}})()');
     assert.equal(returnFocus.actual,'plan-app-garapp','Return focus: '+JSON.stringify(returnFocus));
     await screenshot('v3-plan-car-return-'+format,width);
-    candidate=(await v3Inspect()).scene.pickTargets.find(p=>p.app==='garapp'&&p.blocker?.startsWith('car-'));
+    candidate=await exposedCarTarget();
     if(mobile)await nativeTap(candidate);else await nativeClick(candidate);
     await readerReady('garapp');assert.equal((await v3Inspect()).scene.lastPick,'voiture-garapp');
     await closeReaderRepeated('plan-canvas');assert.equal(await socket.evaluate('document.activeElement.id'),'plan-canvas');
@@ -571,7 +581,7 @@ async function run() {
     const travelled=Math.hypot(wallPose.position[0]-walkStart[0],wallPose.position[2]-walkStart[2]);assert(travelled>1.5&&travelled<2.6);
     assert.equal(await socket.evaluate('history.length'),walkHistory);
     for(let i=0;i<(mobile?7:5);i++)await press('#plan-canvas','ArrowRight');
-    inspected=await v3Inspect();const blocked=inspected.scene.pickTargets.find(p=>p.app==='garapp'&&p.blocker?.startsWith('house-wall-'));
+    inspected=await v3Inspect({full:true});const blocked=inspected.scene.pickTargets.find(p=>p.app==='garapp'&&p.blocker?.startsWith('house-wall-'));
     await nativeClick(blocked);await pause(100);
     assert.deepEqual((await v3Inspect()).route,v3State('plan','branchlab'));assert.equal((await v3Inspect()).scene.reader.open,false);
     assert.equal((await v3Inspect()).scene.lastPick,null);

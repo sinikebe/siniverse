@@ -18,6 +18,8 @@ L’aperçu de chaque support propose aussi une démonstration sur place. La cam
 
 Les commandes sont projetées sur les écrans et la page du carnet. Découvrir ouvre le lecteur à partir de ce support ; sa fermeture rend la manipulation et son état. Revenir dans la pièce ou Échap quitte la démonstration. L’historique conserve l’horizon, la connexion et la page avec la pose ; aucun changement de curseur ou frame d’animation n’ajoute d’entrée d’historique. Les animations se terminent après l’action et respectent le mouvement réduit.
 
+La direction visuelle de la maison utilise une palette ivoire, bois chaud et bleu ardoise. Les menuiseries, embrasures, auvent, chaises et éclairage linéaire renforcent l'architecture utile. La voiture possède une carrosserie à passages de roues ouverts, des jantes à rayons instanciés, des vitrages réfléchissants et un toit contrastant. Les écrans ont des coordonnées UV normalisées ; le carnet porte une couverture imprimée sur sa charnière existante. Les commandes translucides et les cadrages sont adaptés à l'ordinateur et au mobile, avec une seule page d'explication par application.
+
 La maison conserve sa géométrie compacte : toiture à joints debout, tableaux de fenêtres, plinthes, porte à panneaux et parquet. La vue en coupe soulève et efface le toit puis le remet à sa position exacte ; les collisions au sol restent identiques pendant cette transition. Le carnet ouvre sa couverture en 3D avant la lecture.
 
 ## État et accessibilité
@@ -32,7 +34,7 @@ Les commandes sont de vrais liens/boutons. Les repères du Plan sont masqués lo
 
 Three.js0.187.0 et esbuild0.28.2 sont verrouillés dans package/lock. Les deux fichiers officiels Three sont vérifiés par SHA256, minifiés localement et servis sous /concepts/v3/vendor/ avec licence MIT et provenance détaillée. Le serveur dev utilise la même génération, avec une whitelist de quatre fichiers. Aucun CDN, importmap inline, texture distante, API IA ou service ajouté.
 
-Budget strict des deux modules :1,5Mo bruts et350Ko gzip au maximum ; sortie actuelle environ772Ko minifiés/199Ko gzip. Les matières de la maison, le bois, l’enduit et l’environnement lumineux sont générés localement ; aucun asset de référence n’est copié. Les textures ont un repli sans DOM pour conserver les tests sur les vrais maillages. Le Plan limite le DPR à1,5, rend à la demande et arrête ses frames lorsque la page est masquée. Les animations sont liées aux actions. Les trois scènes libèrent leurs ressources à la sortie.
+Budget strict des deux modules :1,5Mo bruts et350Ko gzip au maximum ; sortie actuelle environ772Ko minifiés/199Ko gzip. Les matières de la maison, le bois, l’enduit et l’environnement lumineux sont générés localement ; aucun asset de référence n’est copié. Les textures ont un repli sans DOM pour conserver les tests sur les vrais maillages. Le Plan limite le DPR à1,5, rend à la demande et arrête ses frames lorsque la page est masquée. Les animations sont liées aux actions. Les ombres directionnelles sont calculées à nouveau lors d'un changement de géométrie (toit, carnet ou câble) ; les déplacements de caméra réutilisent leur carte. L'environnement de réflexion est généré en mémoire, sans chargement distant. Les trois scènes libèrent leurs ressources à la sortie.
 
 ## Vérification
 
@@ -42,6 +44,6 @@ Le QA exige un vrai WebGL2, des pixels non uniformes, une entrée et une marche 
 
 Les démonstrations sur support ajoutent des contrôles navigateur ordinateur/mobile : variation native du curseur, modification des courbes, connexion réversible du câble physique, ouverture du carnet, bornes de pagination et conservation après lecture. Les tests de géométrie vérifient aussi le retour exact du toit et du connecteur, ainsi que les bornes de la charnière.
 
-Les attentes des tests consultent un état léger avec `inspect({fast:true})` : aucune lecture de pixels ni recherche de cible 3D pour ces attentes. Les points de contrôle utilisent l’inspection complète pour mesurer les pixels et les maillages et retrouver les objets à cliquer. Le comportement d’inspection par défaut conserve ces mesures.
+Les assertions d’état et les attentes des tests consultent un état léger avec `inspect({fast:true})` : aucune lecture de pixels ni recherche de cible 3D pour ces attentes. Les points de contrôle visuels et de picking utilisent l’inspection complète pour mesurer les pixels et les maillages et retrouver les objets à cliquer. Le comportement d’inspection par défaut conserve ces mesures.
 
 Les deux HTML V3 reçoivent la version CI. La CSP interactive reste limitée à /concepts/* avec imports locaux ; l’accueil et la confidentialité ne changent pas. La CI partagée/pin et les Workers existants sont conservés. Toute promotion en production reste une PR dev→main après test et accord explicite.

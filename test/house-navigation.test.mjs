@@ -87,3 +87,25 @@ test('the notebook hinge stays finite and the real cable visibly disconnects and
   house.setInteraction('branchlab',{connected:true});assert.equal(plug.position.distanceTo(rest),0);
   house.setInteraction('branchlab',null);assert.equal(house.inspectObjects().connected,true);
 });
+
+test('the sculpted car has outward body panels and genuinely open wheel arches',()=>{
+  scene.updateMatrixWorld(true);
+  const body=scene.getObjectByName('car-sculpted-body');
+  const front=new THREE.Raycaster(new THREE.Vector3(3.1,.65,3.1),new THREE.Vector3(0,0,-1)).intersectObject(body)[0];
+  assert(front,'The front body panel must be visible from outside.');
+  assert(front.face.normal.z>.5,'The front panel must face outward.');
+  const bonnet=new THREE.Raycaster(new THREE.Vector3(3.1,1.3,1.0),new THREE.Vector3(0,-1,0)).intersectObject(body)[0];
+  assert(bonnet?.face.normal.y>.7,'The bonnet must face upward.');
+  for(const z of [-1.27,1.24]){
+    const ray=new THREE.Raycaster(new THREE.Vector3(5,.45,z-.3),new THREE.Vector3(-1,0,0));
+    assert.equal(ray.intersectObject(body).length,0,'A solid body panel closes a wheel arch.');
+  }
+});
+
+test('screen artwork maps once across the entire physical display',()=>{
+  for(const screen of Object.values(house.screens)){
+    const uv=screen.geometry.attributes.uv,values=Array.from(uv.array);
+    assert(values.every(value=>value>=0&&value<=1),'Screen artwork must not repeat or crop at negative UVs.');
+    assert.equal(Math.min(...values),0);assert.equal(Math.max(...values),1);
+  }
+});

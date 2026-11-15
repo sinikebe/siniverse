@@ -6,8 +6,8 @@ import { createHouseInteractions } from './house-interactions.mjs';
 import { EYE_HEIGHT, canStand, segmentClear, stepOnFloor, lookOnFloor, blendLook, floorPath, pointAlong } from './house-navigation.mjs';
 
 const APPROACH={position:[-2.3,EYE_HEIGHT,5.7],target:[-2.3,EYE_HEIGHT,1.8]};
-const BUREAU={position:[-2.5,EYE_HEIGHT,2.7],target:[-2.5,1.5,-2.6]};
-const OVERVIEW={position:[10,7,12],target:[0,1.2,0]};
+const BUREAU={position:[-2.85,EYE_HEIGHT,2.7],target:[-2.85,1.5,-2.6]};
+const OVERVIEW={position:[12.5,8.5,16],target:[-1.1,1.3,1.1]};
 const MOBILE_OVERVIEW={position:[11,7,14],target:[0,1.2,0]};
 const GARAGE_PASSAGE={position:[1.65,EYE_HEIGHT,1.65],target:[3.1,1,-.3]};
 const CAR_VIEW={position:[1.75,EYE_HEIGHT,4.9],target:[2.73,1.05,1.07]};
@@ -20,7 +20,7 @@ export function mountPlan(host,initialState,api){
   const hud=document.createElement('div');hud.className='plan-controls house-hud';
   hud.innerHTML='<h1 id="view-title" class="house-sr" tabindex="-1">La maison Siniverse</h1><div class="plan-compass"><span class="compass-name" id="plan-location">Devant la maison</span><button id="plan-origin" type="button">↙ La maison</button><button id="plan-enter-house" type="button">Entrer</button><button id="plan-cutaway" type="button" aria-pressed="false">Voir en coupe</button><details><summary>Trajets directs</summary><div class="plan-direct-routes"></div></details></div><div class="plan-movement" aria-label="Déplacement au sol"><button id="plan-forward" data-move="forward" aria-label="Avancer">↑</button><button data-move="left" aria-label="Pas à gauche">←</button><button data-move="back" aria-label="Reculer">↓</button><button data-move="right" aria-label="Pas à droite">→</button><button id="plan-zoom-in" data-move="in" aria-label="Avancer vers le poste">+</button><button data-move="out" aria-label="Reculer du poste">−</button></div>';
   host.append(hud);
-  const introduction=document.createElement('aside');introduction.className='house-intro';introduction.innerHTML='<p>PLAN-SÉQUENCE / UNE MAISON À EXPLORER</p><h2>Les outils ont leur place.</h2><p>Finapp et Branchlab dans le bureau. Garapp auprès de la voiture, dans le garage.</p>';host.append(introduction);
+  const introduction=document.createElement('aside');introduction.className='house-intro';introduction.innerHTML='<p>LA MAISON SINIVERSE</p><h2>Bienvenue chez Siniverse.</h2><p>Finapp et Branchlab au bureau.<br>Garapp dans le garage.</p>';host.append(introduction);
   const instruction=document.createElement('p');instruction.className='plan-instruction';instruction.textContent='Entrer, puis glisser pour regarder · W A S D / flèches pour marcher';host.append(instruction);
   let state=initialState,world,house,failed=false,destroyed=false,mode='overview',roofOpen=false,revision=0,dragging=false,lastPick=null,lastJourney=[],blockedMoves=0;
   let reader=null,demos=null,previewPanel=null,previewApp=null,previewPhase='hover',previewRevision=0,pendingOpen=false,sourceFocus='plan-canvas',returnPose=null,closingTask=null;
@@ -34,7 +34,7 @@ export function mountPlan(host,initialState,api){
     viewport.innerHTML='<section class="plan-fallback"><p class="scene-kicker">LA MAISON / PARCOURS SANS WEBGL</p><h1 id="view-title" tabindex="-1">'+api.escape(content.title)+'</h1><p>Le lieu 3D n’est pas disponible ici. Les mêmes outils et explications restent accessibles.</p><div class="fallback-destinations"><a href="'+api.href({app:'ensemble',angle:'presentation'})+'" data-plan-fallback-app="ensemble">La maison</a>'+Object.entries(api.apps).map(([id,app])=>'<a href="'+api.href({app:id,angle:state.angle})+'" data-plan-fallback-app="'+id+'">'+app.name+'</a>').join('')+'</div>'+content.body.map(p=>'<p>'+api.escape(p)+'</p>').join('')+(api.apps[state.app]?'<a class="real-app-link" href="'+api.apps[state.app].url+'">Ouvrir '+api.apps[state.app].name+' ↗</a>':'')+'</section>';
     for(const a of viewport.querySelectorAll('[data-plan-fallback-app]'))a.addEventListener('click',event=>{if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();navigate({app:a.dataset.planFallbackApp||state.app,angle:'presentation'});});
   }
-  try{world=createWorld(viewport,{cartoon:true,minCameraHeight:EYE_HEIGHT,minCameraDistance:.4,mobileFov:75,desktopFov:55,reducedMotion:api.reducedMotion,onContextLost:()=>{if(!destroyed)fallback();}});}
+  try{world=createWorld(viewport,{cartoon:true,minCameraHeight:EYE_HEIGHT,minCameraDistance:.4,mobileFov:68,desktopFov:50,reducedMotion:api.reducedMotion,onContextLost:()=>{if(!destroyed)fallback();}});}
   catch{fallback();}
   if(failed)return {update(next){state=next;fallback();},snapshot(){return null;},inspect(){return {kind:'fallback',app:state.app,angle:state.angle};},destroy(){destroyed=true;world?.destroy();host.replaceChildren();host.classList.remove('plan-host','plan-house');}};
   world.canvas.id='plan-canvas';world.canvas.setAttribute('aria-label','La maison Siniverse. Glisser pour regarder. W A S D ou flèches pour marcher ; les murs et le véhicule arrêtent le déplacement.');
@@ -46,7 +46,7 @@ export function mountPlan(host,initialState,api){
     const p=world.getPose().position,inside=p[0]>-5.3&&p[0]<5.3&&p[2]>-3.6&&p[2]<3.6;
     hud.querySelector('#plan-location').textContent=mode==='overview'?'La maison / vue d’ensemble':inside?(p[0]<.8?'Dans le bureau':'Dans le garage'):'Devant la maison';
     introduction.hidden=mode!=='overview'||state.app!=='ensemble';hud.querySelector('#plan-enter-house').hidden=mode==='walk';
-    for(const station of stationLabels){const separated=mode==='overview'&&isMobile()&&roofOpen&&station.id!=='garapp';station.handle.setEnabled((!reader?.isOpen()||station.id!==reader.app())&&station.id!==demos?.active());station.handle.setPosition(separated?station.cutPosition:station.position);if(station.guide)station.guide.visible=separated;}
+    for(const station of stationLabels){const separated=mode==='overview'&&roofOpen&&station.id!=='garapp';station.handle.setEnabled((!reader?.isOpen()||station.id!==reader.app())&&station.id!==demos?.active());station.handle.setPosition(separated?station.cutPosition:station.position);if(station.guide)station.guide.visible=separated;}
   }
   function setRoof(open,{instant=false}={}){roofOpen=open;void house.setCutaway(open,{instant});hud.querySelector('#plan-cutaway').setAttribute('aria-pressed',String(open));hud.querySelector('#plan-cutaway').textContent=open?'Remettre le toit':'Voir en coupe';updateLocation();world.requestRender();}
   hud.querySelector('#plan-cutaway').addEventListener('click',()=>{setPreview(null);setRoof(!roofOpen);api.saveView();});
@@ -74,12 +74,15 @@ export function mountPlan(host,initialState,api){
     const bounds=world.projectBounds(supports[previewApp]);if(!bounds){previewPanel.hidden=true;return;}
     const r=host.getBoundingClientRect(),w=previewPanel.offsetWidth,h=previewPanel.offsetHeight;
     const x=Math.max(12,Math.min(r.width-w-12,bounds.x-r.x+bounds.width/2-w/2));
-    let y=bounds.y-r.y-h-16;if(y<12)y=bounds.y-r.y+bounds.height+14;
-    y=Math.max(12,Math.min(r.height-h-150,y));previewPanel.style.transform='translate('+x+'px,'+y+'px)';
+    const maxY=Math.max(12,r.height-h-150),above=bounds.y-r.y-h-16,below=bounds.y-r.y+bounds.height+14;
+    // A clamped "below" card can cover the entire support on a short viewport.
+    // Prefer the upper edge when neither side fits, leaving the support centre exposed.
+    const y=above>=12?Math.min(maxY,above):below<=maxY?below:12;
+    previewPanel.style.transform='translate('+x+'px,'+y+'px)';
   }
   function setPreview(app,phase='hover',{show=true}={}){
     if(app&&!api.apps[app])app=null;
-    const same=app===previewApp;previewApp=app;previewPhase=phase;
+    const same=app===previewApp;previewApp=app;previewPhase=phase;if(previewPanel)previewPanel.dataset.app=app||'';
     const token=++previewRevision,amounts=house.inspectPreview?.()||{};
     if(app&&!same){
       const lead={finapp:'Comparer des scénarios au même horizon.',garapp:'Retrouver le fil de vie d’un véhicule.',branchlab:'Comprendre une liaison, de la source à l’écran.'}[app];
@@ -98,7 +101,7 @@ export function mountPlan(host,initialState,api){
   async function tryObject(app){
     const token=++revision;pendingOpen=true;demos.close({instant:true});setPreview(null);lastJourney=[];
     if(app==='garapp'&&mode==='overview'){await walkTo(GARAGE_PASSAGE,{token});if(token!==revision||failed)return;}
-    const s=house.surfaces[app],distance=isMobile()?1.85:1.8;
+    const s=house.surfaces[app],distance=isMobile()?2.05:1.8;
     const pose=app==='garapp'?{position:[s.position[0]+(isMobile()?1.6:1.8),EYE_HEIGHT,s.position[2]],target:s.position}
       :{position:[s.position[0],EYE_HEIGHT,s.position[2]+distance],target:s.position};
     await walkTo(pose,{token});if(token!==revision||failed)return;
@@ -133,7 +136,7 @@ export function mountPlan(host,initialState,api){
   }
   function targetPose(app){
     if(app==='garapp')return CAR_VIEW;
-    const s=house.surfaces[app];return {position:[s.position[0],EYE_HEIGHT,s.position[2]+(isMobile()?1.8:2.6)],target:[s.position[0],s.position[1],s.position[2]]};
+    const s=house.surfaces[app];return {position:[s.position[0],EYE_HEIGHT,s.position[2]+(isMobile()?2.0:2.6)],target:[s.position[0],s.position[1],s.position[2]]};
   }
   async function interpolatePose(end,duration,token){
     const start=world.getPose();await world.animate(api.reducedMotion?0:duration,t=>{if(token!==revision||failed)return;const s=t*t*(3-2*t);setPose({position:mix(start.position,end.position,s),target:mix(start.target,end.target,s)});});
