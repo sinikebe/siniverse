@@ -89,5 +89,5 @@ document.querySelector('#pin-theme').addEventListener('click',()=>{
 });
 document.querySelector('#resume-rotation').addEventListener('click',resume);
 window.addEventListener('pagehide',()=>writeHistory('replaceState'));
-Object.defineProperty(window,'__siniverseV3',{value:Object.freeze({inspect:()=>({route:{...state},scene:mounted?.inspect?.()??{kind:'unavailable'}})})});
+Object.defineProperty(window,'__siniverseV3',{value:Object.freeze({inspect:options=>({route:{...state},scene:mounted?.inspect?.(options)??{kind:'unavailable'}})})});
 await render(restored?previous:null,{instant:true});

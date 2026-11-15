@@ -418,13 +418,14 @@ async function run() {
   const v3State=(concept,app='ensemble',angle='presentation')=>({concept,app,angle:concept==='plan'?'presentation':angle});
   const v3Inspect=()=>socket.evaluate('window.__siniverseV3.inspect()');
   async function until(expression,message){
-    for(let attempt=0;attempt<200;attempt++){if(await socket.evaluate(expression))return;await pause(60);}
+    const poll=expression.replaceAll('window.__siniverseV3.inspect()','window.__siniverseV3.inspect({fast:true})');
+    for(let attempt=0;attempt<200;attempt++){if(await socket.evaluate(poll))return;await pause(60);}
     const actual=await socket.evaluate('(()=>{const s=window.__siniverseV3?.inspect();return {ready:document.documentElement.dataset.v3Ready,route:s?.route,pose:s?.scene?.pose,reader:s?.scene?.reader,animations:s?.scene?.animationCount,focus:document.activeElement?.id}})()');
     throw Error(message+' Actual state: '+JSON.stringify(actual));
   }
   async function v3Wait(expected){
     await until('document.documentElement.dataset.v3Ready==="true" && document.documentElement.dataset.v3State==='+JSON.stringify(JSON.stringify(expected)), 'V3 route did not settle: '+JSON.stringify(expected));
-    assert.deepEqual((await v3Inspect()).route,expected);
+    assert.deepEqual(await socket.evaluate('window.__siniverseV3.inspect({fast:true}).route'),expected);
   }
   async function v3Click(selector,expected){await click(selector);await v3Wait(expected);}
   async function press(selector,key='Enter'){
