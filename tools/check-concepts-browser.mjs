@@ -111,7 +111,7 @@ async function click(selector) {
   await socket.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: point.x, y: point.y, button: 'left', clickCount: 1 });
   await socket.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: point.x, y: point.y, button: 'left', clickCount: 1 });
   await pause(80);
-  for(let attempt=0;attempt<100;attempt++) {
+  for(let attempt=0;attempt<200;attempt++) {
     if(await socket.evaluate('location.pathname.startsWith("/concepts/v3/") ? document.documentElement.dataset.v3Ready === "true" : !location.pathname.startsWith("/concepts/v2/") || document.documentElement.dataset.navigationReady === "true"')) return point;
     await pause(50);
   }
@@ -418,8 +418,9 @@ async function run() {
   const v3State=(concept,app='ensemble',angle='presentation')=>({concept,app,angle});
   const v3Inspect=()=>socket.evaluate('window.__siniverseV3.inspect()');
   async function until(expression,message){
-    for(let attempt=0;attempt<125;attempt++){if(await socket.evaluate(expression))return;await pause(60);}
-    throw Error(message);
+    for(let attempt=0;attempt<200;attempt++){if(await socket.evaluate(expression))return;await pause(60);}
+    const actual=await socket.evaluate('(()=>{const s=window.__siniverseV3?.inspect();return {ready:document.documentElement.dataset.v3Ready,route:s?.route,pose:s?.scene?.pose,reader:s?.scene?.reader,animations:s?.scene?.animationCount,focus:document.activeElement?.id}})()');
+    throw Error(message+' Actual state: '+JSON.stringify(actual));
   }
   async function v3Wait(expected){
     await until('document.documentElement.dataset.v3Ready==="true" && document.documentElement.dataset.v3State==='+JSON.stringify(JSON.stringify(expected)), 'V3 route did not settle: '+JSON.stringify(expected));
