@@ -9,7 +9,7 @@ export function normalizeState(value={}) {
   const concept=CONCEPTS.includes(value.concept)?value.concept:'plan';
   const app=Object.hasOwn(APPS,value.app)?value.app:'ensemble';
   const angle=ANGLES.includes(value.angle)?value.angle:'presentation';
-  return {concept,app,angle:app==='ensemble'&&concept!=='reacteur'?'presentation':angle};
+  return {concept,app,angle:concept==='plan'||app==='ensemble'&&concept!=='reacteur'?'presentation':angle};
 }
 export function parseRoute(search,resolved='plan') {
   const query=new URLSearchParams(search);

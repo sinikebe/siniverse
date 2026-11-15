@@ -4,13 +4,15 @@ La comparaison est séparée sur /concepts/v3/. Les liens fixes utilisent /conce
 
 ## Trois expériences
 
-- Plan-séquence : une maison WebGL2 sculptée, avec un bureau pour Finapp et Branchlab et un garage pour le véhicule Garapp. Une entrée extérieure et une porte intérieure relient réellement les pièces. La vue d’ensemble peut retirer le toit ; une fois entré, le regard reste à 1,65 m et les déplacements au sol respectent les murs, le bureau et la voiture. Glisser fait regarder, W/A/S/D et les boutons tactiles font marcher. Survoler ou focaliser un support annonce son rôle ; le premier tap tactile affiche un aperçu et une action Découvrir. Une activation approche le poste ou le véhicule par les portes, puis agrandit son support vers une lecture plein champ. Tous les angles et sorties réelles sont disponibles dans ce lecteur. Fermer ou Échap referme vers le même objet et restaure le focus. Les poses et aperçus n’ajoutent pas d’entrée d’historique par frame.
+- Plan-séquence : une maison WebGL2 sculptée, avec un bureau pour Finapp et Branchlab et un garage pour le véhicule Garapp. Une entrée extérieure et une porte intérieure relient réellement les pièces. La vue d’ensemble peut retirer le toit ; une fois entré, le regard reste à 1,65 m et les déplacements au sol respectent les murs, le bureau et la voiture. Glisser fait regarder, W/A/S/D et les boutons tactiles font marcher. Survoler ou focaliser un support annonce son rôle ; le premier tap tactile affiche un aperçu et une action Découvrir. Une activation approche le poste ou le véhicule par les portes, puis agrandit son support vers une lecture plein champ. Une présentation unique de chaque application et sa sortie réelle sont disponibles dans ce lecteur. Fermer ou Échap referme vers le même objet et restaure le focus. Les poses et aperçus n’ajoutent pas d’entrée d’historique par frame.
 - Réacteur : établi CSS3D à deux prises, outil et angle. Glisser-déposer ou activer un ingrédient recompose les18pièces de matière. L’angle peut précéder l’outil et reste choisi lors d’un remplacement. Les molettes près de la lecture évitent de remonter vers les banques sur mobile.
 - Anamorphose : relief WebGL2 typographique, visées guidées et point de vue libre borné. Les fragments et inscriptions sont distribués en profondeur ; le changement de regard révèle une autre lecture. Aucun ajustement au pixel n’est nécessaire.
 
 Les explications sont celles du catalogue public ; les illustrations sont fictives. Les applications réelles s’ouvrent dans le même onglet sur leurs sous-domaines, sans embarquer leur interface ni échanger leurs données.
 
 ### Manipuler les objets de la maison
+
+Chaque application du Plan-séquence possède une seule page d’explication continue : présentation, fonctions principales et accès à l’application. Le lecteur et le parcours sans WebGL n’affichent plus de choix entre rôle, action, méthode ou limites. Les anciennes URL `angle=action`, `angle=methode` et `angle=limites`, ainsi que les anciens états d’historique, rejoignent cette même page et sont normalisés vers une URL sans `angle`. Les autres maquettes conservent leurs mécanismes de comparaison.
 
 L’aperçu de chaque support propose aussi une démonstration sur place. La caméra rejoint le support par les passages existants. Finapp permet de faire varier un horizon fictif de 5 à 20 ans sur l’écran ; Branchlab branche et débranche une liaison, avec un connecteur qui se déplace réellement et un signal ponctuel ; le carnet articulé Garapp ouvre trois événements fictifs, avec une pagination bornée. Ces démonstrations ne chargent aucune donnée des applications.
 
@@ -20,7 +22,7 @@ La maison conserve sa géométrie compacte : toiture à joints debout, tableaux 
 
 ## État et accessibilité
 
-Le noyau ne partage que les destinations, l’historique/focus et les préférences. Les modules restent montés pendant la navigation sémantique et possèdent leurs gestes, mouvements et poses. Retour/Avant restaure aussi la pose transitoire, le lecteur ouvert/fermé, son défilement et le focus. La fermeture explicite garde la destination app/angle dans l’URL et mémorise la vue du support ; un nouveau lien direct ouvre la lecture. Les poses ne figurent pas dans les URL partagées.
+Le noyau ne partage que les destinations, l’historique/focus et les préférences. Les modules restent montés pendant la navigation sémantique et possèdent leurs gestes, mouvements et poses. Retour/Avant restaure aussi la pose transitoire, le lecteur ouvert/fermé, son défilement et le focus. La fermeture explicite garde l’application dans l’URL et mémorise la vue du support ; un nouveau lien direct ouvre la lecture. Les poses ne figurent pas dans les URL partagées.
 
 Les liens explicites fixent leur concept indépendamment d’une préférence figée. Sans concept forcé, un rechargement suit Plan → Réacteur → Anamorphose. Figer garde le courant. Reprendre conserve la vue immédiatement puis réactive la suite au prochain rechargement. La clé siniverse.navigation-concepts.v3 est indépendante de V1/V2 ; session, historique d’onglet et mémoire servent de replis.
 

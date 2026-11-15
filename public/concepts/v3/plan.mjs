@@ -11,7 +11,6 @@ const OVERVIEW={position:[10,7,12],target:[0,1.2,0]};
 const MOBILE_OVERVIEW={position:[11,7,14],target:[0,1.2,0]};
 const GARAGE_PASSAGE={position:[1.65,EYE_HEIGHT,1.65],target:[3.1,1,-.3]};
 const CAR_VIEW={position:[1.75,EYE_HEIGHT,4.9],target:[2.73,1.05,1.07]};
-const ANGLES={presentation:'Le rôle',action:'En action',methode:'Méthode',limites:'Limites'};
 const button=(id,label,className='')=>{const b=document.createElement('button');b.type='button';b.id=id;b.textContent=label;b.className=className;return b;};
 const mix=(a,b,t)=>a.map((n,i)=>n+(b[i]-n)*t);
 
@@ -31,9 +30,9 @@ export function mountPlan(host,initialState,api){
 
   function fallback(){
     failed=true;demos?.close({instant:true});if(previewPanel)previewPanel.hidden=true;host.classList.add('plan-is-fallback');hud.querySelector('h1').removeAttribute('id');hud.hidden=true;introduction.hidden=true;instruction.hidden=true;viewport.replaceChildren();
-    const content=api.content(state.app,state.angle);
-    viewport.innerHTML='<section class="plan-fallback"><p class="scene-kicker">LA MAISON / PARCOURS SANS WEBGL</p><h1 id="view-title" tabindex="-1">'+api.escape(content.title)+'</h1><p>Le lieu 3D n’est pas disponible ici. Les mêmes outils et explications restent accessibles.</p><div class="fallback-destinations"><a href="'+api.href({app:'ensemble',angle:'presentation'})+'" data-plan-fallback-app="ensemble">La maison</a>'+Object.entries(api.apps).map(([id,app])=>'<a href="'+api.href({app:id,angle:state.angle})+'" data-plan-fallback-app="'+id+'">'+app.name+'</a>').join('')+'</div><div class="fallback-destinations">'+Object.entries(ANGLES).map(([angle,label])=>'<a href="'+api.href({app:state.app,angle})+'" data-plan-fallback-angle="'+angle+'">'+label+'</a>').join('')+'</div>'+content.body.map(p=>'<p>'+api.escape(p)+'</p>').join('')+(api.apps[state.app]?'<a class="real-app-link" href="'+api.apps[state.app].url+'">Ouvrir '+api.apps[state.app].name+' ↗</a>':'')+'</section>';
-    for(const a of viewport.querySelectorAll('[data-plan-fallback-app],[data-plan-fallback-angle]'))a.addEventListener('click',event=>{if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();navigate({app:a.dataset.planFallbackApp||state.app,angle:a.dataset.planFallbackAngle||state.angle});});
+    const content=api.content(state.app);
+    viewport.innerHTML='<section class="plan-fallback"><p class="scene-kicker">LA MAISON / PARCOURS SANS WEBGL</p><h1 id="view-title" tabindex="-1">'+api.escape(content.title)+'</h1><p>Le lieu 3D n’est pas disponible ici. Les mêmes outils et explications restent accessibles.</p><div class="fallback-destinations"><a href="'+api.href({app:'ensemble',angle:'presentation'})+'" data-plan-fallback-app="ensemble">La maison</a>'+Object.entries(api.apps).map(([id,app])=>'<a href="'+api.href({app:id,angle:state.angle})+'" data-plan-fallback-app="'+id+'">'+app.name+'</a>').join('')+'</div>'+content.body.map(p=>'<p>'+api.escape(p)+'</p>').join('')+(api.apps[state.app]?'<a class="real-app-link" href="'+api.apps[state.app].url+'">Ouvrir '+api.apps[state.app].name+' ↗</a>':'')+'</section>';
+    for(const a of viewport.querySelectorAll('[data-plan-fallback-app]'))a.addEventListener('click',event=>{if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();navigate({app:a.dataset.planFallbackApp||state.app,angle:'presentation'});});
   }
   try{world=createWorld(viewport,{cartoon:true,minCameraHeight:EYE_HEIGHT,minCameraDistance:.4,mobileFov:75,desktopFov:55,reducedMotion:api.reducedMotion,onContextLost:()=>{if(!destroyed)fallback();}});}
   catch{fallback();}
