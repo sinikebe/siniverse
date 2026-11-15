@@ -110,7 +110,8 @@ export function createWorld(host,{reducedMotion=false,onContextLost=()=>{},carto
   function surface(spec,element){
     const quaternion=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),spec.rotationY||0),normal=new THREE.Vector3(0,0,1).applyQuaternion(quaternion);
     const position=new THREE.Vector3(...spec.position).addScaledVector(normal,.025);
-    element.classList.add('world-surface');element.style.width='360px';element.style.height=String(360*spec.height/spec.width)+'px';labelLayer.append(element);
+    const pixels=spec.pixels||360;
+    element.classList.add('world-surface');element.style.width=pixels+'px';element.style.height=String(pixels*spec.height/spec.width)+'px';labelLayer.append(element);
     const item={element,position,quaternion,width:spec.width,height:spec.height,disabled:false};surfaces.push(item);request();
     return {element,setEnabled(enabled){item.disabled=!enabled;request();},remove(){item.disabled=true;element.remove();}};
   }

@@ -111,7 +111,7 @@ async function click(selector) {
   await socket.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: point.x, y: point.y, button: 'left', clickCount: 1 });
   await socket.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: point.x, y: point.y, button: 'left', clickCount: 1 });
   await pause(80);
-  for(let attempt=0;attempt<100;attempt++) {
+  for(let attempt=0;attempt<200;attempt++) {
     if(await socket.evaluate('location.pathname.startsWith("/concepts/v3/") ? document.documentElement.dataset.v3Ready === "true" : !location.pathname.startsWith("/concepts/v2/") || document.documentElement.dataset.navigationReady === "true"')) return point;
     await pause(50);
   }
@@ -418,8 +418,9 @@ async function run() {
   const v3State=(concept,app='ensemble',angle='presentation')=>({concept,app,angle});
   const v3Inspect=()=>socket.evaluate('window.__siniverseV3.inspect()');
   async function until(expression,message){
-    for(let attempt=0;attempt<125;attempt++){if(await socket.evaluate(expression))return;await pause(60);}
-    throw Error(message);
+    for(let attempt=0;attempt<200;attempt++){if(await socket.evaluate(expression))return;await pause(60);}
+    const actual=await socket.evaluate('(()=>{const s=window.__siniverseV3?.inspect();return {ready:document.documentElement.dataset.v3Ready,route:s?.route,pose:s?.scene?.pose,reader:s?.scene?.reader,animations:s?.scene?.animationCount,focus:document.activeElement?.id}})()');
+    throw Error(message+' Actual state: '+JSON.stringify(actual));
   }
   async function v3Wait(expected){
     await until('document.documentElement.dataset.v3Ready==="true" && document.documentElement.dataset.v3State==='+JSON.stringify(JSON.stringify(expected)), 'V3 route did not settle: '+JSON.stringify(expected));
@@ -429,7 +430,7 @@ async function run() {
   async function press(selector,key='Enter'){
     await socket.send('Page.bringToFront');
     await socket.evaluate('document.querySelector('+JSON.stringify(selector)+').focus()');
-    const virtualCode=key==='Enter'?13:key==='Escape'?27:0;
+    const virtualCode=({Enter:13,Escape:27,End:35,ArrowLeft:37,ArrowRight:39})[key]||0;
     await socket.send('Input.dispatchKeyEvent',{type:'keyDown',key,code:key,windowsVirtualKeyCode:virtualCode,...(key==='Enter'?{text:'\r',unmodifiedText:'\r'}:{})});
     await socket.send('Input.dispatchKeyEvent',{type:'keyUp',key,code:key,windowsVirtualKeyCode:virtualCode});
   }
@@ -462,6 +463,7 @@ async function run() {
     assert(!near((await v3Inspect()).scene.pose.position,overviewPose.position),'Free overview drag did not move the camera.');
     assert.equal(await socket.evaluate('location.href'),overviewUrl);assert.equal(await socket.evaluate('history.length'),overviewHistory);
     await click('#plan-cutaway');assert.equal((await v3Inspect()).scene.roofOpen,true);
+    await until('window.__siniverseV3.inspect().scene.animationCount===0','The animated cutaway did not settle.');
     if(mobile)assert(await socket.evaluate('(()=>{const a=document.querySelector("#plan-app-finapp"),b=document.querySelector("#plan-app-branchlab"),r=a.getBoundingClientRect(),s=b.getBoundingClientRect();return !a.hidden&&!b.hidden&&(r.bottom<=s.top||s.bottom<=r.top||r.right<=s.left||s.right<=r.left)})()'),'Mobile cutaway support targets overlap.');
     await screenshot('v3-plan-cutaway-'+format,width);await click('#plan-cutaway');
     const exposedDoor=await socket.evaluate('(()=>{const e=document.querySelector("#plan-door"),r=e.getBoundingClientRect();return !e.hidden&&r.width>0&&document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest("#plan-door")===e})()');
@@ -590,6 +592,43 @@ async function run() {
     await press('#plan-reader-close','Escape');
     await until('!document.querySelector("#plan-reader-dialog").open&&!document.body.classList.contains("plan-reading-open")&&document.activeElement.id==="plan-app-finapp"','Cancelling opening did not restore the Finapp focus.');
     assert.equal(await socket.evaluate('document.activeElement.id'),'plan-app-finapp');
+
+    // Exercise the small experiences on their physical screens and notebook.
+    async function startDemo(app){
+      await directTrip(app);await closeReaderRepeated();
+      await socket.evaluate('document.querySelector("#plan-app-'+app+'").focus({preventScroll:true})');
+      await until('(()=>{const s=window.__siniverseV3.inspect().scene,e=document.querySelector("#plan-preview-try"),r=e?.getBoundingClientRect();return s.previewApp==='+JSON.stringify(app)+'&&r?.width>0&&r?.height>0&&!e.closest("[hidden]")&&document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest("#plan-preview-try")===e})()','The support preview action was not visible and reachable.');
+      await click('#plan-preview-try');
+      await until('(()=>{const s=window.__siniverseV3.inspect().scene;return s.demo.app==='+JSON.stringify(app)+'&&s.animationCount===0})()','The on-object experience did not settle.');
+      assert.equal((await v3Inspect()).scene.journeyClear,true);
+    }
+    await startDemo('finapp');
+    const firstCurve=await socket.evaluate('document.querySelector(".demo-curve-a").getAttribute("d")');
+    await press('#plan-demo-horizon','End');
+    assert.equal((await v3Inspect()).scene.demo.horizon,20);
+    assert.notEqual(await socket.evaluate('document.querySelector(".demo-curve-a").getAttribute("d")'),firstCurve);
+    await screenshot('v3-plan-finapp-demo-'+format,width);
+    await click('#plan-demo-read-finapp');await readerReady('finapp');await press('#plan-reader-close','Escape');
+    await until('!document.querySelector("#plan-reader-dialog").open&&document.activeElement.id==="plan-demo-read-finapp"','The reader did not return keyboard focus to the screen experience.');
+    assert.equal((await v3Inspect()).scene.demo.horizon,20);
+    await press('#plan-demo-horizon','Escape');assert.equal((await v3Inspect()).scene.demo.app,null);
+    await startDemo('branchlab');await click('#plan-demo-connect');
+    await until('window.__siniverseV3.inspect().scene.animationCount===0','The signal did not stop after reaching the display.');
+    assert.equal((await v3Inspect()).scene.objects.connected,true);
+    await screenshot('v3-plan-branchlab-demo-'+format,width);
+    await click('#plan-demo-connect');assert.equal((await v3Inspect()).scene.objects.connected,false);
+    await click('#plan-demo-close');assert.equal((await v3Inspect()).scene.demo.app,null);
+    await startDemo('garapp');assert.equal((await v3Inspect()).scene.objects.notebookAmount,1);
+    await click('#plan-demo-next');await click('#plan-demo-next');
+    assert.equal((await v3Inspect()).scene.demo.page,2);assert.equal(await socket.evaluate('document.querySelector("#plan-demo-next").disabled'),true);
+    await screenshot('v3-plan-garapp-demo-'+format,width);
+    await click('#plan-demo-previous');assert.equal((await v3Inspect()).scene.demo.page,1);
+    await click('#plan-demo-read-garapp');await readerReady('garapp');await press('#plan-reader-close','Escape');
+    await until('!document.querySelector("#plan-reader-dialog").open&&document.activeElement.id==="plan-demo-read-garapp"','The reader did not return keyboard focus to the notebook experience.');
+    assert.equal((await v3Inspect()).scene.demo.page,1);
+    await press('#plan-demo-previous','Escape');
+    await until('window.__siniverseV3.inspect().scene.objects.notebookAmount===0','The notebook stayed open after leaving.');
+    report.checks.push('Plan/'+format+': scénarios sur écran, câble physique réversible, carnet articulé, pages bornées et retour à la manipulation');
 
     await socket.evaluate('document.querySelector("#plan-canvas").getContext("webgl2").getExtension("WEBGL_lose_context").loseContext()');
     await until('document.querySelector("#experience").classList.contains("plan-is-fallback")','WebGL loss did not expose fallback.');

@@ -1,9 +1,9 @@
 // A small, tangible house. All coordinates are metres; navigation belongs to Plan.
 export function buildHouse(world, apps) {
   const T = world.THREE;
-  const P = { plaster: '#E7D8BC', floor: '#B9976E', frame: '#30463D', roof: '#59735B',
-    garage: '#AAAFA0', metal: '#77867B', cream: '#FFF1D5', paper: '#F5E7C8',
-    glass: '#A8C5C6', tyre: '#29332F', car: '#D96D4B', wood: '#BD9161' };
+  const P = { plaster: '#F1E3CC', floor: '#C19B71', frame: '#35574E', roof: '#3F6C65',
+    garage: '#B6BBB0', metal: '#829287', cream: '#FFF1D5', paper: '#FBF0D7',
+    glass: '#A8CCD1', tyre: '#29332F', car: '#DB704C', wood: '#C99D6E' };
   const root = new T.Group(); root.name = 'siniverse-house'; world.scene.add(root);
   const roof = new T.Group(); roof.name = 'house-roof'; root.add(roof);
   const shell = [], obstacles = [], textures = [], materials = new Set();
@@ -47,6 +47,22 @@ export function buildHouse(world, apps) {
     gradient.addColorStop(.8, 'rgba(36,31,23,.08)'); gradient.addColorStop(1, 'rgba(36,31,23,0)');
     ctx.fillStyle = gradient; ctx.fillRect(0, 0, n, n);
   }, 128);
+  const floorboards = canvasTexture((ctx, n) => {
+    ctx.fillStyle = '#EFE4CC'; ctx.fillRect(0, 0, n, n);
+    for (let plank = 0; plank < 8; plank++) {
+      const y = plank * n / 8, h = n / 8;
+      ctx.fillStyle = plank % 3 ? '#E9DBC0' : '#F5E8D0'; ctx.fillRect(0, y, n, h);
+      ctx.strokeStyle = '#A99A7F55'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, y + .5); ctx.lineTo(n, y + .5); ctx.stroke();
+      const joint = (plank % 3 + 1) * n / 4;
+      ctx.beginPath(); ctx.moveTo(joint, y); ctx.lineTo(joint, y + h); ctx.stroke();
+      ctx.strokeStyle = '#B8A18122';
+      for (let row = 6; row < h; row += 7) {
+        ctx.beginPath(); ctx.moveTo(0, y + row);
+        ctx.bezierCurveTo(n * .3, y + row - 3, n * .7, y + row + 3, n, y + row); ctx.stroke();
+      }
+    }
+  }, 512);
   function material(color, kind = 'paint') {
     const key = color + ':' + kind;
     if (cache.has(key)) return cache.get(key);
@@ -149,7 +165,8 @@ export function buildHouse(world, apps) {
 
   box([12.8, .16, 11.5], '#C9C3AE', [0, -.18, 1.25], root, 'house-approach-ground', 'plaster', .075);
   box([10.65, .16, 7.25], P.frame, [0, -.09, 0], root, 'house-foundation', 'paint', .055);
-  box([6.1, .06, 7.18], P.floor, [-2.25, -.01, 0], root, 'house-office-floor', 'wood', .018);
+  const officeFloor = box([6.1, .06, 7.18], P.floor, [-2.25, -.01, 0], root, 'house-office-floor', 'wood', .018);
+  officeFloor.material = officeFloor.material.clone(); officeFloor.material.map = floorboards; materials.add(officeFloor.material);
   box([4.5, .06, 7.18], P.garage, [3.05, -.01, 0], root, 'house-garage-floor', 'plaster', .018);
   box([1.4, .045, .42], '#7C806A', [-2.3, .015, 3.55], root, 'house-entry-threshold', 'paint', .018);
   box([3.9, .025, .22], '#7C806A', [3.05, .015, 3.52], root, 'house-garage-threshold', 'metal', .01);
@@ -160,9 +177,16 @@ export function buildHouse(world, apps) {
   windowPane('x', 3.49, -4.85, -3.55, .95, 2.05); frame('x', 3.49, -3, -1.6, 0, 2.2);
   wall('x', 3.49, .8, 5.3, [{ from: 1.1, to: 5, top: 2.35 }], 'front-garage'); frame('x', 3.49, 1.1, 5, 0, 2.35);
   wall('z', .8, -3.6, 3.6, [{ from: 1, to: 2.2, top: 2.2 }], 'partition'); frame('z', .8, 1, 2.2, 0, 2.2);
+  // Sills, skirting and lintels describe the construction, without furnishing it.
+  box([5.84, .105, .06], '#D0BDA0', [-2.25, .065, -3.37], root, 'house-office-skirting', 'wood', .015);
+  box([.06, .105, 6.7], '#D0BDA0', [-5.07, .065, 0], root, 'house-office-skirting', 'wood', .015);
+  box([.06, .105, 4.25], '#D0BDA0', [.68, .065, -1.2], root, 'house-office-skirting', 'wood', .015);
+  box([1.48, .075, .39], '#D7C9AF', [-4.2, .91, 3.49], root, 'house-window-sill', 'plaster', .024);
+  box([.39, .075, 1.76], '#D7C9AF', [-5.19, .91, .15], root, 'house-window-sill', 'plaster', .024);
 
   const entry = new T.Group(); entry.name = 'house-open-entry-door'; entry.position.set(-3, 0, 3.49); entry.rotation.y = -Math.PI / 2; root.add(entry);
   box([1.32, 2.12, .085], P.wood, [.66, 1.06, 0], entry, 'house-entry-door-leaf', 'wood', .03);
+  for (const y of [.62, 1.52]) box([1.05, .63, .016], '#B88C5E', [.66, y, .049], entry, 'house-entry-door-panel', 'wood', .04);
   const inner = new T.Group(); inner.name = 'house-open-inner-door'; inner.position.set(.8, 0, 1); inner.rotation.y = Math.PI / 2; root.add(inner);
   box([.085, 2.12, 1.12], '#C6AA7E', [0, 1.06, .56], inner, 'house-inner-door-leaf', 'wood', .03);
   for (const [parent, position, size] of [[entry, [1.10, 1.06, .07], [.20, .045, .055]], [inner, [.07, 1.06, .91], [.055, .045, .20]]])
@@ -182,6 +206,15 @@ export function buildHouse(world, apps) {
   }
   gable(3.49); gable(-3.49);
   box([4.85, .20, 7.66], P.roof, [3.08, 2.97, 0], roof, 'house-garage-roof', 'paint', .07);
+  // A folded metal roof: thin standing seams follow the slope and catch daylight.
+  for (let z = -3.4; z < 3.6; z += .62) {
+    for (const [x, slope] of [[-3.90, pitch], [-.60, -pitch]]) {
+      const seam = box([length - .06, .035, .026], '#507D74', [x, 3.60, z], roof, 'house-roof-seam', 'metal', .01);
+      seam.rotation.z = slope;
+    }
+  }
+  for (const x of [-5.55, 1.05]) box([.075, .15, 7.55], P.frame, [x, 2.83, 0], roof, 'house-roof-fascia', 'paint', .025);
+  box([4.78, .12, .06], P.frame, [3.08, 2.94, 3.82], roof, 'house-garage-fascia', 'paint', .02);
   for (const z of [-3.82, 3.82]) {
     curve([[-5.55, 2.82, z], [-2.25, 4.15, z]], P.frame, .055, roof, 'house-roof-eave');
     curve([[-2.25, 4.15, z], [1.05, 2.82, z]], P.frame, .055, roof, 'house-roof-eave');
@@ -231,7 +264,7 @@ export function buildHouse(world, apps) {
   box([.34, .65, .48], '#4C6258', [-.83, 1.145, -2.78], desk, 'house-branchlab-computer', 'paint', .05);
   box([.09, .043, .027], '#1E302D', [-.83, 1.24, -2.528], desk, 'house-branchlab-port', 'metal', .009);
   const cable = curve([[-.83, 1.24, -2.505], [-.84, 1.08, -2.30], [-1.12, .89, -2.20], [-1.35, .91, -2.25], [-1.22, 1.16, -2.48]], '#9176B7', .019, desk, 'house-branchlab-real-cable');
-  box([.075, .048, .075], '#AFAEAA', [-.83, 1.24, -2.50], desk, 'house-branchlab-cable-plug', 'metal', .012);
+  const plug = box([.075, .048, .075], '#AFAEAA', [-.83, 1.24, -2.50], desk, 'house-branchlab-cable-plug', 'metal', .012);
   const signal = mesh(new T.SphereGeometry(.027, 12, 8), basic('#DBC3FF'), [-.83, 1.24, -2.50], desk, 'house-branchlab-signal'); signal.visible = false;
   previews.branchlab.signal = signal; previews.branchlab.path = cable.path;
   obstacle(desk, 'office-workstations');
@@ -242,6 +275,10 @@ export function buildHouse(world, apps) {
   box([.02, 1, 1.18], P.paper, [1.016, 1.55, 2.9], record, 'house-garapp-record-page', 'paper', .009);
   for (let row = 0; row < 4; row++) curve([[1.032, 1.82 - row * .18, 2.47], [1.032, 1.82 - row * .18, 3.30]], row ? '#B4AD93' : P.car, .005, record, 'house-garapp-record-rule');
   box([.035, .06, .26], '#7B8B7A', [1.04, 2.02, 2.9], record, 'house-garapp-record-clip', 'metal', .014);
+  const cover = new T.Group(); cover.name = 'house-garapp-notebook-hinge'; cover.position.set(1.055, 1.55, 3.49); record.add(cover);
+  box([.028, 1.065, 1.18], '#AF7653', [0, 0, -.59], cover, 'house-garapp-notebook-cover', 'wood', .025);
+  box([.008, .02, .63], '#F5DFC0', [.021, .18, -.59], cover, 'house-garapp-notebook-title', 'paper', .004);
+  box([.008, .012, .38], '#E8C5A0', [.021, .09, -.59], cover, 'house-garapp-notebook-subtitle', 'paper', .004);
   surfaces.garapp = { position: [1.045, 1.55, 2.9], width: 1.16, height: .96, rotationY: Math.PI / 2,
     camera: { position: [3.25, 1.65, 2.9], target: [1.045, 1.55, 2.9] } };
   anchors.garapp = { position: [...surfaces.garapp.position], normal: [1, 0, 0], label: [3.1, 1.8, 1.6], vehicle: [3.1, .9, -.3], room: 'garage' };
@@ -301,11 +338,11 @@ export function buildHouse(world, apps) {
   const lights = world.scene.children.filter(item => item.isLight);
   const sun = lights.find(item => item.isDirectionalLight && item.position.y > 20);
   for (const light of lights) {
-    if (light.isHemisphereLight) { light.color.set('#FFF1D6'); light.groundColor.set('#ADAA92'); light.intensity = 1.7; }
+    if (light.isHemisphereLight) { light.color.set('#FFF1DA'); light.groundColor.set('#80978B'); light.intensity = 1.5; }
     else if (light.isDirectionalLight && light !== sun) { light.color.set('#CCD9DD'); light.intensity = .8; }
   }
   if (sun) {
-    sun.position.set(-8, 13, 10); sun.color.set('#FFE5BE'); sun.intensity = 3.0; sun.castShadow = true;
+    sun.position.set(-9, 11, 7); sun.color.set('#FFE2B5'); sun.intensity = 3.5; sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -11, right: 11, top: 11, bottom: -11, near: .5, far: 45 });
     sun.shadow.camera.updateProjectionMatrix(); sun.shadow.bias = -.0004; sun.shadow.normalBias = .04;
   }
@@ -325,12 +362,45 @@ export function buildHouse(world, apps) {
     world.scene.environment = environmentTarget.texture; world.scene.environmentIntensity = .55;
   }
   root.updateMatrixWorld(true);
+  const roofMaterials = [];
+  roof.traverse(node => { if (!node.isMesh) return; node.material = node.material.clone(); node.material.transparent = true; materials.add(node.material); roofMaterials.push(node.material); });
+  let roofAmount = 0, roofRevision = 0, notebookAmount = 0;
+  function setCutaway(open, { instant = false } = {}) {
+    const end = open ? 1 : 0, from = roofAmount, token = ++roofRevision;
+    if (from === end) return Promise.resolve();
+    roof.visible = true;
+    return world.animate(instant ? 0 : 620, t => {
+      if (token !== roofRevision) return;
+      const s = t * t * (3 - 2 * t); roofAmount = from + (end - from) * s;
+      roof.position.y = roofAmount * 2.4;
+      for (const material of roofMaterials) { material.opacity = 1 - roofAmount; material.depthWrite = roofAmount < .5; }
+      roof.traverse(node => { if (node.isMesh) node.castShadow = roofAmount < .1; });
+      roof.visible = roofAmount < 1;
+    });
+  }
+  function setNotebook(amount) {
+    notebookAmount = clamp(Number(amount) || 0, 0, 1); cover.rotation.y = -notebookAmount * 2.45; world.requestRender?.();
+  }
+  function setInteraction(app, value = null) {
+    if (app === 'finapp' || app === 'branchlab') previews[app].idle.visible = !value;
+    if (app === 'branchlab') {
+      const connected = !value || value.connected;
+      plug.position.z = connected ? -2.50 : -2.30;
+      cable.item.position.z = connected ? 0 : .20;
+      signal.visible = Boolean(value?.connected);
+    }
+    world.requestRender?.();
+  }
+  function signalAt(progress) { signal.position.copy(cable.path.getPoint(clamp(progress, 0, 1))); world.requestRender?.(); }
   const previewState = { finapp: 0, branchlab: 0, garapp: 0 };
   function setPreview(app, strength, phase = 'hover') {
     if (!Object.hasOwn(previewState, app)) return;
     const amount = clamp(Number(strength) || 0, 0, 1); previewState[app] = amount;
     if (app === 'finapp') { previews.finapp.idle.scale.y = .96 + amount * .04; financeInk.color.set(amount ? '#B3DAFF' : '#89B9F1'); previews.finapp.accent.material.color.set(amount ? '#A5C8FF' : apps.finapp?.color || '#6789CD'); }
-    if (app === 'branchlab') { previews.branchlab.signal.visible = amount > .03; previews.branchlab.signal.position.copy(previews.branchlab.path.getPoint(.1 + amount * .8)); previews.branchlab.accent.material.color.set(amount ? '#DBC3FF' : apps.branchlab?.color || '#9176B7'); }
+    if (app === 'branchlab') {
+      if (previews.branchlab.idle.visible) { previews.branchlab.signal.visible = amount > .03; previews.branchlab.signal.position.copy(previews.branchlab.path.getPoint(.1 + amount * .8)); }
+      previews.branchlab.accent.material.color.set(amount ? '#DBC3FF' : apps.branchlab?.color || '#9176B7');
+    }
     if (app === 'garapp') previews.garapp.headlightMaterial.emissiveIntensity = .05 + amount * (phase === 'opening' ? .7 : .4);
     world.requestRender?.();
   }
@@ -339,7 +409,8 @@ export function buildHouse(world, apps) {
     if (world.scene.environment === environmentTarget?.texture) world.scene.environment = null;
     environmentTarget?.dispose(); cube?.dispose();
   });
-  return { roof, entry, car, screens, surfaces, shell, obstacles, anchors, setPreview,
+  return { roof, entry, car, record, screens, surfaces, shell, obstacles, anchors, setPreview, setCutaway, setNotebook, setInteraction, signalAt,
     bounds: { minX: -6.4, maxX: 6.4, minZ: -4.5, maxZ: 7 },
+    inspectObjects: () => ({ roofAmount, notebookAmount, connected: plug.position.z === -2.50 }),
     inspectPreview: () => ({ ...previewState }) };
 }
