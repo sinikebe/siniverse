@@ -66,3 +66,24 @@ test('missing or nonfinite floor destinations fail instead of crossing obstacles
   assert.throws(()=>floorPath([3.1,0],[-4,0],obstacles,bounds),/passage libre/);
   assert.equal(canStand([bounds.maxX+1,0],obstacles,bounds),false);
 });
+
+test('cutaway movement can be reversed without changing collision walls or leaving the roof transparent',async()=>{
+  const previous=world.animate;world.animate=(_duration,update)=>{update(1);return Promise.resolve();};
+  const count=house.obstacles.length;
+  try{
+    await house.setCutaway(true,{instant:true});assert.equal(house.roof.visible,false);assert.equal(house.inspectObjects().roofAmount,1);
+    await house.setCutaway(false,{instant:true});assert.equal(house.roof.visible,true);assert.equal(house.roof.position.y,0);
+    house.roof.traverse(node=>{if(node.isMesh){assert.equal(node.material.opacity,1);assert.equal(node.material.depthWrite,true);}});
+    assert.equal(house.obstacles.length,count);
+  }finally{world.animate=previous;}
+});
+
+test('the notebook hinge stays finite and the real cable visibly disconnects and returns',()=>{
+  house.setNotebook(Infinity);assert.equal(house.inspectObjects().notebookAmount,1);
+  house.setNotebook(NaN);assert.equal(house.inspectObjects().notebookAmount,0);
+  const plug=scene.getObjectByName('house-branchlab-cable-plug'),rest=plug.position.clone();
+  house.setInteraction('branchlab',{connected:false});assert(plug.position.distanceTo(rest)>.1);assert.equal(house.inspectObjects().connected,false);
+  house.setPreview('branchlab',0);assert.equal(house.inspectObjects().connected,false,'Hover must not reconnect a manually unplugged cable.');
+  house.setInteraction('branchlab',{connected:true});assert.equal(plug.position.distanceTo(rest),0);
+  house.setInteraction('branchlab',null);assert.equal(house.inspectObjects().connected,true);
+});

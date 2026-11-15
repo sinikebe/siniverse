@@ -2,6 +2,7 @@ import { createWorld, THREE } from './world.mjs';
 import { createPlanReader } from './plan-reader.mjs';
 import { orbitPose, zoomPose, dragTracker } from './camera-math.mjs';
 import { buildHouse } from './house-scene.mjs';
+import { createHouseInteractions } from './house-interactions.mjs';
 import { EYE_HEIGHT, canStand, segmentClear, stepOnFloor, lookOnFloor, blendLook, floorPath, pointAlong } from './house-navigation.mjs';
 
 const APPROACH={position:[-2.3,EYE_HEIGHT,5.7],target:[-2.3,EYE_HEIGHT,1.8]};
@@ -23,13 +24,13 @@ export function mountPlan(host,initialState,api){
   const introduction=document.createElement('aside');introduction.className='house-intro';introduction.innerHTML='<p>PLAN-SÉQUENCE / UNE MAISON À EXPLORER</p><h2>Les outils ont leur place.</h2><p>Finapp et Branchlab dans le bureau. Garapp auprès de la voiture, dans le garage.</p>';host.append(introduction);
   const instruction=document.createElement('p');instruction.className='plan-instruction';instruction.textContent='Entrer, puis glisser pour regarder · W A S D / flèches pour marcher';host.append(instruction);
   let state=initialState,world,house,failed=false,destroyed=false,mode='overview',roofOpen=false,revision=0,dragging=false,lastPick=null,lastJourney=[],blockedMoves=0;
-  let reader=null,previewPanel=null,previewApp=null,previewPhase='hover',previewRevision=0,pendingOpen=false,sourceFocus='plan-canvas',returnPose=null,closingTask=null;
+  let reader=null,demos=null,previewPanel=null,previewApp=null,previewPhase='hover',previewRevision=0,pendingOpen=false,sourceFocus='plan-canvas',returnPose=null,closingTask=null;
   const cleanups=[],stationLabels=[],tracker=dragTracker(6);
   const navigate=(destination,focusId='view-title')=>api.navigate(destination,{focusId});
   const isMobile=()=>viewport.clientWidth<760;
 
   function fallback(){
-    failed=true;if(previewPanel)previewPanel.hidden=true;host.classList.add('plan-is-fallback');hud.querySelector('h1').removeAttribute('id');hud.hidden=true;introduction.hidden=true;instruction.hidden=true;viewport.replaceChildren();
+    failed=true;demos?.close({instant:true});if(previewPanel)previewPanel.hidden=true;host.classList.add('plan-is-fallback');hud.querySelector('h1').removeAttribute('id');hud.hidden=true;introduction.hidden=true;instruction.hidden=true;viewport.replaceChildren();
     const content=api.content(state.app,state.angle);
     viewport.innerHTML='<section class="plan-fallback"><p class="scene-kicker">LA MAISON / PARCOURS SANS WEBGL</p><h1 id="view-title" tabindex="-1">'+api.escape(content.title)+'</h1><p>Le lieu 3D n’est pas disponible ici. Les mêmes outils et explications restent accessibles.</p><div class="fallback-destinations"><a href="'+api.href({app:'ensemble',angle:'presentation'})+'" data-plan-fallback-app="ensemble">La maison</a>'+Object.entries(api.apps).map(([id,app])=>'<a href="'+api.href({app:id,angle:state.angle})+'" data-plan-fallback-app="'+id+'">'+app.name+'</a>').join('')+'</div><div class="fallback-destinations">'+Object.entries(ANGLES).map(([angle,label])=>'<a href="'+api.href({app:state.app,angle})+'" data-plan-fallback-angle="'+angle+'">'+label+'</a>').join('')+'</div>'+content.body.map(p=>'<p>'+api.escape(p)+'</p>').join('')+(api.apps[state.app]?'<a class="real-app-link" href="'+api.apps[state.app].url+'">Ouvrir '+api.apps[state.app].name+' ↗</a>':'')+'</section>';
     for(const a of viewport.querySelectorAll('[data-plan-fallback-app],[data-plan-fallback-angle]'))a.addEventListener('click',event=>{if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();navigate({app:a.dataset.planFallbackApp||state.app,angle:a.dataset.planFallbackAngle||state.angle});});
@@ -46,9 +47,9 @@ export function mountPlan(host,initialState,api){
     const p=world.getPose().position,inside=p[0]>-5.3&&p[0]<5.3&&p[2]>-3.6&&p[2]<3.6;
     hud.querySelector('#plan-location').textContent=mode==='overview'?'La maison / vue d’ensemble':inside?(p[0]<.8?'Dans le bureau':'Dans le garage'):'Devant la maison';
     introduction.hidden=mode!=='overview'||state.app!=='ensemble';hud.querySelector('#plan-enter-house').hidden=mode==='walk';
-    for(const station of stationLabels){const separated=mode==='overview'&&isMobile()&&roofOpen&&station.id!=='garapp';station.handle.setEnabled(!reader?.isOpen()||station.id!==reader.app());station.handle.setPosition(separated?station.cutPosition:station.position);if(station.guide)station.guide.visible=separated;}
+    for(const station of stationLabels){const separated=mode==='overview'&&isMobile()&&roofOpen&&station.id!=='garapp';station.handle.setEnabled((!reader?.isOpen()||station.id!==reader.app())&&station.id!==demos?.active());station.handle.setPosition(separated?station.cutPosition:station.position);if(station.guide)station.guide.visible=separated;}
   }
-  function setRoof(open){roofOpen=open;house.roof.visible=!open;hud.querySelector('#plan-cutaway').setAttribute('aria-pressed',String(open));hud.querySelector('#plan-cutaway').textContent=open?'Remettre le toit':'Voir en coupe';updateLocation();world.requestRender();}
+  function setRoof(open,{instant=false}={}){roofOpen=open;void house.setCutaway(open,{instant});hud.querySelector('#plan-cutaway').setAttribute('aria-pressed',String(open));hud.querySelector('#plan-cutaway').textContent=open?'Remettre le toit':'Voir en coupe';updateLocation();world.requestRender();}
   hud.querySelector('#plan-cutaway').addEventListener('click',()=>{setPreview(null);setRoof(!roofOpen);api.saveView();});
   for(const [id,app]of Object.entries(api.apps)){
     const link=document.createElement('a');link.id='plan-direct-'+id;link.href=api.href({app:id,angle:'presentation'});link.textContent=app.name+' / '+(id==='garapp'?'garage':'bureau');link.addEventListener('click',event=>{if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();hud.querySelector('.plan-compass details').open=false;openApp(id,'presentation',hud.querySelector('.plan-compass summary'));});hud.querySelector('.plan-direct-routes').append(link);
@@ -68,6 +69,7 @@ export function mountPlan(host,initialState,api){
 
   previewPanel=document.createElement('aside');previewPanel.className='house-object-preview';previewPanel.hidden=true;previewPanel.setAttribute('aria-live','polite');host.append(previewPanel);
   reader=createPlanReader(host,api,{onNavigate:destination=>openApp(destination.app,destination.angle),onClose:()=>{void closeReader();},onViewChange:()=>api.saveView()});
+  demos=createHouseInteractions(host,world,house,api,{onRead:(app,trigger)=>openApp(app,'presentation',trigger),onExit:()=>{demos.close();updateLocation();world.canvas.focus({preventScroll:true});api.saveView();},onChange:()=>api.saveView()});
   function placePreview(){
     if(!previewApp||previewPanel.hidden)return;
     const bounds=world.projectBounds(supports[previewApp]);if(!bounds){previewPanel.hidden=true;return;}
@@ -82,16 +84,27 @@ export function mountPlan(host,initialState,api){
     const token=++previewRevision,amounts=house.inspectPreview?.()||{};
     if(app&&!same){
       const lead={finapp:'Comparer des scénarios au même horizon.',garapp:'Retrouver le fil de vie d’un véhicule.',branchlab:'Comprendre une liaison, de la source à l’écran.'}[app];
-      previewPanel.innerHTML='<p class="preview-room">'+(app==='garapp'?'Dans le garage':'Dans le bureau')+'</p><h2>'+api.escape(api.apps[app].name)+'</h2><p>'+lead+'</p><a id="plan-preview-open" href="'+api.href({app,angle:'presentation'})+'" aria-haspopup="dialog">Découvrir '+api.escape(api.apps[app].name)+' <span aria-hidden="true">↗</span></a>';
+      previewPanel.innerHTML='<p class="preview-room">'+(app==='garapp'?'Dans le garage':'Dans le bureau')+'</p><h2>'+api.escape(api.apps[app].name)+'</h2><p>'+lead+'</p><button id="plan-preview-try" type="button">'+(app==='garapp'?'Feuilleter le carnet':app==='branchlab'?'Essayer la liaison':'Faire varier les scénarios')+' <span aria-hidden="true">→</span></button><a id="plan-preview-open" href="'+api.href({app,angle:'presentation'})+'" aria-haspopup="dialog">Découvrir '+api.escape(api.apps[app].name)+' <span aria-hidden="true">↗</span></a>';
+      previewPanel.querySelector('button').addEventListener('click',()=>{void tryObject(app);});
       previewPanel.querySelector('a').addEventListener('click',event=>{if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();openApp(app,'presentation',event.currentTarget);});
     }
-    previewPanel.hidden=!app||!show||pendingOpen||reader?.isOpen();
+    previewPanel.hidden=!app||!show||pendingOpen||reader?.isOpen()||Boolean(demos?.active());
     if(!previewPanel.hidden)placePreview();
     if(same){for(const id of Object.keys(api.apps))house.setPreview?.(id,id===app?1:0,phase);world.requestRender();return;}
     void world.animate(api.reducedMotion?0:180,t=>{if(token!==previewRevision||destroyed)return;for(const id of Object.keys(api.apps)){const from=amounts[id]||0;house.setPreview?.(id,from+((id===app?1:0)-from)*t,phase);}});
   }
   function sourceRect(app){
-    world.refresh();return world.projectBounds(supports[app]);
+    world.refresh();return world.projectBounds(app==='garapp'&&demos?.active()==='garapp'?house.record:supports[app]);
+  }
+  async function tryObject(app){
+    const token=++revision;pendingOpen=true;demos.close({instant:true});setPreview(null);lastJourney=[];
+    if(app==='garapp'&&mode==='overview'){await walkTo(GARAGE_PASSAGE,{token});if(token!==revision||failed)return;}
+    const s=house.surfaces[app],distance=isMobile()?1.85:1.8;
+    const pose=app==='garapp'?{position:[s.position[0]+(isMobile()?1.6:1.8),EYE_HEIGHT,s.position[2]],target:s.position}
+      :{position:[s.position[0],EYE_HEIGHT,s.position[2]+distance],target:s.position};
+    await walkTo(pose,{token});if(token!==revision||failed)return;
+    await demos.open(app);if(token!==revision||failed)return;
+    pendingOpen=false;updateLocation();world.refresh();api.saveView();
   }
   function openApp(app,angle='presentation',trigger=null){
     const sameOpen=reader.isOpen()&&reader.app()===app;
@@ -110,6 +123,7 @@ export function mountPlan(host,initialState,api){
       await reader.close({origin:()=>failed?null:sourceRect(app),instant:instant||failed});
       if(destroyed||activeToken!==revision)return;
       updateLocation();if(!failed){setPreview(app,'focus');world.refresh();}
+      if(app==='garapp'&&!demos.active()&&!failed){const from=house.inspectObjects().notebookAmount;void world.animate(instant?0:300,t=>{if(activeToken===revision)house.setNotebook(from*(1-t));});}
       if(focus){const target=failed?viewport.querySelector('a'):visibleElement(sourceFocus)||visibleElement('plan-app-'+app)||world.canvas;target?.focus({preventScroll:true});}
       if(save)api.saveView();
     })();closingTask=task;void task.then(()=>{if(closingTask===task)closingTask=null;},()=>{if(closingTask===task)closingTask=null;});return task;
@@ -140,11 +154,11 @@ export function mountPlan(host,initialState,api){
     if(token===revision&&!failed)setPose(end);
   }
   async function enterHouse(){
-    const token=++revision;pendingOpen=false;setPreview(null);lastJourney=[];await walkTo(BUREAU,{token});if(token===revision&&!failed){api.saveView();world.canvas.focus({preventScroll:true});}
+    const token=++revision;pendingOpen=false;demos.close();setPreview(null);lastJourney=[];await walkTo(BUREAU,{token});if(token===revision&&!failed){api.saveView();world.canvas.focus({preventScroll:true});}
   }
   hud.querySelector('#plan-enter-house').addEventListener('click',enterHouse);
   hud.querySelector('#plan-origin').addEventListener('click',()=>navigate({app:'ensemble',angle:'presentation'}));
-  function manual(pose){revision++;pendingOpen=false;setPreview(null);world.cancelFlight();setPose(pose);}
+  function manual(pose){revision++;pendingOpen=false;demos.close();setPreview(null);world.cancelFlight();setPose(pose);}
   function moveOnFloor(forward,side){
     if(mode==='overview'){mode='walk';setPose(APPROACH);}
     const before=world.getPose(),next=stepOnFloor(before,forward,side,obstacles,bounds);
@@ -187,13 +201,17 @@ export function mountPlan(host,initialState,api){
       await closeReader({save:false,focus:false,token});if(token!==revision||destroyed)return;
     }
     state=next;if(failed){fallback();if(wantsReader)await reader.open({app:state.app,angle:state.angle,origin:()=>null,instant:true,scrollTop:snapshot?.readerScroll||0});return;}
+    if(demos.active()&&(!restored?demos.active()!==state.app:!snapshot.demo))demos.close({instant});
+    if(state.app!=='garapp'&&demos.active()!=='garapp')house.setNotebook(0);
     if(restored){roofOpen=Boolean(snapshot.roofOpen);sourceFocus=snapshot.sourceFocus||'plan-canvas';}
-    drawWorld();setRoof(roofOpen);lastJourney=[];
+    drawWorld();setRoof(roofOpen,{instant:instant||restored});lastJourney=[];
     if(restored&&snapshot.pose&&['walk','overview'].includes(snapshot.mode)){
       const p=snapshot.pose.position;
       if(snapshot.mode==='overview'||canStand([p[0],p[2]],obstacles,bounds)){
         mode=snapshot.mode;setPose(snapshot.pose);returnPose=snapshot.returnPose||snapshot.pose;
-        if(wantsReader){pendingOpen=true;setPreview(state.app,'opening',{show:false});await reader.open({app:state.app,angle:state.angle,origin:()=>sourceRect(state.app),instant,scrollTop:snapshot.readerScroll||0});}
+        if(snapshot.demo&&api.apps[snapshot.demo.app])await demos.open(snapshot.demo.app,{instant:true,focus:false,snapshot:snapshot.demo});
+        if(token!==revision||failed)return;
+        if(wantsReader){pendingOpen=true;if(state.app==='garapp')house.setNotebook(1);setPreview(state.app,'opening',{show:false});await reader.open({app:state.app,angle:state.angle,origin:()=>sourceRect(state.app),instant,scrollTop:snapshot.readerScroll||0});}
         else setPreview(snapshot.previewApp||null,'focus');
         pendingOpen=false;updateLocation();return;
       }
@@ -204,9 +222,10 @@ export function mountPlan(host,initialState,api){
         if(!instant&&state.app==='garapp'&&(previousApp!=='garapp'||mode==='overview')){
           await walkTo(GARAGE_PASSAGE,{token});if(token!==revision||failed)return;
         }
-        await walkTo(targetPose(state.app),{instant,token});if(token!==revision||failed)return;
+        if(demos.active()!==state.app)await walkTo(targetPose(state.app),{instant,token});if(token!==revision||failed)return;
         returnPose=world.getPose();window.scrollTo({left:0,top:0,behavior:'instant'});
       }
+      if(state.app==='garapp'&&house.inspectObjects().notebookAmount<1){const from=house.inspectObjects().notebookAmount;await world.animate(instant?0:480,t=>{if(token===revision)house.setNotebook(from+(1-from)*t);});if(token!==revision||failed)return;}
       await reader.open({app:state.app,angle:state.angle,origin:()=>sourceRect(state.app),instant});pendingOpen=false;
     }else{
       pendingOpen=false;setPreview(null);
@@ -216,5 +235,5 @@ export function mountPlan(host,initialState,api){
     if(token!==revision||failed)return;drawWorld();world.requestRender();
   }
   function pickInfo(app,point){const screen=world.project(point);return {app,screen,blocker:world.probe(screen.x,screen.y).intersections[0]?.name||null,occluded:!world.visiblePoint(point)};}
-  return {update,snapshot:()=>({layout:'house-v1',mode,pose:world.getPose(),roofOpen,readerOpen:reader.isOpen(),readerScroll:reader.scrollTop(),sourceFocus,returnPose,previewApp}),inspect:()=>({...world.inspect(),layout:'house-v1',mode,room:mode==='overview'?'outside':world.getPose().position[0]<.8?'bureau':'garage',app:state.app,angle:state.angle,roofOpen,dragging,lastPick,previewApp,previewPhase,preview:house.inspectPreview?.(),reader:reader.inspect(),blockedMoves,journey:lastJourney,journeyClear:lastJourney.slice(1).every((p,i)=>segmentClear([lastJourney[i][0],lastJourney[i][2]],[p[0],p[2]],obstacles,bounds)),obstacles,bounds,stations:Object.keys(api.apps),pickTargets:[...[[0,.75,1.95],[-.8,.7,.9],[.8,.7,.9]].map(p=>pickInfo('garapp',house.car.localToWorld(new THREE.Vector3(...p)))),...Object.entries(house.surfaces).map(([app,s])=>pickInfo(app,new THREE.Vector3(...s.position)))]}),destroy(){destroyed=true;revision++;for(const fn of cleanups)fn();reader?.destroy();world.destroy();host.replaceChildren();host.classList.remove('plan-host','plan-house');}};
+  return {update,snapshot:()=>({layout:'house-v1',mode,pose:world.getPose(),roofOpen,readerOpen:reader.isOpen(),readerScroll:reader.scrollTop(),sourceFocus,returnPose,previewApp,demo:demos.snapshot()}),inspect:()=>({...world.inspect(),layout:'house-v1',mode,room:mode==='overview'?'outside':world.getPose().position[0]<.8?'bureau':'garage',app:state.app,angle:state.angle,roofOpen,dragging,lastPick,previewApp,previewPhase,preview:house.inspectPreview?.(),reader:reader.inspect(),demo:demos.inspect(),objects:house.inspectObjects(),blockedMoves,journey:lastJourney,journeyClear:lastJourney.slice(1).every((p,i)=>segmentClear([lastJourney[i][0],lastJourney[i][2]],[p[0],p[2]],obstacles,bounds)),obstacles,bounds,stations:Object.keys(api.apps),pickTargets:[...[[0,.75,1.95],[-.8,.7,.9],[.8,.7,.9]].map(p=>pickInfo('garapp',house.car.localToWorld(new THREE.Vector3(...p)))),...Object.entries(house.surfaces).map(([app,s])=>pickInfo(app,new THREE.Vector3(...s.position)))]}),destroy(){destroyed=true;revision++;for(const fn of cleanups)fn();demos?.destroy();reader?.destroy();world.destroy();host.replaceChildren();host.classList.remove('plan-host','plan-house');}};
 }

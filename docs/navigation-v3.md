@@ -10,6 +10,14 @@ La comparaison est séparée sur /concepts/v3/. Les liens fixes utilisent /conce
 
 Les explications sont celles du catalogue public ; les illustrations sont fictives. Les applications réelles s’ouvrent dans le même onglet sur leurs sous-domaines, sans embarquer leur interface ni échanger leurs données.
 
+### Manipuler les objets de la maison
+
+L’aperçu de chaque support propose aussi une démonstration sur place. La caméra rejoint le support par les passages existants. Finapp permet de faire varier un horizon fictif de 5 à 20 ans sur l’écran ; Branchlab branche et débranche une liaison, avec un connecteur qui se déplace réellement et un signal ponctuel ; le carnet articulé Garapp ouvre trois événements fictifs, avec une pagination bornée. Ces démonstrations ne chargent aucune donnée des applications.
+
+Les commandes sont projetées sur les écrans et la page du carnet. Découvrir ouvre le lecteur à partir de ce support ; sa fermeture rend la manipulation et son état. Revenir dans la pièce ou Échap quitte la démonstration. L’historique conserve l’horizon, la connexion et la page avec la pose ; aucun changement de curseur ou frame d’animation n’ajoute d’entrée d’historique. Les animations se terminent après l’action et respectent le mouvement réduit.
+
+La maison conserve sa géométrie compacte : toiture à joints debout, tableaux de fenêtres, plinthes, porte à panneaux et parquet. La vue en coupe soulève et efface le toit puis le remet à sa position exacte ; les collisions au sol restent identiques pendant cette transition. Le carnet ouvre sa couverture en 3D avant la lecture.
+
 ## État et accessibilité
 
 Le noyau ne partage que les destinations, l’historique/focus et les préférences. Les modules restent montés pendant la navigation sémantique et possèdent leurs gestes, mouvements et poses. Retour/Avant restaure aussi la pose transitoire, le lecteur ouvert/fermé, son défilement et le focus. La fermeture explicite garde la destination app/angle dans l’URL et mémorise la vue du support ; un nouveau lien direct ouvre la lecture. Les poses ne figurent pas dans les URL partagées.
@@ -29,5 +37,7 @@ Budget strict des deux modules :1,5Mo bruts et350Ko gzip au maximum ; sortie act
 npm test couvre routes, assemblage libre, préférences isolées, poses de caméra, bornes de déplacement, distinction clic/drag et provenance du moteur. Le workflow Concept browser review utilise le Chrome déjà installé sur ubuntu-24.04. SwiftShader et son opt-in sont limités à ce harnais isolé ; ils ne configurent pas le navigateur des visiteurs.
 
 Le QA exige un vrai WebGL2, des pixels non uniformes, une entrée et une marche humaine par les passages, du picking natif sur les postes/voiture et un mur réellement occultant pour le Plan, une recomposition de géométrie/poses CSS3D pour le Réacteur et une erreur de reprojection/profondeur réelle pour l’Anamorphose. Il vérifie les gestes, aperçus répétés, activation tactile/clavier, expansion depuis le support, fermeture et interruption par Échap, focus, défilement Back/Forward, collisions, rotation, stockage bloqué, mouvement réduit et perte réelle de contexte. Captures et rapport ont une rétention d’un jour. Les V1/V2 restent des régressions du même parcours, sans modification de leur comportement.
+
+Les démonstrations sur support ajoutent des contrôles navigateur ordinateur/mobile : variation native du curseur, modification des courbes, connexion réversible du câble physique, ouverture du carnet, bornes de pagination et conservation après lecture. Les tests de géométrie vérifient aussi le retour exact du toit et du connecteur, ainsi que les bornes de la charnière.
 
 Les deux HTML V3 reçoivent la version CI. La CSP interactive reste limitée à /concepts/* avec imports locaux ; l’accueil et la confidentialité ne changent pas. La CI partagée/pin et les Workers existants sont conservés. Toute promotion en production reste une PR dev→main après test et accord explicite.
