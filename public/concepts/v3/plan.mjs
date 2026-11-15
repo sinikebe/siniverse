@@ -74,8 +74,11 @@ export function mountPlan(host,initialState,api){
     const bounds=world.projectBounds(supports[previewApp]);if(!bounds){previewPanel.hidden=true;return;}
     const r=host.getBoundingClientRect(),w=previewPanel.offsetWidth,h=previewPanel.offsetHeight;
     const x=Math.max(12,Math.min(r.width-w-12,bounds.x-r.x+bounds.width/2-w/2));
-    let y=bounds.y-r.y-h-16;if(y<12)y=bounds.y-r.y+bounds.height+14;
-    y=Math.max(12,Math.min(r.height-h-150,y));previewPanel.style.transform='translate('+x+'px,'+y+'px)';
+    const maxY=Math.max(12,r.height-h-150),above=bounds.y-r.y-h-16,below=bounds.y-r.y+bounds.height+14;
+    // A clamped "below" card can cover the entire support on a short viewport.
+    // Prefer the upper edge when neither side fits, leaving the support centre exposed.
+    const y=above>=12?Math.min(maxY,above):below<=maxY?below:12;
+    previewPanel.style.transform='translate('+x+'px,'+y+'px)';
   }
   function setPreview(app,phase='hover',{show=true}={}){
     if(app&&!api.apps[app])app=null;
