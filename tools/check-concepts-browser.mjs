@@ -415,16 +415,17 @@ async function run() {
 
 
   // V3 verifies physical gestures and camera/relief state in addition to semantic routes.
-  const v3State=(concept,app='ensemble',angle='presentation')=>({concept,app,angle});
+  const v3State=(concept,app='ensemble',angle='presentation')=>({concept,app,angle:concept==='plan'?'presentation':angle});
   const v3Inspect=()=>socket.evaluate('window.__siniverseV3.inspect()');
   async function until(expression,message){
-    for(let attempt=0;attempt<200;attempt++){if(await socket.evaluate(expression))return;await pause(60);}
+    const poll=expression.replaceAll('window.__siniverseV3.inspect()','window.__siniverseV3.inspect({fast:true})');
+    for(let attempt=0;attempt<200;attempt++){if(await socket.evaluate(poll))return;await pause(60);}
     const actual=await socket.evaluate('(()=>{const s=window.__siniverseV3?.inspect();return {ready:document.documentElement.dataset.v3Ready,route:s?.route,pose:s?.scene?.pose,reader:s?.scene?.reader,animations:s?.scene?.animationCount,focus:document.activeElement?.id}})()');
     throw Error(message+' Actual state: '+JSON.stringify(actual));
   }
   async function v3Wait(expected){
     await until('document.documentElement.dataset.v3Ready==="true" && document.documentElement.dataset.v3State==='+JSON.stringify(JSON.stringify(expected)), 'V3 route did not settle: '+JSON.stringify(expected));
-    assert.deepEqual((await v3Inspect()).route,expected);
+    assert.deepEqual(await socket.evaluate('window.__siniverseV3.inspect({fast:true}).route'),expected);
   }
   async function v3Click(selector,expected){await click(selector);await v3Wait(expected);}
   async function press(selector,key='Enter'){
@@ -520,23 +521,22 @@ async function run() {
     assert.equal(await socket.evaluate('document.querySelector("#plan-reader-open-app").getAttribute("href")'),'https://finapp.siniverse.cc');
     assert(await socket.evaluate('document.querySelector(".plan-reader").scrollWidth<=innerWidth+1'));
     await screenshot('v3-plan-reader-'+format,width);
-    await v3Click('#plan-reader-angle-action',v3State('plan','finapp','action'));await readerReady('finapp','action');
+    assert.equal(await socket.evaluate('document.querySelectorAll(".plan-reader-angles,[data-reader-angle]").length'),0,'The app still has multiple explanation tabs.');
+    assert.equal(await socket.evaluate('document.querySelectorAll(".plan-reader-prose>p").length'),3);
 
-    const scrollPoint=await socket.evaluate('(()=>{const r=document.querySelector("#plan-reader-scroll").getBoundingClientRect();return {x:r.x+r.width*.45,y:r.y+r.height*.6}})()');
-    await socket.send('Input.dispatchMouseEvent',{type:'mouseMoved',...scrollPoint});
-    await socket.send('Input.dispatchMouseEvent',{type:'mouseWheel',...scrollPoint,deltaX:0,deltaY:420});
-    await until('document.querySelector("#plan-reader-scroll").scrollTop>20','The full-field mobile/desktop reading cannot scroll.');
-    await pause(120);const savedScroll=(await v3Inspect()).scene.reader.scrollTop;
-    await socket.evaluate('history.back()');await readerReady('finapp');
-    assert.equal(await socket.evaluate('document.querySelector("#plan-reader-scroll").scrollTop'),0,'Back did not restore the initial reading position immediately.');
-    await socket.evaluate('history.forward()');await readerReady('finapp','action');
-    assert(Math.abs((await v3Inspect()).scene.reader.scrollTop-savedScroll)<2,'Forward lost the reader scroll.');
+    const canScroll=await socket.evaluate('document.querySelector("#plan-reader-scroll").scrollHeight>document.querySelector("#plan-reader-scroll").clientHeight+20');
+    if(canScroll){
+      const scrollPoint=await socket.evaluate('(()=>{const r=document.querySelector("#plan-reader-scroll").getBoundingClientRect();return {x:r.x+r.width*.45,y:r.y+r.height*.6}})()');
+      await socket.send('Input.dispatchMouseEvent',{type:'mouseMoved',...scrollPoint});
+      await socket.send('Input.dispatchMouseEvent',{type:'mouseWheel',...scrollPoint,deltaX:0,deltaY:420});
+      await until('document.querySelector("#plan-reader-scroll").scrollTop>20','The app explanation cannot scroll.');
+    }
     const related=await socket.evaluate('(()=>{const e=document.querySelector("#plan-reader-related");e.scrollIntoView({block:"center",behavior:"instant"});const r=e.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,scroll:document.querySelector("#plan-reader-scroll").scrollTop}})()');
     await socket.send('Input.dispatchMouseEvent',{type:'mousePressed',x:related.x,y:related.y,button:'left',buttons:1,clickCount:1});
     await socket.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:related.x,y:related.y,button:'left',buttons:0,clickCount:1});
     await readerReady('garapp');assert.equal((await v3Inspect()).scene.journeyClear,true);
     assert((await v3Inspect()).scene.journey.some(p=>p[0]>.8&&p[2]>1&&p[2]<2.2),'The visit did not use the interior doorway.');
-    await socket.evaluate('history.back()');await readerReady('finapp','action');
+    await socket.evaluate('history.back()');await readerReady('finapp');
     assert(Math.abs((await v3Inspect()).scene.reader.scrollTop-related.scroll)<2,'Reopening after showModal lost the saved scroll.');
     assert(near((await v3Inspect()).scene.pose.position,supportPose.position));
     await socket.evaluate('history.forward()');await readerReady('garapp');
@@ -560,8 +560,7 @@ async function run() {
     report.checks.push('Plan/'+format+': vrai aperçu survol/tap, ouverture depuis support, lecture plein champ/scroll, focus, Échap répété, histoire et visite par porte');
 
     await directTrip('branchlab');
-    await v3Click('#plan-reader-angle-methode',v3State('plan','branchlab','methode'));await readerReady('branchlab','methode');
-    await v3Click('#plan-reader-angle-limites',v3State('plan','branchlab','limites'));await readerReady('branchlab','limites');
+    assert.equal(await socket.evaluate('document.querySelectorAll(".plan-reader-angles,[data-reader-angle]").length'),0);
     assert.equal(await socket.evaluate('document.querySelector("#plan-reader-open-app").getAttribute("href")'),'https://branchlab.siniverse.cc');
     await screenshot('v3-plan-branchlab-reader-'+format,width);await closeReaderRepeated();
     for(let i=0;i<16;i++)await press('#plan-canvas','ArrowRight');
@@ -574,12 +573,13 @@ async function run() {
     for(let i=0;i<(mobile?7:5);i++)await press('#plan-canvas','ArrowRight');
     inspected=await v3Inspect();const blocked=inspected.scene.pickTargets.find(p=>p.app==='garapp'&&p.blocker?.startsWith('house-wall-'));
     await nativeClick(blocked);await pause(100);
-    assert.deepEqual((await v3Inspect()).route,v3State('plan','branchlab','limites'));assert.equal((await v3Inspect()).scene.reader.open,false);
+    assert.deepEqual((await v3Inspect()).route,v3State('plan','branchlab'));assert.equal((await v3Inspect()).scene.reader.open,false);
     assert.equal((await v3Inspect()).scene.lastPick,null);
     assert.equal(await socket.evaluate('document.querySelector("#plan-app-garapp").hidden'),true,'A projected target appears through the wall.');
     const freePose=(await v3Inspect()).scene.pose;
-    await socket.evaluate('history.back()');await readerReady('branchlab','methode');
-    await socket.evaluate('history.forward()');await v3Wait(v3State('plan','branchlab','limites'));
+    await socket.evaluate('history.back()');await v3Wait(v3State('plan','garapp'));
+    assert.equal((await v3Inspect()).scene.reader.open,false,'Back reopened an app page that had been closed.');
+    await socket.evaluate('history.forward()');await v3Wait(v3State('plan','branchlab'));
     assert.equal((await v3Inspect()).scene.reader.open,false);
     assert(near((await v3Inspect()).scene.pose.position,freePose.position));assert(near((await v3Inspect()).scene.pose.target,freePose.target));
     report.checks.push('Plan/'+format+': toutes lectures, retour au support, marche/collision, vrai mur occultant 3D/HTML et pose restaurée');
@@ -632,6 +632,7 @@ async function run() {
 
     await socket.evaluate('document.querySelector("#plan-canvas").getContext("webgl2").getExtension("WEBGL_lose_context").loseContext()');
     await until('document.querySelector("#experience").classList.contains("plan-is-fallback")','WebGL loss did not expose fallback.');
+    assert.equal(await socket.evaluate('document.querySelectorAll("[data-plan-fallback-angle]").length'),0);
     await v3Click('[data-plan-fallback-app="garapp"]',v3State('plan','garapp'));await readerReady('garapp');
     await closeReaderRepeated();
     await socket.evaluate('document.querySelector(".plan-fallback .real-app-link").scrollIntoView({block:"center",behavior:"instant"})');
@@ -713,6 +714,8 @@ async function run() {
   await socket.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
   await navigate(rootV3+'?concept=plan&app=finapp&angle=action');await v3Wait(v3State('plan','finapp','action'));
   assert.equal((await v3Inspect()).scene.animationCount,0,'Reduced motion retained a cosmetic animation loop.');
+  assert.equal(await socket.evaluate('new URLSearchParams(location.search).has("angle")'),false,'The old app link was not canonicalized.');
+  assert.equal(await socket.evaluate('document.querySelectorAll("[data-reader-angle]").length'),0);
   report.checks.push('V3 stockage bloqué et mouvement réduit, mêmes destinations sans boucle cosmétique');
 
   assert.deepEqual(report.exceptions, [], 'Browser reported a page exception or resource/CSP error.');

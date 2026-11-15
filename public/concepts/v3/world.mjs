@@ -157,13 +157,13 @@ export function createWorld(host,{reducedMotion=false,onContextLost=()=>{},carto
     addPick(mesh,action,{key=null}={}){picks.push({mesh,action,key});},
     cleanup(fn){cleanups.push(fn);},
     project(point){const p=point.clone().project(camera),r=canvas.getBoundingClientRect();return {x:r.left+(p.x*.5+.5)*r.width,y:r.top+(-p.y*.5+.5)*r.height,z:p.z};},
-    inspect(){
+    inspect({fast=false}={}){
       if(lost)return {kind:'contextlost',pose:getPose(),triangles:0,pixelColors:0};
-      render();
+      if(!fast)render();
       const sample=new Uint8Array(4),colors=new Set();
-      for(let y=1;y<5;y++)for(let x=1;x<6;x++){gl.readPixels(Math.floor(canvas.width*x/6),Math.floor(canvas.height*y/5),1,1,gl.RGBA,gl.UNSIGNED_BYTE,sample);colors.add([...sample].join(','));}
+      if(!fast)for(let y=1;y<5;y++)for(let x=1;x<6;x++){gl.readPixels(Math.floor(canvas.width*x/6),Math.floor(canvas.height*y/5),1,1,gl.RGBA,gl.UNSIGNED_BYTE,sample);colors.add([...sample].join(','));}
       return {kind:lost?'contextlost':'webgl2',pose:getPose(),triangles:renderer.info.render.triangles,drawCalls:renderer.info.render.calls,
-        pixelColors:colors.size,objects:scene.children.length,dpr:renderer.getPixelRatio(),animationCount:animations.size,threeRevision:THREE.REVISION};
+        pixelColors:fast?null:colors.size,objects:scene.children.length,dpr:renderer.getPixelRatio(),animationCount:animations.size,threeRevision:THREE.REVISION};
     },
     destroy(){
       destroyed=true;cancelAnimationFrame(frameId);observer.disconnect();document.removeEventListener('visibilitychange',visibility);

@@ -7,8 +7,17 @@ import {threeAssets} from '../tools/three-assets.mjs';
 test('all three grammars share stable semantic destinations without camera frame URLs',()=>{
   for(const concept of ['plan','reacteur','anamorphose'])for(const app of ['finapp','garapp','branchlab'])for(const angle of ['presentation','action','methode','limites']){
     const state={concept,app,angle};
-    assert.deepEqual(parseRoute(new URL(routeHref(state),'https://siniverse.cc').search),state);
+    assert.deepEqual(parseRoute(new URL(routeHref(state),'https://siniverse.cc').search),concept==='plan'?{...state,angle:'presentation'}:state);
     assert(!routeHref(state).includes('camera'));
+  }
+});
+test('the house has one canonical explanation per app, including old links and history states',()=>{
+  for(const app of ['finapp','garapp','branchlab'])for(const angle of ['presentation','action','methode','limites']){
+    const expected={concept:'plan',app,angle:'presentation'},legacy={...expected,angle};
+    assert.deepEqual(parseRoute('?concept=plan&app='+app+'&angle='+angle),expected);
+    assert.deepEqual(normalizeState(legacy),expected);
+    assert.equal(routeHref(legacy),'/concepts/v3/explore.html?concept=plan&app='+app);
+    assert.equal(routeHref(legacy,{rotation:true}),'/concepts/v3/explore.html?app='+app);
   }
 });
 test('unknown routes are bounded and global optical/world views stay presentations',()=>{

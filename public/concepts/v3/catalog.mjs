@@ -22,16 +22,16 @@ export const CONTENT = {
       "id": "finapp",
       "app": "finapp",
       "eyebrow": "AVANT DE DÉCIDER",
-      "title": "Donner un horizon à ses choix.",
+      "title": "Comparer vos choix dans le temps.",
       "body": [
-        "Acheter ou louer, épargner, changer de voiture : Finapp met deux scénarios en regard et montre comment le budget et le patrimoine peuvent évoluer.",
-        "Un même horizon rend les hypothèses comparables. L’application reste l’endroit où vous saisissez vos propres scénarios."
+        "Finapp permet de comparer deux scénarios financiers pour comprendre ce qu’un choix change dans le temps : acheter ou louer, épargner ou changer de véhicule.",
+        "Vous définissez les hypothèses de chaque scénario et un horizon commun. L’application met en regard l’évolution des dépenses et du patrimoine, puis leurs écarts, pour faciliter la comparaison.",
+        "Vous pouvez par exemple examiner l’achat d’une voiture et une solution de location sur dix ans. Les projections dépendent des paramètres saisis : elles décrivent les scénarios choisis, sans prédire leur réalisation."
       ],
       "facts": [
-        {
-          "label": "À explorer",
-          "value": "Horizon · scénarios · écarts"
-        }
+        { "label": "Scénarios", "value": "Deux choix comparés" },
+        { "label": "Lecture", "value": "Budget et patrimoine" },
+        { "label": "Repère", "value": "Un horizon commun" }
       ],
       "related": {
         "app": "garapp",
@@ -110,16 +110,16 @@ export const CONTENT = {
       "id": "garapp",
       "app": "garapp",
       "eyebrow": "AU FIL DES JOURS",
-      "title": "Un véhicule laisse des repères.",
+      "title": "Tout le suivi de vos véhicules.",
       "body": [
-        "Garapp rassemble interventions, pièces et documents des véhicules. Le carburant, l’assurance et les dépenses y trouvent aussi leur place.",
-        "Une date, une intervention, un justificatif : ce qui était dispersé devient plus facile à retrouver."
+        "Garapp rassemble le suivi de vos véhicules : révisions, réparations, pièces, documents et dépenses. Chaque voiture possède son historique, pour retrouver ce qui a été fait et ce qui lui est associé.",
+        "Après une intervention, vous pouvez conserver la date, les pièces concernées, le coût et un justificatif au même endroit. Le carburant et l’assurance complètent le suivi des dépenses au fil des mois.",
+        "L’historique permet de retrouver un entretien, de consulter ses documents et de comprendre les dépenses enregistrées pour un véhicule. Il se construit à partir des informations que vous ajoutez."
       ],
       "facts": [
-        {
-          "label": "À explorer",
-          "value": "Historique · dépenses · documents"
-        }
+        { "label": "Suivi", "value": "Interventions et pièces" },
+        { "label": "Budget", "value": "Carburant et assurance" },
+        { "label": "Mémoire", "value": "Dates et justificatifs" }
       ],
       "related": {
         "app": "finapp",
@@ -190,16 +190,16 @@ export const CONTENT = {
       "id": "branchlab",
       "app": "branchlab",
       "eyebrow": "ENTRE DEUX APPAREILS",
-      "title": "Voir le rôle de chaque liaison.",
+      "title": "Comprendre ce qui relie vos appareils.",
       "body": [
-        "Branchlab représente appareils, ports et câbles pour comprendre les compatibilités et les limites d’une installation.",
-        "Sa première version se concentre sur les connexions vidéo directes couvertes par son catalogue et ses sources."
+        "Branchlab représente les appareils, leurs ports et les câbles qui les relient. L’installation devient un schéma dans lequel on peut suivre chaque liaison, de la source à l’écran.",
+        "Vous placez les éléments et leurs connexions, puis consultez les caractéristiques et les explications associées. Le diagnostic vidéo s’appuie sur les références disponibles dans le catalogue et sur leurs sources.",
+        "La première version couvre les connexions vidéo directes de ce catalogue. Les compatibilités présentées dépendent des appareils et des caractéristiques pris en compte, ce qui permet de comprendre le périmètre du résultat."
       ],
       "facts": [
-        {
-          "label": "À explorer",
-          "value": "Appareil · port · câble · écran"
-        }
+        { "label": "Chaîne", "value": "Appareils, ports et câbles" },
+        { "label": "Diagnostic", "value": "Connexions vidéo directes" },
+        { "label": "Catalogue", "value": "Références et sources" }
       ],
       "related": {
         "app": "finapp",
