@@ -44,6 +44,6 @@ Le QA exige un vrai WebGL2, des pixels non uniformes, une entrée et une marche 
 
 Les démonstrations sur support ajoutent des contrôles navigateur ordinateur/mobile : variation native du curseur, modification des courbes, connexion réversible du câble physique, ouverture du carnet, bornes de pagination et conservation après lecture. Les tests de géométrie vérifient aussi le retour exact du toit et du connecteur, ainsi que les bornes de la charnière.
 
-Les attentes des tests consultent un état léger avec `inspect({fast:true})` : aucune lecture de pixels ni recherche de cible 3D pour ces attentes. Les points de contrôle utilisent l’inspection complète pour mesurer les pixels et les maillages et retrouver les objets à cliquer. Le comportement d’inspection par défaut conserve ces mesures.
+Les assertions d’état et les attentes des tests consultent un état léger avec `inspect({fast:true})` : aucune lecture de pixels ni recherche de cible 3D pour ces attentes. Les points de contrôle visuels et de picking utilisent l’inspection complète pour mesurer les pixels et les maillages et retrouver les objets à cliquer. Le comportement d’inspection par défaut conserve ces mesures.
 
 Les deux HTML V3 reçoivent la version CI. La CSP interactive reste limitée à /concepts/* avec imports locaux ; l’accueil et la confidentialité ne changent pas. La CI partagée/pin et les Workers existants sont conservés. Toute promotion en production reste une PR dev→main après test et accord explicite.
