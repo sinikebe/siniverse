@@ -576,7 +576,8 @@ async function run() {
     assert.equal((await v3Inspect()).scene.lastPick,null);
     assert.equal(await socket.evaluate('document.querySelector("#plan-app-garapp").hidden'),true,'A projected target appears through the wall.');
     const freePose=(await v3Inspect()).scene.pose;
-    await socket.evaluate('history.back()');await readerReady('garapp');
+    await socket.evaluate('history.back()');await v3Wait(v3State('plan','garapp'));
+    assert.equal((await v3Inspect()).scene.reader.open,false,'Back reopened an app page that had been closed.');
     await socket.evaluate('history.forward()');await v3Wait(v3State('plan','branchlab'));
     assert.equal((await v3Inspect()).scene.reader.open,false);
     assert(near((await v3Inspect()).scene.pose.position,freePose.position));assert(near((await v3Inspect()).scene.pose.target,freePose.target));
