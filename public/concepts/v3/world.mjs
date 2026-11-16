@@ -8,6 +8,9 @@ export function createWorld(host,{reducedMotion=false,onContextLost=()=>{},carto
   const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'low-power'});
   const gl=renderer.getContext();
   if(!(gl instanceof WebGL2RenderingContext))throw new Error('WebGL2 est nécessaire au monde 3D.');
+  const rendererInfo=gl.getExtension('WEBGL_debug_renderer_info');
+  const software=Boolean(rendererInfo&&/swiftshader|llvmpipe|softpipe|software/i.test(gl.getParameter(rendererInfo.UNMASKED_RENDERER_WEBGL)));
+  const quality={software,pixelBudget:Math.min(pixelBudget,Number.isFinite(pixelBudget)&&software?400000:Infinity)};
   renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));
   renderer.setClearColor(cartoon?'#dce9e5':'#ece9dc');
   renderer.outputColorSpace=THREE.SRGBColorSpace;
@@ -146,13 +149,13 @@ export function createWorld(host,{reducedMotion=false,onContextLost=()=>{},carto
         return {index,name:hit.object.name,rootType:picks[index]?.mesh.type,objectType:hit.object.type,geometry:hit.object.geometry?.type,distance:hit.distance,point:hit.point.toArray()};
       })};
   }
-  const resize=()=>{const rect=host.getBoundingClientRect();renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5,Math.sqrt(pixelBudget/Math.max(1,rect.width*rect.height))));renderer.setSize(Math.max(1,rect.width),Math.max(1,rect.height),false);camera.aspect=rect.width/Math.max(1,rect.height);camera.fov=rect.width<760?mobileFov:desktopFov;camera.updateProjectionMatrix();request();};
+  const resize=()=>{const rect=host.getBoundingClientRect();renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5,Math.sqrt(quality.pixelBudget/Math.max(1,rect.width*rect.height))));renderer.setSize(Math.max(1,rect.width),Math.max(1,rect.height),false);camera.aspect=rect.width/Math.max(1,rect.height);camera.fov=rect.width<760?mobileFov:desktopFov;camera.updateProjectionMatrix();request();};
   const observer=new ResizeObserver(resize);observer.observe(host);
   const visibility=()=>{if(document.hidden){cancelAnimationFrame(frameId);frameId=0;}else request();};
   const contextLost=event=>{event.preventDefault();lost=true;cancelAnimationFrame(frameId);frameId=0;for(const a of animations)a.resolve();animations.clear();onContextLost();};
   canvas.addEventListener('webglcontextlost',contextLost);
   document.addEventListener('visibilitychange',visibility);resize();
-  return {THREE,scene,camera,canvas,renderer,mesh,box,line,material,label,surface,visiblePoint,requestRender:request,animate,getPose,setPose,flyTo,cancelFlight,pick,hit,projectBounds,
+  return {THREE,scene,camera,canvas,renderer,quality,mesh,box,line,material,label,surface,visiblePoint,requestRender:request,animate,getPose,setPose,flyTo,cancelFlight,pick,hit,projectBounds,
     setRenderEffect(effect){renderEffect?.dispose();renderEffect=effect;request();},
     refresh(){resize();render();},
     probe,

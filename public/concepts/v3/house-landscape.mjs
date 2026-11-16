@@ -1,12 +1,13 @@
 // A mineral garden, authored for this house. Planting stays outside the walking bounds.
-export function buildLandscape(T, scene, surfaces) {
+export function buildLandscape(T, scene, surfaces, {software=false}={}) {
   const root = new T.Group(); root.name = 'house-landscape'; scene.add(root);
   const resources = [], hash = n => { const v = Math.sin(n * 127.1) * 43758.5453; return v - Math.floor(v); };
   const heightAt = (x, z) => {
     const away = Math.max(0, Math.min(1, (Math.max(Math.abs(x) / 8, Math.abs(z - 1) / 9) - 1) / 2));
     return -.25 + away * (.5 + Math.sin(x * .12 + z * .06) * .8 + Math.sin(z * .19 - x * .08) * .55);
   };
-  const ground = new T.PlaneGeometry(180, 180, 160, 160); ground.rotateX(-Math.PI / 2);
+  const segments=software?80:160;
+  const ground = new T.PlaneGeometry(180, 180, segments, segments); ground.rotateX(-Math.PI / 2);
   const p = ground.attributes.position;
   for (let i = 0; i < p.count; i++) p.setY(i, heightAt(p.getX(i), p.getZ(i)));
   ground.computeVertexNormals();
@@ -54,10 +55,11 @@ export function buildLandscape(T, scene, surfaces) {
   const grassGeometry = new T.BufferGeometry(); grassGeometry.setAttribute('position', new T.Float32BufferAttribute(blades, 3));
   grassGeometry.setAttribute('normal', new T.Float32BufferAttribute(bladeNormals, 3));
   const grassMaterial = new T.MeshStandardMaterial({ color: '#656F53', roughness: .96, side: T.DoubleSide }); resources.push(grassMaterial);
-  const grass = new T.InstancedMesh(grassGeometry, grassMaterial, 5200); grass.name = 'house-garden-grasses'; grass.receiveShadow = true; grass.userData.pickThrough = true;
+  const count=software?1800:5200;
+  const grass = new T.InstancedMesh(grassGeometry, grassMaterial, count); grass.name = 'house-garden-grasses'; grass.receiveShadow = true; grass.userData.pickThrough = true;
   const tint = new T.Color();
-  for (let i = 0; i < 5200; i++) {
-    const angle = hash(i + 400) * Math.PI * 2, distance = 8 + hash(i + 800) * (i<4000?14:38);
+  for (let i = 0; i < count; i++) {
+    const angle = hash(i + 400) * Math.PI * 2, distance = 8 + hash(i + 800) * (i<count*.77?14:38);
     let x = Math.cos(angle) * distance, z = Math.sin(angle) * distance;
     // An open approach and the complete navigation rectangle remain free of planting.
     if (Math.abs(x) < 6.9 && z > -5.1 && z < 8.2) { x += x < 0 ? -7 : 7; }

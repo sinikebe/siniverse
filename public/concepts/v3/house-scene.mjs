@@ -129,7 +129,7 @@ export function buildHouse(world, apps) {
 
   world.scene.background = new T.Color('#B9C5C7');
   world.scene.fog = new T.FogExp2('#B9C5C7', .013);
-  const landscape = buildLandscape(T, world.scene, surfaceLibrary);
+  const landscape = buildLandscape(T, world.scene, surfaceLibrary,world.quality);
   box([11.1, .19, 7.7], '#D8DDD8', [0, -.16, 0], root, 'house-approach-ground', 'stone', .025);
   box([4.45,.09,2.8], '#D5D9D4', [3.05,-.13,4.92],root,'house-driveway','stone',.025);
   for(const z of [4.18,4.98,5.78,6.58])box([1.34,.10,.66],'#DEE0D8',[-2.3,-.11,z],root,'house-entry-paving','stone',.018);
@@ -410,7 +410,7 @@ export function buildHouse(world, apps) {
   }
   if (sun) {
     sun.position.set(-12, 10, 8); sun.color.set('#FFEBCC'); sun.intensity = 3.4; sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -13, right: 13, top: 13, bottom: -13, near: .5, far: 50 });
+    const shadowSize=world.quality?.software?1024:2048;sun.shadow.mapSize.set(shadowSize,shadowSize); Object.assign(sun.shadow.camera, { left: -13, right: 13, top: 13, bottom: -13, near: .5, far: 50 });
     sun.shadow.camera.updateProjectionMatrix(); sun.shadow.bias = -.00012; sun.shadow.normalBias = .015; sun.shadow.radius = 5.5;
   }
   const officeBounce = new T.PointLight('#D2E5EC', 4, 7, 2); officeBounce.position.set(-4.8, 2, 1.2); root.add(officeBounce);
@@ -434,7 +434,7 @@ export function buildHouse(world, apps) {
     environmentSource=new T.DataTexture(radiance,w,h,T.RGBAFormat,T.FloatType);environmentSource.mapping=T.EquirectangularReflectionMapping;environmentSource.needsUpdate=true;
     const generator=new T.PMREMGenerator(world.renderer);environmentTarget=generator.fromEquirectangular(environmentSource);
     world.scene.environment=environmentTarget.texture;world.scene.environmentIntensity=.72;
-    carCapture=new T.WebGLCubeRenderTarget(128,{type:T.HalfFloatType});
+    carCapture=new T.WebGLCubeRenderTarget(world.quality?.software?64:128,{type:T.HalfFloatType});
     const reflectionCamera=new T.CubeCamera(.1,90,carCapture);reflectionCamera.position.set(3.1,1.05,-.3);
     car.visible=false;reflectionCamera.update(world.renderer,world.scene);car.visible=true;
     carEnvironment=generator.fromCubemap(carCapture.texture);generator.dispose();
