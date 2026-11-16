@@ -643,6 +643,21 @@ async function run() {
     await until('window.__siniverseV3.inspect().scene.objects.notebookAmount===0','The notebook stayed open after leaving.');
     report.checks.push('Plan/'+format+': scénarios sur écran, câble physique réversible, carnet articulé, pages bornées et retour à la manipulation');
 
+    await click('.plan-compass summary');await click('#plan-direct-gaming');
+    const gamingState={...v3State('plan'),room:'gaming'};await v3Wait(gamingState);
+    await until('(()=>{const s=window.__siniverseV3.inspect({fast:true}).scene;return s.room==="gaming"&&s.animationCount===0})()','The gaming room did not settle.');
+    const gamingScene=(await v3Inspect()).scene;assert.equal(gamingScene.pose.position[1],1.65);assert.equal(gamingScene.journeyClear,true);
+    await screenshot('v3-plan-gaming-room-'+format,width);
+    await press('#plan-gaming-screen');await until('document.querySelector("#gaming-library").open','The PC did not open the games library.');
+    assert.equal(await socket.evaluate('document.activeElement.id'),'gaming-library-title');
+    assert(await socket.evaluate('document.querySelector("#gaming-library").scrollWidth<=innerWidth+1'),'Games library overflows horizontally.');
+    await screenshot('v3-plan-gaming-library-'+format,width);
+    await press('#gaming-library-close','Escape');assert.equal(await socket.evaluate('document.querySelector("#gaming-library").open'),false);
+    assert.equal(await socket.evaluate('document.activeElement.id'),'plan-gaming-screen');
+    await socket.evaluate('history.back()');await v3Wait(v3State('plan','garapp'));
+    await socket.evaluate('history.forward()');await v3Wait(gamingState);assert.equal((await v3Inspect()).scene.room,'gaming');
+    report.checks.push('Plan/'+format+': salle gaming par une vraie porte, PC RGB, bibliothèque clavier/Échap, focus et Retour/Avant');
+
     await socket.evaluate('document.querySelector("#plan-canvas").getContext("webgl2").getExtension("WEBGL_lose_context").loseContext()');
     await until('document.querySelector("#experience").classList.contains("plan-is-fallback")','WebGL loss did not expose fallback.');
     assert.equal(await socket.evaluate('document.querySelectorAll("[data-plan-fallback-angle]").length'),0);

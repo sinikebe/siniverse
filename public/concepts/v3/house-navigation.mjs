@@ -9,8 +9,17 @@ export function canStand(point, obstacles, bounds, radius = WALK_RADIUS) {
   return !obstacles.some(o => x > o.minX - radius && x < o.maxX + radius && z > o.minZ - radius && z < o.maxZ + radius);
 }
 export function segmentClear(a, b, obstacles, bounds) {
-  const count = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / .07));
-  for (let i = 0; i <= count; i++) if (!canStand([a[0] + (b[0] - a[0]) * i / count, a[1] + (b[1] - a[1]) * i / count], obstacles, bounds)) return false;
+  if(!canStand(a,obstacles,bounds)||!canStand(b,obstacles,bounds))return false;
+  // Exact slab intersection prevents a short diagonal from clipping a door jamb.
+  for(const o of obstacles){
+    let enter=0,exit=1;
+    for(const [axis,min,max]of [[0,o.minX-WALK_RADIUS-.000001,o.maxX+WALK_RADIUS+.000001],[1,o.minZ-WALK_RADIUS-.000001,o.maxZ+WALK_RADIUS+.000001]]){
+      const delta=b[axis]-a[axis];
+      if(Math.abs(delta)<1e-12){if(a[axis]<=min||a[axis]>=max){enter=2;break;}}
+      else{const t=(min-a[axis])/delta,u=(max-a[axis])/delta;enter=Math.max(enter,Math.min(t,u));exit=Math.min(exit,Math.max(t,u));}
+    }
+    if(enter<exit&&exit>0&&enter<1)return false;
+  }
   return true;
 }
 export function stepOnFloor(pose, forward, side, obstacles, bounds) {

@@ -43,6 +43,28 @@ test('all useful stations and the exit connect by a collision-free floor route',
   const points=[[-2.3,5.7],[-2.5,2.7],[-4,-.675],[-1.7,-.675],[2.5,2.9],[3.25,2.9]];
   for(const a of points)for(const b of points){const path=floorPath(a,b,obstacles,bounds);assert.deepEqual(path[0],a);assert.deepEqual(path.at(-1),b);for(let i=1;i<path.length;i++)assert(segmentClear(path[i-1],path[i],obstacles,bounds));}
 });
+
+test('the gaming wing connects through a real opening and its PC remains reachable',()=>{
+  scene.updateMatrixWorld(true);
+  const ray=new THREE.Raycaster(new THREE.Vector3(-4.4,EYE_HEIGHT,1.85),new THREE.Vector3(-1,0,0),0,1.7);
+  assert.equal(ray.intersectObjects(scene.children,true).length,0,'A mesh closes the gaming doorway.');
+  const destinations=[[-2.85,2.7],[-7.55,.9],[-7.88,-.3],[-4,-.675],[3.25,2.9],[-2.3,5.7]];
+  for(const a of destinations)for(const b of destinations){
+    const path=floorPath(a,b,obstacles,bounds);
+    for(let i=0;i<=100;i++)assert(canStand(pointAlong(path,i/100),obstacles,bounds));
+  }
+  assert(!canStand([-7.45,-2.4],obstacles,bounds),'The camera can enter the gaming desk.');
+  assert(!canStand([-9.55,0],obstacles,bounds),'The west wall is missing.');
+  assert(house.gaming.pc.getObjectByName('house-gaming-pc-glass'));
+  assert(house.gaming.pc.getObjectByName('house-gaming-graphics-card'));
+});
+
+test('a short diagonal cannot clip an expanded door jamb between sample points',()=>{
+  const wall=[{minX:0,maxX:1,minZ:0,maxZ:1}];
+  const extent={minX:-2,maxX:3,minZ:-2,maxZ:3};
+  assert(canStand([-.23,-.19],wall,extent));assert(canStand([-.19,-.23],wall,extent));
+  assert.equal(segmentClear([-.23,-.19],[-.19,-.23],wall,extent),false);
+});
 test('long and repeated keyboard movement cannot tunnel through the wall or parked car',()=>{
   let wall=eye(.3,-1,4,-1);for(let i=0;i<12;i++)wall=stepOnFloor(wall,1,0,obstacles,bounds);
   assert(wall.position[0]<.48);assert.equal(wall.position[1],EYE_HEIGHT);
