@@ -441,13 +441,16 @@ export function buildHouse(world, apps) {
     environmentSource=new T.DataTexture(radiance,w,h,T.RGBAFormat,T.FloatType);environmentSource.mapping=T.EquirectangularReflectionMapping;environmentSource.needsUpdate=true;
     const generator=new T.PMREMGenerator(world.renderer);environmentTarget=generator.fromEquirectangular(environmentSource);
     world.scene.environment=environmentTarget.texture;world.scene.environmentIntensity=.72;
-    carCapture=new T.WebGLCubeRenderTarget(world.quality?.software?64:128,{type:T.HalfFloatType});
-    const reflectionCamera=new T.CubeCamera(.1,90,carCapture);reflectionCamera.position.set(3.1,1.05,-.3);
-    car.visible=false;reflectionCamera.update(world.renderer,world.scene);car.visible=true;
-    carEnvironment=generator.fromCubemap(carCapture.texture);generator.dispose();
-    car.traverse(node=>{if(node.isMesh&&node.material.isMeshPhysicalMaterial&&node.material.metalness>.1){node.material.envMap=carEnvironment.texture;node.material.envMapIntensity=1.15;}});
+    if(!world.quality?.software){
+      carCapture=new T.WebGLCubeRenderTarget(128,{type:T.HalfFloatType});
+      const reflectionCamera=new T.CubeCamera(.1,90,carCapture);reflectionCamera.position.set(3.1,1.05,-.3);
+      car.visible=false;reflectionCamera.update(world.renderer,world.scene);car.visible=true;
+      carEnvironment=generator.fromCubemap(carCapture.texture);
+      car.traverse(node=>{if(node.isMesh&&node.material.isMeshPhysicalMaterial&&node.material.metalness>.1){node.material.envMap=carEnvironment.texture;node.material.envMapIntensity=1.15;}});
+      world.setRenderEffect?.(createHousePhotography(T,world.renderer));
+    }
+    generator.dispose();
     world.renderer.shadowMap.needsUpdate=true;
-    world.setRenderEffect?.(createHousePhotography(T,world.renderer));
   }
   function invalidateShadow(){if(world.renderer?.shadowMap)world.renderer.shadowMap.needsUpdate=true;}
   root.updateMatrixWorld(true);
