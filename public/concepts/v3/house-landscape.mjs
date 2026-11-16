@@ -54,7 +54,7 @@ export function buildLandscape(T, scene, surfaces, {software=false}={}) {
   }
   const grassGeometry = new T.BufferGeometry(); grassGeometry.setAttribute('position', new T.Float32BufferAttribute(blades, 3));
   grassGeometry.setAttribute('normal', new T.Float32BufferAttribute(bladeNormals, 3));
-  const grassMaterial = new T.MeshStandardMaterial({ color: '#656F53', roughness: .96, side: T.DoubleSide }); resources.push(grassMaterial);
+  const grassMaterial = new T.MeshStandardMaterial({ color: '#E8DFC4', roughness: .96, side: T.DoubleSide }); resources.push(grassMaterial);
   const count=software?1800:5200;
   const grass = new T.InstancedMesh(grassGeometry, grassMaterial, count); grass.name = 'house-garden-grasses'; grass.receiveShadow = true; grass.userData.pickThrough = true;
   const tint = new T.Color();
@@ -65,7 +65,7 @@ export function buildLandscape(T, scene, surfaces, {software=false}={}) {
     if (Math.abs(x) < 6.9 && z > -5.1 && z < 8.2) { x += x < 0 ? -7 : 7; }
     const scale = .45 + hash(i + 1100) * .9;
     matrix.compose(new T.Vector3(x, heightAt(x, z), z), q.setFromAxisAngle(up, angle), new T.Vector3(scale, scale, scale));
-    grass.setMatrixAt(i, matrix); grass.setColorAt(i, tint.setHSL(.15 + hash(i + 1500) * .035, .11 + hash(i + 1800) * .13, .30 + hash(i + 2100) * .25));
+    grass.setMatrixAt(i, matrix); grass.setColorAt(i, tint.setHSL(.13 + hash(i + 1500) * .035, .12 + hash(i + 1800) * .20, .40 + hash(i + 2100) * .25));
   }
   root.add(grass);
 

@@ -445,7 +445,7 @@ export function buildHouse(world, apps) {
   function invalidateShadow(){if(world.renderer?.shadowMap)world.renderer.shadowMap.needsUpdate=true;}
   root.updateMatrixWorld(true);
   const roofMaterials = [];
-  roof.traverse(node => { if (!node.isMesh) return; node.material = node.material.clone(); node.material.transparent = true; materials.add(node.material); roofMaterials.push(node.material); });
+  roof.traverse(node => { if (!node.isMesh) return; node.material = node.material.clone(); node.material.transparent = true; materials.add(node.material);surfaceLibrary.track(node.material); roofMaterials.push(node.material); });
   let roofAmount = 0, roofRevision = 0, notebookAmount = 0;
   function setCutaway(open, { instant = false } = {}) {
     const end = open ? 1 : 0, from = roofAmount, token = ++roofRevision;

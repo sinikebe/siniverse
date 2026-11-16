@@ -1,6 +1,6 @@
 // Authored, seamless surface maps. Distances in the scene and texture repeats are metres.
 export function createSurfaceLibrary(T, onLoad = () => {}) {
-  const textures = [], materials = new Set(), cache = new Map();let disposed=false;
+  const textures = [], materials = new Set(), tracked = new Set(), cache = new Map();let disposed=false;
   const hash = (x, y) => { const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return n - Math.floor(n); };
   const smooth = t => t * t * (3 - 2 * t);
   function noise(x, y, period = 64) {
@@ -54,7 +54,7 @@ export function createSurfaceLibrary(T, onLoad = () => {}) {
         const map = loader.load(new URL('../../assets/house/' + asset + '-' + suffix + '.webp', import.meta.url).href,loadedTexture=>{
           if(disposed){loadedTexture.dispose();return;}
           if(++loaded!==required)return;captured[kind].ready=true;
-          for(const value of cache.values())if(value.userData.surfaceKind===kind){Object.assign(value,capturedOptions(kind));value.needsUpdate=true;}
+          for(const value of tracked)if(value.userData.surfaceKind===kind){Object.assign(value,capturedOptions(kind));value.needsUpdate=true;}
           onLoad();
         });
         map.colorSpace = slot === 'map' ? T.SRGBColorSpace : T.NoColorSpace;
@@ -85,9 +85,9 @@ export function createSurfaceLibrary(T, onLoad = () => {}) {
       ...(kind === 'car' ? { metalness: .42, roughness: .25 } : {}) });
     if (options.map) value.userData.metreUV = kind === 'wood' ? .55 : kind === 'floor' ? .35 : kind === 'gravel' ? 1.2 : .8;
     value.userData.surfaceKind=kind;
-    cache.set(key, value); materials.add(value); return value;
+    cache.set(key, value); materials.add(value);tracked.add(value); return value;
   }
-  return { get, textures, materials,ready:()=>Object.values(captured).every(item=>item.ready),
+  return { get, textures, materials,track:value=>tracked.add(value),ready:()=>Object.values(captured).every(item=>item.ready),
     dispose() { disposed=true;for (const t of textures) t.dispose(); for (const m of materials) m.dispose(); } };
 }
 
