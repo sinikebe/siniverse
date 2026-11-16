@@ -54,7 +54,7 @@ export function buildLandscape(T, scene, surfaces, {software=false}={}) {
   }
   const grassGeometry = new T.BufferGeometry(); grassGeometry.setAttribute('position', new T.Float32BufferAttribute(blades, 3));
   grassGeometry.setAttribute('normal', new T.Float32BufferAttribute(bladeNormals, 3));
-  const grassMaterial = new T.MeshStandardMaterial({ color: '#E8DFC4', roughness: .96, side: T.DoubleSide }); resources.push(grassMaterial);
+  const grassMaterial = new T.MeshStandardMaterial({ color: '#A19B7E', roughness: .96, side: T.DoubleSide }); resources.push(grassMaterial);
   const count=software?1800:5200;
   const grass = new T.InstancedMesh(grassGeometry, grassMaterial, count); grass.name = 'house-garden-grasses'; grass.receiveShadow = true; grass.userData.pickThrough = true;
   const tint = new T.Color();
