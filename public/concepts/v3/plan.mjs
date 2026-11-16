@@ -25,7 +25,7 @@ export function mountPlan(host,initialState,api){
   const instruction=document.createElement('p');instruction.className='plan-instruction';instruction.textContent='Entrer, puis glisser pour regarder · W A S D / flèches pour marcher';host.append(instruction);
   let state=initialState,world,house,failed=false,destroyed=false,mode='overview',roofOpen=false,revision=0,dragging=false,lastPick=null,lastJourney=[],blockedMoves=0;
   let reader=null,demos=null,previewPanel=null,previewApp=null,previewPhase='hover',previewRevision=0,pendingOpen=false,sourceFocus='plan-canvas',returnPose=null,closingTask=null;
-  const cleanups=[],stationLabels=[],tracker=dragTracker(6);let gamingEntryLabel=null;
+  const cleanups=[],stationLabels=[],tracker=dragTracker(6);let gamingEntryLabel=null,entranceLabel=null;
   const navigate=(destination,focusId='view-title')=>api.navigate(destination,{focusId});
   const isMobile=()=>viewport.clientWidth<760;
   const gamingLibrary=createGamingLibrary(host,{escape:api.escape,onChange:()=>api.saveView()});
@@ -51,6 +51,7 @@ export function mountPlan(host,initialState,api){
     const gaming=p[0]>-9.65&&p[0]<-5.19&&p[2]>-3.6&&p[2]<3.6;
     host.dataset.room=gaming&&mode==='walk'?'gaming':'house';
     gamingEntryLabel?.setPosition([-7.45,isMobile()?3.7:2.46,3.83]);gamingEntryLabel?.setEnabled(!(mode==='overview'&&roofOpen));
+    entranceLabel?.setEnabled(!(mode==='overview'&&roofOpen));
     hud.querySelector('#plan-location').textContent=mode==='overview'?'La maison / vue d’ensemble':gaming?'Dans la salle gaming':inside?(p[0]<.8?'Dans le bureau':'Dans le garage'):'Devant la maison';
     introduction.hidden=mode!=='overview'||state.app!=='ensemble';hud.querySelector('#plan-enter-house').hidden=mode==='walk';
     hud.querySelector('#plan-gaming-room').hidden=mode==='overview';
@@ -73,10 +74,12 @@ export function mountPlan(host,initialState,api){
   }
   world.addPick(house.car,()=>openApp('garapp','presentation',world.canvas),{key:'garapp'});house.car.name='voiture-garapp';
   for(const [id,mesh]of Object.entries(house.screens)){mesh.name='poste-'+id;world.addPick(mesh,()=>openApp(id,'presentation',world.canvas),{key:id});}
-  const entrance=button('plan-door','Entrer dans le bureau →','house-door');entrance.addEventListener('click',()=>enterHouse());world.label([-2.3,1.8,3.82],entrance,{clamp:false});
+  const entrance=button('plan-door','Entrer dans le bureau →','house-door');entrance.addEventListener('click',()=>enterHouse());entranceLabel=world.label([-2.3,1.8,3.82],entrance,{clamp:false});
   if(house.entry)world.addPick(house.entry,()=>enterHouse(),{key:'entry'});
   const gamingEntry=button('plan-gaming-entry','Salle gaming →','house-door gaming-door');gamingEntry.addEventListener('click',()=>navigate({app:'ensemble',room:'gaming'}));gamingEntryLabel=world.label([-7.45,2.46,3.83],gamingEntry,{clamp:false});
-  const gamingScreen=button('plan-gaming-screen','Les jeux','house-station gaming-station');gamingScreen.setAttribute('aria-label','La bibliothèque de jeux');gamingScreen.setAttribute('aria-haspopup','dialog');gamingScreen.setAttribute('aria-controls','gaming-library');gamingScreen.addEventListener('click',openGames);world.label([-7.88,2.23,-2.45],gamingScreen,{clamp:false});
+  const gamingScreen=button('plan-gaming-screen','Les jeux','house-station gaming-station');gamingScreen.setAttribute('aria-label','La bibliothèque de jeux');gamingScreen.setAttribute('aria-haspopup','dialog');gamingScreen.setAttribute('aria-controls','gaming-library');gamingScreen.addEventListener('click',openGames);
+  const gamingPosition=[-7.88,2.23,-2.45],gamingCutPosition=[-9.4,2.9,-2.45],gamingGuide=world.line([gamingPosition,gamingCutPosition],'#598AA9',.012);gamingGuide.visible=false;gamingGuide.userData.pickThrough=true;
+  stationLabels.push({id:'gaming',position:gamingPosition,cutPosition:gamingCutPosition,guide:gamingGuide,handle:world.label(gamingPosition,gamingScreen,{clamp:false})});
   world.addPick(house.gaming.monitor,openGames,{key:'gaming'});world.addPick(house.gaming.pc,openGames,{key:'gaming'});
   async function openGames(){if(state.room!=='gaming')await navigate({app:'ensemble',room:'gaming'},'plan-gaming-screen');if(!destroyed&&!failed){gamingLibrary.open();api.saveView();}}
 
