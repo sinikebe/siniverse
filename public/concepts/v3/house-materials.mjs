@@ -102,3 +102,12 @@ export function setMetreUV(geometry, scale) {
   }
   geometry.setAttribute('uv', new geometry.attributes.position.constructor(uv, 2));
 }
+
+// Extruded panels duplicate vertices at triangle edges. Average their shared normals.
+export function smoothSurfaceNormals(T, geometry) {
+  geometry.computeVertexNormals();
+  const p=geometry.attributes.position,n=geometry.attributes.normal,averaged=new Map();
+  const keyAt=i=>[p.getX(i),p.getY(i),p.getZ(i)].map(v=>Math.round(v*100000)).join(':');
+  for(let i=0;i<p.count;i++){const key=keyAt(i),sum=averaged.get(key)||new T.Vector3();sum.add(new T.Vector3().fromBufferAttribute(n,i));averaged.set(key,sum);}
+  for(let i=0;i<p.count;i++){const sum=averaged.get(keyAt(i)).normalize();n.setXYZ(i,sum.x,sum.y,sum.z);}
+}

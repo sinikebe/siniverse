@@ -1,4 +1,4 @@
-import { createSurfaceLibrary, setMetreUV } from './house-materials.mjs';
+import { createSurfaceLibrary, setMetreUV, smoothSurfaceNormals } from './house-materials.mjs';
 import { buildLandscape } from './house-landscape.mjs';
 import { createHousePhotography } from './house-photography.mjs';
 
@@ -359,9 +359,16 @@ export function buildHouse(world, apps) {
   bodyGeometry.translate(0,0,-.82);
   const bodyPosition=bodyGeometry.attributes.position;
   for(let i=0;i<bodyPosition.count;i++){const z=bodyPosition.getX(i),y=bodyPosition.getY(i),x=bodyPosition.getZ(i);bodyPosition.setXYZ(i,-x*(1-.08*Math.pow(Math.abs(z)/2.2,2)),y,z);}
-  bodyGeometry.computeVertexNormals();mesh(bodyGeometry,P.car,[0,0,0],car,'car-sculpted-body','car');
+  smoothSurfaceNormals(T,bodyGeometry);mesh(bodyGeometry,P.car,[0,0,0],car,'car-sculpted-body','car');
   const cabin=loft([[-1.49,.73,.94,.97,.025],[-1.18,.68,.95,1.37,.07],[-.83,.65,.96,1.53,.09],[.04,.65,.96,1.53,.09],[.82,.75,.95,1.06,.05]],'#294B57','car-glazed-cabin','metal');
-  cabin.material=new T.MeshPhysicalMaterial({color:'#274752',roughness:.10,metalness:.45,clearcoat:1,clearcoatRoughness:.12});materials.add(cabin.material);
+  cabin.material=new T.MeshPhysicalMaterial({color:'#3A5054',roughness:.10,metalness:.25,clearcoat:1,clearcoatRoughness:.08,transparent:true,opacity:.62,depthWrite:false});cabin.castShadow=false;materials.add(cabin.material);
+  box([1.12,.09,.26],'#273435',[0,1.025,.38],car,'car-dashboard','rubber',.035);
+  for(const x of [-.34,.34]){
+    box([.39,.10,.43],'#394744',[x,.91,-.15],car,'car-seat-cushion','rubber',.055);
+    const seat=box([.38,.39,.11],'#394744',[x,1.12,-.43],car,'car-seat-back','rubber',.05);seat.rotation.x=-.1;
+    box([.22,.13,.10],'#394744',[x,1.37,-.46],car,'car-seat-headrest','rubber',.04);
+  }
+  const steering=mesh(new T.TorusGeometry(.135,.018,8,28),'#263431',[-.34,1.145,.25],car,'car-steering-wheel','rubber');steering.rotation.x=-.42;
   box([1.34,.10,1.04],P.cream,[0,1.53,-.39],car,'car-contrast-roof','car',.05);
   for(const side of [-1,1]){
     curve([[side*.74,.99,.82],[side*.63,1.48,.06],[side*.63,1.49,-.84],[side*.73,.99,-1.48]],P.cream,.033,car,'car-window-surround',true,'car');
@@ -391,7 +398,7 @@ export function buildHouse(world, apps) {
   box([.72,.13,.025],'#253A43',[0,.655,2.225],car,'car-front-grille','rubber',.03);
   for(let x=-.27;x<.30;x+=.09)box([.018,.085,.016],'#779093',[x,.66,2.246],car,'car-grille-blade','metal',.008);
   box([.45,.075,.012],'#E6E2D4',[0,.46,2.28],car,'car-registration-plate','paint',.008);
-  const headlightMaterial=new T.MeshStandardMaterial({color:'#FFF1D5',roughness:.18,metalness:.12,emissive:'#FFD99B',emissiveIntensity:.05});materials.add(headlightMaterial);
+  const headlightMaterial=new T.MeshPhysicalMaterial({color:'#C5D4D0',roughness:.10,metalness:.15,clearcoat:1,clearcoatRoughness:.08,emissive:'#FFD99B',emissiveIntensity:.05});materials.add(headlightMaterial);
   for(const side of [-1,1]){
     box([.34,.16,.048],P.frame,[side*.55,.77,2.18],car,'car-lamp-housing','metal',.055);
     const lamp=box([.27,.065,.018],headlightMaterial,[side*.55,.80,2.211],car,'car-headlight','paint',.028);lamp.castShadow=false;
