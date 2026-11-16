@@ -10,7 +10,7 @@ export function createWorld(host,{reducedMotion=false,onContextLost=()=>{},carto
   if(!(gl instanceof WebGL2RenderingContext))throw new Error('WebGL2 est nécessaire au monde 3D.');
   const rendererInfo=gl.getExtension('WEBGL_debug_renderer_info');
   const software=Boolean(rendererInfo&&/swiftshader|llvmpipe|softpipe|software/i.test(gl.getParameter(rendererInfo.UNMASKED_RENDERER_WEBGL)));
-  const quality={software,pixelBudget:Math.min(pixelBudget,Number.isFinite(pixelBudget)&&software?400000:Infinity)};
+  const quality={software,pixelBudget:Math.min(pixelBudget,Number.isFinite(pixelBudget)&&software?256000:Infinity)};
   renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));
   renderer.setClearColor(cartoon?'#dce9e5':'#ece9dc');
   renderer.outputColorSpace=THREE.SRGBColorSpace;

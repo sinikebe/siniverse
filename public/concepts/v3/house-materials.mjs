@@ -1,5 +1,5 @@
 // Authored, seamless surface maps. Distances in the scene and texture repeats are metres.
-export function createSurfaceLibrary(T, onLoad = () => {}) {
+export function createSurfaceLibrary(T, onLoad = () => {}, {software=false}={}) {
   const textures = [], materials = new Set(), tracked = new Set(), cache = new Map();let disposed=false;
   const hash = (x, y) => { const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return n - Math.floor(n); };
   const smooth = t => t * t * (3 - 2 * t);
@@ -79,10 +79,11 @@ export function createSurfaceLibrary(T, onLoad = () => {}) {
     if (kind === 'paper') Object.assign(options, { roughness: .96 });
     if (kind === 'glass') Object.assign(options, { transparent: true, opacity: .16, roughness: .07, metalness: .12, depthWrite: false, side: T.DoubleSide });
     if (captured[kind]?.ready) Object.assign(options, capturedOptions(kind));
-    const value = new T.MeshPhysicalMaterial({ ...options,
+    const paint=kind==='car'?{metalness:.42,roughness:.25}:{};
+    const value = software ? new T.MeshStandardMaterial({...options,...paint}) : new T.MeshPhysicalMaterial({ ...options,
       clearcoat: kind === 'car' ? 1 : kind === 'wood' ? .16 : 0,
       clearcoatRoughness: kind === 'car' ? .09 : .4,
-      ...(kind === 'car' ? { metalness: .42, roughness: .25 } : {}) });
+      ...paint });
     if (options.map) value.userData.metreUV = kind === 'wood' ? .55 : kind === 'floor' ? .35 : kind === 'gravel' ? 1.2 : .8;
     value.userData.surfaceKind=kind;
     cache.set(key, value); materials.add(value);tracked.add(value); return value;

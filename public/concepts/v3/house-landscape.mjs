@@ -6,7 +6,7 @@ export function buildLandscape(T, scene, surfaces, {software=false}={}) {
     const away = Math.max(0, Math.min(1, (Math.max(Math.abs(x) / 8, Math.abs(z - 1) / 9) - 1) / 2));
     return -.25 + away * (.5 + Math.sin(x * .12 + z * .06) * .8 + Math.sin(z * .19 - x * .08) * .55);
   };
-  const segments=software?80:160;
+  const segments=software?64:160;
   const ground = new T.PlaneGeometry(180, 180, segments, segments); ground.rotateX(-Math.PI / 2);
   const p = ground.attributes.position;
   for (let i = 0; i < p.count; i++) p.setY(i, heightAt(p.getX(i), p.getZ(i)));
@@ -55,7 +55,7 @@ export function buildLandscape(T, scene, surfaces, {software=false}={}) {
   const grassGeometry = new T.BufferGeometry(); grassGeometry.setAttribute('position', new T.Float32BufferAttribute(blades, 3));
   grassGeometry.setAttribute('normal', new T.Float32BufferAttribute(bladeNormals, 3));
   const grassMaterial = new T.MeshStandardMaterial({ color: '#A19B7E', roughness: .96, side: T.DoubleSide }); resources.push(grassMaterial);
-  const count=software?1800:5200;
+  const count=software?900:5200;
   const grass = new T.InstancedMesh(grassGeometry, grassMaterial, count); grass.name = 'house-garden-grasses'; grass.receiveShadow = true; grass.userData.pickThrough = true;
   const tint = new T.Color();
   for (let i = 0; i < count; i++) {

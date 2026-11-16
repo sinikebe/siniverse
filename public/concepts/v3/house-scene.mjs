@@ -12,7 +12,7 @@ export function buildHouse(world, apps) {
   const roof = new T.Group(); roof.name = 'house-roof'; root.add(roof);
   const shell = [], obstacles = [], textures = [], materials = new Set();
   const screens = {}, surfaces = {}, previews = {}, anchors = {};
-  const surfaceLibrary = createSurfaceLibrary(T, () => world.requestRender?.());
+  const surfaceLibrary = createSurfaceLibrary(T, () => world.requestRender?.(),world.quality);
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const hash = (x, y = 0) => { const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return n - Math.floor(n); };
 
@@ -417,7 +417,7 @@ export function buildHouse(world, apps) {
   }
   if (sun) {
     sun.position.set(-12, 10, 8); sun.color.set('#FFEBCC'); sun.intensity = 3.4; sun.castShadow = true;
-    const shadowSize=world.quality?.software?1024:2048;sun.shadow.mapSize.set(shadowSize,shadowSize); Object.assign(sun.shadow.camera, { left: -13, right: 13, top: 13, bottom: -13, near: .5, far: 50 });
+    const shadowSize=world.quality?.software?512:2048;sun.shadow.mapSize.set(shadowSize,shadowSize); Object.assign(sun.shadow.camera, { left: -13, right: 13, top: 13, bottom: -13, near: .5, far: 50 });
     sun.shadow.camera.updateProjectionMatrix(); sun.shadow.bias = -.00012; sun.shadow.normalBias = .015; sun.shadow.radius = 5.5;
   }
   const officeBounce = new T.PointLight('#D2E5EC', 4, 7, 2); officeBounce.position.set(-4.8, 2, 1.2); root.add(officeBounce);
