@@ -38,6 +38,9 @@ body:has(.plan-house) .v3-footer>a{text-underline-offset:3px}
 .house-demo-dock{left:36px;top:84px;border-radius:12px;border:1px solid #ffffffa0;background:#fbf7edec;box-shadow:0 8px 28px #17344515;color:#36505a;backdrop-filter:blur(12px)}
 .house-demo-dock button{background:#e3e6dc;border-radius:7px;color:#36505a}
 .house-demo{border-radius:7px}.demo-garapp{border-radius:2px}
+.house-demo.demo-finapp,.house-demo.demo-branchlab{grid-template-rows:12px 20px minmax(0,1fr) 50px 42px}
+.demo-finapp .demo-horizon{grid-template-rows:14px 34px}
+.demo-finapp .demo-horizon input{height:34px}
 .plan-host.plan-house.plan-is-fallback{height:auto;min-height:calc(100svh - 96px);overflow:visible}
 body:has(.plan-is-fallback) .experience-utilities,body:has(.plan-is-fallback) .v3-footer{position:relative}
 @media(max-width:760px){
