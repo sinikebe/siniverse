@@ -57,7 +57,7 @@ export function mountPlan(host,initialState,api){
     station.addEventListener('focus',()=>setPreview(id,'focus'));station.addEventListener('pointerenter',()=>setPreview(id,'hover'));
     station.addEventListener('click',()=>openApp(id,'presentation',station));
     const spec=house.surfaces[id],position=id==='garapp'?[3.1,1.8,1.6]:[spec.position[0],spec.position[1]+spec.height/2+.12,spec.position[2]+.08];
-    const cutPosition=id==='finapp'?[position[0],4.5,position[2]]:id==='branchlab'?[position[0],2.5,position[2]]:position;
+    const cutPosition=id==='finapp'?[position[0],5.2,position[2]]:id==='branchlab'?[position[0],2.5,position[2]]:position;
     const guide=id==='garapp'?null:world.line([position,cutPosition],'#52685b',.012);if(guide)guide.visible=false;
     stationLabels.push({id,position,cutPosition,guide,handle:world.label(position,station,{clamp:false})});
   }
