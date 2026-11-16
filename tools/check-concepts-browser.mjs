@@ -472,7 +472,7 @@ async function run() {
     assert.equal(await socket.evaluate('location.href'),overviewUrl);assert.equal(await socket.evaluate('history.length'),overviewHistory);
     await click('#plan-cutaway');assert.equal((await v3Inspect()).scene.roofOpen,true);
     await until('window.__siniverseV3.inspect().scene.animationCount===0','The animated cutaway did not settle.');
-    if(mobile)assert(await socket.evaluate('(()=>{const a=document.querySelector("#plan-app-finapp"),b=document.querySelector("#plan-app-branchlab"),r=a.getBoundingClientRect(),s=b.getBoundingClientRect();return !a.hidden&&!b.hidden&&(r.bottom<=s.top||s.bottom<=r.top||r.right<=s.left||s.right<=r.left)})()'),'Mobile cutaway support targets overlap.');
+    if(mobile)assert(await socket.evaluate('(()=>{const items=["#plan-app-finapp","#plan-app-branchlab","#plan-gaming-screen"].map(s=>document.querySelector(s));return items.every(e=>!e.hidden)&&items.every((e,i)=>items.slice(i+1).every(f=>{const r=e.getBoundingClientRect(),s=f.getBoundingClientRect();return r.bottom<=s.top||s.bottom<=r.top||r.right<=s.left||s.right<=r.left}))})()'),'Mobile cutaway support targets overlap.');
     await screenshot('v3-plan-cutaway-'+format,width);await click('#plan-cutaway');
     const exposedDoor=await socket.evaluate('(()=>{const e=document.querySelector("#plan-door"),r=e.getBoundingClientRect();return !e.hidden&&r.width>0&&document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest("#plan-door")===e})()');
     await click(exposedDoor?'#plan-door':'#plan-enter-house');
@@ -642,6 +642,21 @@ async function run() {
     await press('#plan-demo-previous','Escape');
     await until('window.__siniverseV3.inspect().scene.objects.notebookAmount===0','The notebook stayed open after leaving.');
     report.checks.push('Plan/'+format+': scénarios sur écran, câble physique réversible, carnet articulé, pages bornées et retour à la manipulation');
+
+    await click('.plan-compass summary');await click('#plan-direct-gaming');
+    const gamingState={...v3State('plan'),room:'gaming'};await v3Wait(gamingState);
+    await until('(()=>{const s=window.__siniverseV3.inspect({fast:true}).scene;return s.room==="gaming"&&s.animationCount===0})()','The gaming room did not settle.');
+    const gamingScene=(await v3Inspect()).scene;assert.equal(gamingScene.pose.position[1],1.65);assert.equal(gamingScene.journeyClear,true);assert.equal(gamingScene.previewApp,null,'An office preview remained on arrival in the gaming room.');
+    await screenshot('v3-plan-gaming-room-'+format,width);
+    await press('#plan-gaming-screen');await until('document.querySelector("#gaming-library").open','The PC did not open the games library.');
+    assert.equal(await socket.evaluate('document.activeElement.id'),'gaming-library-title');
+    assert(await socket.evaluate('document.querySelector("#gaming-library").scrollWidth<=innerWidth+1'),'Games library overflows horizontally.');
+    await screenshot('v3-plan-gaming-library-'+format,width);
+    await press('#gaming-library-close','Escape');assert.equal(await socket.evaluate('document.querySelector("#gaming-library").open'),false);
+    assert.equal(await socket.evaluate('document.activeElement.id'),'plan-gaming-screen');
+    await socket.evaluate('history.back()');await v3Wait(v3State('plan','garapp'));
+    await socket.evaluate('history.forward()');await v3Wait(gamingState);assert.equal((await v3Inspect()).scene.room,'gaming');
+    report.checks.push('Plan/'+format+': salle gaming par une vraie porte, PC RGB, bibliothèque clavier/Échap, focus et Retour/Avant');
 
     await socket.evaluate('document.querySelector("#plan-canvas").getContext("webgl2").getExtension("WEBGL_lose_context").loseContext()');
     await until('document.querySelector("#experience").classList.contains("plan-is-fallback")','WebGL loss did not expose fallback.');

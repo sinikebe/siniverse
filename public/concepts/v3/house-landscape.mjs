@@ -3,7 +3,7 @@ export function buildLandscape(T, scene, surfaces, {software=false}={}) {
   const root = new T.Group(); root.name = 'house-landscape'; scene.add(root);
   const resources = [], hash = n => { const v = Math.sin(n * 127.1) * 43758.5453; return v - Math.floor(v); };
   const heightAt = (x, z) => {
-    const away = Math.max(0, Math.min(1, (Math.max(Math.abs(x) / 8, Math.abs(z - 1) / 9) - 1) / 2));
+    const away = Math.max(0, Math.min(1, (Math.max(Math.abs(x) / 12, Math.abs(z - 1) / 9) - 1) / 2));
     return -.25 + away * (.5 + Math.sin(x * .12 + z * .06) * .8 + Math.sin(z * .19 - x * .08) * .55);
   };
   const segments=software?64:160;
@@ -33,8 +33,9 @@ export function buildLandscape(T, scene, surfaces, {software=false}={}) {
   const matrix = new T.Matrix4(), q = new T.Quaternion(), up = new T.Vector3(0, 1, 0);
   for (let i = 0; i < 64; i++) {
     const angle = hash(i + 12) * Math.PI * 2, distance = 10 + hash(i + 82) * 24;
-    const x = Math.cos(angle) * distance, z = Math.sin(angle) * distance - 1;
+    let x = Math.cos(angle) * distance;const z = Math.sin(angle) * distance - 1;
     const size = .3 + Math.pow(hash(i + 120), 2) * 1.6;
+    if(x>-11.2-size&&x<6.9+size&&z>-5.1-size&&z<8.2+size)x=x<0?-11.5-size:7.2+size;
     matrix.compose(new T.Vector3(x, heightAt(x, z) + size * .19, z), q.setFromAxisAngle(up, angle), new T.Vector3(size * 1.35, size * .55, size));
     rocks.setMatrixAt(i, matrix);
   }
@@ -62,7 +63,7 @@ export function buildLandscape(T, scene, surfaces, {software=false}={}) {
     const angle = hash(i + 400) * Math.PI * 2, distance = 8 + hash(i + 800) * (i<count*.77?14:38);
     let x = Math.cos(angle) * distance, z = Math.sin(angle) * distance;
     // An open approach and the complete navigation rectangle remain free of planting.
-    if (Math.abs(x) < 6.9 && z > -5.1 && z < 8.2) { x += x < 0 ? -7 : 7; }
+    if (x>-11.2&&x<6.9&&z>-5.1&&z<8.2) { x=x<0?-11.5-Math.abs(x)*.25:7.2+x; }
     const scale = .45 + hash(i + 1100) * .9;
     matrix.compose(new T.Vector3(x, heightAt(x, z), z), q.setFromAxisAngle(up, angle), new T.Vector3(scale, scale, scale));
     grass.setMatrixAt(i, matrix); grass.setColorAt(i, tint.setHSL(.13 + hash(i + 1500) * .035, .12 + hash(i + 1800) * .20, .40 + hash(i + 2100) * .25));

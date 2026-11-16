@@ -9,17 +9,18 @@ export function normalizeState(value={}) {
   const concept=CONCEPTS.includes(value.concept)?value.concept:'plan';
   const app=Object.hasOwn(APPS,value.app)?value.app:'ensemble';
   const angle=ANGLES.includes(value.angle)?value.angle:'presentation';
-  return {concept,app,angle:concept==='plan'||app==='ensemble'&&concept!=='reacteur'?'presentation':angle};
+  return {concept,app,angle:concept==='plan'||app==='ensemble'&&concept!=='reacteur'?'presentation':angle,...(concept==='plan'&&app==='ensemble'&&value.room==='gaming'?{room:'gaming'}:{})};
 }
 export function parseRoute(search,resolved='plan') {
   const query=new URLSearchParams(search);
-  return normalizeState({concept:query.get('concept')||resolved,app:query.get('app'),angle:query.get('angle')});
+  return normalizeState({concept:query.get('concept')||resolved,app:query.get('app'),angle:query.get('angle'),room:query.get('room')});
 }
 export function routeHref(value,{rotation=false}={}) {
   const state=normalizeState(value),query=new URLSearchParams();
   if(!rotation)query.set('concept',state.concept);
   if(state.app!=='ensemble')query.set('app',state.app);
   if(state.angle!=='presentation')query.set('angle',state.angle);
+  if(state.room==='gaming')query.set('room','gaming');
   return '/concepts/v3/explore.html'+(query.size?'?'+query:'');
 }
 export function selection(search,saved={}) {

@@ -20,6 +20,15 @@ test('the house has one canonical explanation per app, including old links and h
     assert.equal(routeHref(legacy,{rotation:true}),'/concepts/v3/explore.html?app='+app);
   }
 });
+
+test('the gaming room has a shareable Plan route without becoming an application',()=>{
+  const room={concept:'plan',app:'ensemble',angle:'presentation',room:'gaming'};
+  assert.deepEqual(parseRoute('?concept=plan&room=gaming'),room);
+  assert.equal(routeHref(room),'/concepts/v3/explore.html?concept=plan&room=gaming');
+  for(const bad of ['<script>','garage','https://example.com'])assert.equal(parseRoute('?concept=plan&room='+encodeURIComponent(bad)).room,undefined);
+  assert.equal(normalizeState({...room,app:'finapp'}).room,undefined);
+  assert.equal(normalizeState({...room,concept:'reacteur'}).room,undefined);
+});
 test('unknown routes are bounded and global optical/world views stay presentations',()=>{
   assert.deepEqual(normalizeState(null),{concept:'plan',app:'ensemble',angle:'presentation'});
   assert.deepEqual(parseRoute('?concept=anamorphose&app=<script>&angle=methode'),{concept:'anamorphose',app:'ensemble',angle:'presentation'});

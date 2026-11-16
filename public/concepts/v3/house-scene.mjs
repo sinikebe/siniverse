@@ -1,6 +1,7 @@
 import { createSurfaceLibrary, setMetreUV, smoothSurfaceNormals } from './house-materials.mjs';
 import { buildLandscape } from './house-landscape.mjs';
 import { createHousePhotography } from './house-photography.mjs';
+import { buildGamingRoom } from './gaming-room.mjs';
 
 // A small, tangible house. All coordinates are metres; navigation belongs to Plan.
 export function buildHouse(world, apps) {
@@ -106,6 +107,7 @@ export function buildHouse(world, apps) {
       record(cursor, opening.from + .02); if (opening.bottom) record(opening.from + .02, opening.to - .02); cursor = opening.to - .02;
     }
     record(cursor, to + .02);
+    return item;
     function record(a, b) {
       if (b <= a) return;
       obstacles.push(axis === 'x' ? { minX: a, maxX: b, minZ: fixed - .11, maxZ: fixed + .11, tag: 'wall-' + face }
@@ -139,7 +141,7 @@ export function buildHouse(world, apps) {
   box([1.4, .045, .42], '#7C806A', [-2.3, .015, 3.55], root, 'house-entry-threshold', 'paint', .018);
   box([3.9, .025, .22], '#7C806A', [3.05, .015, 3.52], root, 'house-garage-threshold', 'metal', .01);
   wall('x', -3.49, -5.3, 5.3, [], 'rear'); wall('z', 5.19, -3.6, 3.6, [], 'right');
-  wall('z', -5.19, -3.6, 3.6, [{ from: -.65, to: .95, bottom: .95, top: 2.05 }], 'left');
+  wall('z', -5.19, -3.6, 3.6, [{ from: -.65, to: .95, bottom: .95, top: 2.05 },{from:1.2,to:2.5,top:2.2}], 'left');
   windowPane('z', -5.19, -.65, .95, .95, 2.05);
   wall('x', 3.49, -5.3, .8, [{ from: -4.85, to: -3.55, bottom: .95, top: 2.05 }, { from: -3, to: -1.6, top: 2.2 }], 'front-office');
   windowPane('x', 3.49, -4.85, -3.55, .95, 2.05); frame('x', 3.49, -3, -1.6, 0, 2.2);
@@ -147,7 +149,8 @@ export function buildHouse(world, apps) {
   wall('z', .8, -3.6, 3.6, [{ from: 1, to: 2.2, top: 2.2 }], 'partition'); frame('z', .8, 1, 2.2, 0, 2.2);
   // Sills, skirting and lintels describe the construction, without furnishing it.
   box([5.84, .105, .06], '#D0BDA0', [-2.25, .065, -3.37], root, 'house-office-skirting', 'wood', .015);
-  box([.06, .105, 6.7], '#D0BDA0', [-5.07, .065, 0], root, 'house-office-skirting', 'wood', .015);
+  box([.06, .105, 4.45], '#D0BDA0', [-5.07, .065, -1.125], root, 'house-office-skirting', 'wood', .015);
+  box([.06, .105, .8], '#D0BDA0', [-5.07, .065, 2.96], root, 'house-office-skirting', 'wood', .015);
   box([.06, .105, 4.25], '#D0BDA0', [.68, .065, -1.2], root, 'house-office-skirting', 'wood', .015);
   box([1.48, .075, .39], '#D7C9AF', [-4.2, .91, 3.49], root, 'house-window-sill', 'plaster', .024);
   box([.39, .075, 1.76], '#D7C9AF', [-5.19, .91, .15], root, 'house-window-sill', 'plaster', .024);
@@ -407,6 +410,7 @@ export function buildHouse(world, apps) {
   }
   contact([3.1, .025, -.3], [2.4, 4.7], .62);
   obstacle(car, 'parked-car'); previews.garapp = { headlightMaterial };
+  const gaming=buildGamingRoom(world,{root,roof,box,mesh,curve,wall,frame,windowPane,material,basic,canvasTexture,roundedGeometry,obstacle,contact,materials});
 
   // Soft daylight and local bounce come from the existing architectural openings.
   const lights = world.scene.children.filter(item => item.isLight);
@@ -503,8 +507,8 @@ export function buildHouse(world, apps) {
     if (world.scene.environment === environmentTarget?.texture) world.scene.environment = null;
     environmentTarget?.dispose();environmentSource?.dispose();carEnvironment?.dispose();carCapture?.dispose();
   });
-  return { roof, entry, car, record, screens, surfaces, shell, obstacles, anchors, setPreview, setCutaway, setNotebook, setInteraction, signalAt,
-    bounds: { minX: -6.4, maxX: 6.4, minZ: -4.5, maxZ: 7 },
+  return { roof, entry, car, record, screens, surfaces, shell, obstacles, anchors, gaming, setPreview, setCutaway, setNotebook, setInteraction, signalAt,
+    bounds: { minX: -10.7, maxX: 6.4, minZ: -4.5, maxZ: 7 },
     inspectObjects: () => ({ roofAmount, notebookAmount, connected: plug.position.z === -2.50,materialsReady:surfaceLibrary.ready() }),
     inspectPreview: () => ({ ...previewState }) };
 }
