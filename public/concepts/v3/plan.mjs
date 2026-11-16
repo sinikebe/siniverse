@@ -249,7 +249,8 @@ export function mountPlan(host,initialState,api){
       if(state.app==='garapp'&&house.inspectObjects().notebookAmount<1){const from=house.inspectObjects().notebookAmount;await world.animate(instant?0:480,t=>{if(token===revision)house.setNotebook(from+(1-from)*t);});if(token!==revision||failed)return;}
       await reader.open({app:state.app,angle:state.angle,origin:()=>sourceRect(state.app),instant});pendingOpen=false;
     }else if(state.room==='gaming'){
-      pendingOpen=false;setPreview(null);await walkTo(isMobile()?{position:[-7.4,EYE_HEIGHT,1.5],target:[-7.4,1.5,-2.5]}:house.gaming.view,{instant,token});
+      pendingOpen=true;setPreview(null);await walkTo(isMobile()?{position:[-7.4,EYE_HEIGHT,1.5],target:[-7.4,1.5,-2.5]}:house.gaming.view,{instant,token});
+      if(token!==revision||failed)return;pendingOpen=false;setPreview(null);
     }else{
       pendingOpen=false;setPreview(null);
       if(mode==='walk')await walkTo(APPROACH,{instant,token});
