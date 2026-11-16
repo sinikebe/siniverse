@@ -55,7 +55,7 @@ export function createWorld(host,{reducedMotion=false,onContextLost=()=>{},carto
     for(const item of surfaces)projectSurface(item,rect);
   }
   function visibleObject(object){for(let node=object;node;node=node.parent)if(!node.visible)return false;return object.isMesh&&!object.userData.pickThrough&&!(object.material?.opacity<=.02);}
-  function intersections(){return raycaster.intersectObjects(scene.children,true).filter(hit=>visibleObject(hit.object));}
+  function intersections(){const candidates=[];scene.traverse(object=>{if(visibleObject(object))candidates.push(object);});return raycaster.intersectObjects(candidates,false);}
   function pickedRoot(object){return picks.find(p=>{for(let node=object;node;node=node.parent)if(node===p.mesh)return true;return false;});}
   function visiblePoint(point){const direction=point.clone().sub(camera.position),distance=direction.length();raycaster.set(camera.position,direction.normalize());raycaster.near=0;raycaster.far=Math.max(0,distance-.035);const clear=intersections().length===0;raycaster.far=Infinity;return clear;}
   function projectSurface(item,rect){
@@ -149,7 +149,15 @@ export function createWorld(host,{reducedMotion=false,onContextLost=()=>{},carto
         return {index,name:hit.object.name,rootType:picks[index]?.mesh.type,objectType:hit.object.type,geometry:hit.object.geometry?.type,distance:hit.distance,point:hit.point.toArray()};
       })};
   }
-  const resize=()=>{const rect=host.getBoundingClientRect();renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5,Math.sqrt(quality.pixelBudget/Math.max(1,rect.width*rect.height))));renderer.setSize(Math.max(1,rect.width),Math.max(1,rect.height),false);camera.aspect=rect.width/Math.max(1,rect.height);camera.fov=rect.width<760?mobileFov:desktopFov;camera.updateProjectionMatrix();request();};
+  let viewportWidth=0,viewportHeight=0,viewportDpr=0;
+  const resize=()=>{
+    const rect=host.getBoundingClientRect(),width=Math.max(1,rect.width),height=Math.max(1,rect.height);
+    const dpr=Math.min(devicePixelRatio||1,1.5,Math.sqrt(quality.pixelBudget/(width*height)));
+    if(width!==viewportWidth||height!==viewportHeight||dpr!==viewportDpr){
+      viewportWidth=width;viewportHeight=height;viewportDpr=dpr;renderer.setDrawingBufferSize(width,height,dpr);
+      camera.aspect=width/height;camera.fov=width<760?mobileFov:desktopFov;camera.updateProjectionMatrix();
+    }request();
+  };
   const observer=new ResizeObserver(resize);observer.observe(host);
   const visibility=()=>{if(document.hidden){cancelAnimationFrame(frameId);frameId=0;}else request();};
   const contextLost=event=>{event.preventDefault();lost=true;cancelAnimationFrame(frameId);frameId=0;for(const a of animations)a.resolve();animations.clear();onContextLost();};
