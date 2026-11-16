@@ -1,7 +1,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import { cleanPose } from './camera-math.mjs';
 export { THREE };
-export function createWorld(host,{reducedMotion=false,onContextLost=()=>{},cartoon=false,minCameraHeight=2,minCameraDistance=2,mobileFov=62,desktopFov=43}={}){
+export function createWorld(host,{reducedMotion=false,onContextLost=()=>{},cartoon=false,minCameraHeight=2,minCameraDistance=2,mobileFov=62,desktopFov=43,pixelBudget=Infinity}={}){
   const canvas=document.createElement('canvas');canvas.className='plan-canvas';canvas.tabIndex=0;
   canvas.setAttribute('aria-label','Monde 3D Siniverse. Glisser pour regarder ; W A S D ou flèches pour se déplacer.');
   host.append(canvas);
@@ -70,7 +70,8 @@ export function createWorld(host,{reducedMotion=false,onContextLost=()=>{},carto
     element.style.transform='matrix3d('+[rect.width/2*(a.x+a.w)*f,rect.height/2*(-a.y+a.w)*f,0,a.w*f,rect.width/2*(b.x+b.w)*f,rect.height/2*(-b.y+b.w)*f,0,b.w*f,0,0,1,0,rect.width/2*(c.x+c.w)*f,rect.height/2*(-c.y+c.w)*f,0,1].join(',')+')';
     element.style.zIndex=String(150-Math.round(c.w));
   }
-  function render(){if(destroyed||lost)return;renderer.render(scene,camera);updateLabels();}
+  let renderEffect=null,frameMetrics=null;
+  function render(){if(destroyed||lost)return;if(renderEffect)frameMetrics=renderEffect.render(scene,camera);else{renderer.render(scene,camera);frameMetrics={triangles:renderer.info.render.triangles,drawCalls:renderer.info.render.calls};}updateLabels();}
   function tick(now){
     frameId=0;if(destroyed||lost||document.hidden)return;
     for(const animation of [...animations]){
@@ -145,13 +146,14 @@ export function createWorld(host,{reducedMotion=false,onContextLost=()=>{},carto
         return {index,name:hit.object.name,rootType:picks[index]?.mesh.type,objectType:hit.object.type,geometry:hit.object.geometry?.type,distance:hit.distance,point:hit.point.toArray()};
       })};
   }
-  const resize=()=>{const rect=host.getBoundingClientRect();renderer.setSize(Math.max(1,rect.width),Math.max(1,rect.height),false);camera.aspect=rect.width/Math.max(1,rect.height);camera.fov=rect.width<760?mobileFov:desktopFov;camera.updateProjectionMatrix();request();};
+  const resize=()=>{const rect=host.getBoundingClientRect();renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5,Math.sqrt(pixelBudget/Math.max(1,rect.width*rect.height))));renderer.setSize(Math.max(1,rect.width),Math.max(1,rect.height),false);camera.aspect=rect.width/Math.max(1,rect.height);camera.fov=rect.width<760?mobileFov:desktopFov;camera.updateProjectionMatrix();request();};
   const observer=new ResizeObserver(resize);observer.observe(host);
   const visibility=()=>{if(document.hidden){cancelAnimationFrame(frameId);frameId=0;}else request();};
   const contextLost=event=>{event.preventDefault();lost=true;cancelAnimationFrame(frameId);frameId=0;for(const a of animations)a.resolve();animations.clear();onContextLost();};
   canvas.addEventListener('webglcontextlost',contextLost);
   document.addEventListener('visibilitychange',visibility);resize();
   return {THREE,scene,camera,canvas,renderer,mesh,box,line,material,label,surface,visiblePoint,requestRender:request,animate,getPose,setPose,flyTo,cancelFlight,pick,hit,projectBounds,
+    setRenderEffect(effect){renderEffect?.dispose();renderEffect=effect;request();},
     refresh(){resize();render();},
     probe,
     addPick(mesh,action,{key=null}={}){picks.push({mesh,action,key});},
@@ -162,7 +164,7 @@ export function createWorld(host,{reducedMotion=false,onContextLost=()=>{},carto
       if(!fast)render();
       const sample=new Uint8Array(4),colors=new Set();
       if(!fast)for(let y=1;y<5;y++)for(let x=1;x<6;x++){gl.readPixels(Math.floor(canvas.width*x/6),Math.floor(canvas.height*y/5),1,1,gl.RGBA,gl.UNSIGNED_BYTE,sample);colors.add([...sample].join(','));}
-      return {kind:lost?'contextlost':'webgl2',pose:getPose(),triangles:renderer.info.render.triangles,drawCalls:renderer.info.render.calls,
+      return {kind:lost?'contextlost':'webgl2',pose:getPose(),triangles:frameMetrics?.triangles||0,drawCalls:frameMetrics?.drawCalls||0,
         pixelColors:fast?null:colors.size,objects:scene.children.length,dpr:renderer.getPixelRatio(),animationCount:animations.size,threeRevision:THREE.REVISION};
     },
     destroy(){
@@ -172,6 +174,6 @@ export function createWorld(host,{reducedMotion=false,onContextLost=()=>{},carto
       scene.traverse(node=>{if(node.geometry)node.geometry.dispose();});
       for(const item of materials.values())item.dispose();
       gradient.dispose();
-      renderer.dispose();renderer.forceContextLoss();canvas.remove();labelLayer.remove();
+      renderEffect?.dispose();renderer.dispose();renderer.forceContextLoss();canvas.remove();labelLayer.remove();
     }};
 }

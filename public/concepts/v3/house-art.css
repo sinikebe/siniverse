@@ -1,19 +1,21 @@
 /* The house has its own editorial frame; the scene remains the primary interface. */
-body:has(.plan-house){background:#e8dfcf;color:#263e49}
-body:has(.plan-house) .experience-utilities{height:48px;padding:0 28px;background:#f2ecdf;border-color:#263e491c;font:10px/1.4 ui-monospace,monospace;letter-spacing:.025em}
-body:has(.plan-house) .v3-footer{height:48px;padding:10px 28px;display:grid;grid-template-columns:1fr auto auto auto;gap:25px;background:#f2ecdf;border-color:#263e491c;color:#51646a;font-size:9px}
+body:has(.plan-house){background:#b9c5c7;color:#263e49}
+body:has(.plan-house) #navigation-status{position:fixed;top:0;margin:0}
+body:has(.plan-house) .experience-utilities{position:absolute;inset:0 0 auto;z-index:400;height:76px;padding:0 38px;background:linear-gradient(#d9e0dc66,transparent);border:0;font:10px/1.4 ui-monospace,monospace;letter-spacing:.025em;pointer-events:none}
+body:has(.plan-house) .experience-utilities>*{pointer-events:auto}
+body:has(.plan-house) .v3-footer{position:absolute;inset:auto 0 0;z-index:140;height:44px;padding:10px 38px;display:grid;grid-template-columns:1fr auto auto auto;gap:25px;background:linear-gradient(transparent,#d4dbd477);border:0;color:#253c40;font-size:9px}
 body:has(.plan-house) .v3-footer>a:first-child{font-weight:700;color:#263e49;text-decoration:none;font-size:13px;letter-spacing:-.04em}
 body:has(.plan-house) .v3-footer>a{text-underline-offset:3px}
-.plan-host.plan-house{height:calc(100svh - 96px);min-height:600px;background:#e8dfcf}
-.plan-house .house-intro{left:34px;top:38px;width:min(430px,35vw);padding:0;background:transparent;border:0;border-radius:0;box-shadow:none;color:#263e49}
+.plan-host.plan-house{height:100svh;min-height:640px;background:#b9c5c7}
+.plan-house .house-intro{left:40px;top:116px;width:min(360px,29vw);padding:0;background:transparent;border:0;border-radius:0;box-shadow:none;color:#23393d}
 .house-intro>p:first-child{font:9px/1.5 ui-monospace,monospace;letter-spacing:.18em;margin:0 0 17px;color:#687572}
-.house-intro h2{font:580 clamp(36px,4.4vw,64px)/.98 system-ui,sans-serif;letter-spacing:-.065em;margin:0 0 22px;max-width:430px}
+.house-intro h2{font:450 clamp(36px,4.1vw,65px)/1.01 system-ui,sans-serif;letter-spacing:-.065em;margin:0 0 24px;max-width:360px}
 .house-intro>p:last-child{font:13px/1.75 system-ui,sans-serif;letter-spacing:.005em;color:#5c6b6b;max-width:270px}
 .plan-house .house-station{display:flex;align-items:center;gap:8px;min-height:44px;border:1px solid #fff9edaa;border-radius:100px;padding:9px 14px;background:#fcf7eced;color:#2b4550;font:600 12px/1.3 system-ui,sans-serif;box-shadow:0 5px 18px #17344518,0 1px 3px #17344512;backdrop-filter:blur(10px)}
 .house-station::before{content:'';width:6px;height:6px;border-radius:50%;background:#7f98aa;box-shadow:0 0 0 3px #7f98aa15}
 #plan-app-finapp::before{background:#527aa4}#plan-app-branchlab::before{background:#977cae}#plan-app-garapp::before{background:#c3734e}
-.plan-house .house-door{display:flex;align-items:center;gap:12px;background:#2b4550;color:#fff5df;border:1px solid #fff4db30;border-radius:100px;font:600 11px system-ui,sans-serif;min-height:46px;padding:10px 19px;box-shadow:0 5px 20px #18344320}
-.plan-house .plan-compass{left:28px;bottom:31px;max-width:540px;padding:10px 13px;border:1px solid #ffffff90;border-radius:17px;background:#fcf8efdb;box-shadow:0 12px 35px #243b4510;backdrop-filter:blur(14px);gap:4px}
+.plan-house .house-door{display:flex;align-items:center;gap:12px;background:#243c3ded;color:#f1f2e9;border:1px solid #fff4db40;border-radius:100px;font:500 11px system-ui,sans-serif;min-height:46px;padding:10px 19px;box-shadow:0 5px 20px #18344320}
+.plan-house .plan-compass{left:36px;bottom:70px;max-width:540px;padding:10px 13px;border:1px solid #ffffff70;border-radius:12px;background:#e9eee6d6;box-shadow:0 12px 35px #243b4510;backdrop-filter:blur(18px);gap:4px}
 .plan-house .compass-name{display:flex;align-items:center;gap:7px;font:8px/1.5 ui-monospace,monospace;letter-spacing:.07em;color:#76837d;margin-bottom:3px}
 .plan-house .compass-name::before{content:'';width:4px;height:4px;border-radius:50%;background:#849984}
 .plan-house .plan-compass>button,.plan-house .plan-compass summary{font:11px/1.3 system-ui,sans-serif;min-height:42px;padding:7px 10px;border-radius:8px;color:#36505a;transition:background 140ms}
@@ -22,10 +24,10 @@ body:has(.plan-house) .v3-footer>a{text-underline-offset:3px}
 .plan-house .plan-direct-routes{border:1px solid #ffffff80;border-radius:12px;box-shadow:0 12px 35px #17344520;background:#fcf8ef;padding:7px}
 .plan-house .plan-direct-routes>a{font:12px system-ui,sans-serif;padding:10px 13px;border-radius:7px;text-decoration:none;color:#314c58}
 .plan-house .plan-direct-routes>a:hover{background:#e8e7dc}
-.plan-house .plan-movement{right:26px;bottom:31px;gap:5px}
-.plan-house .plan-movement>button{height:42px;min-width:42px;border-radius:12px;border:1px solid #ffffff90;background:#fcf8efdd;color:#36505a;box-shadow:0 6px 16px #243b450d;backdrop-filter:blur(8px);font:17px/1 system-ui,sans-serif;transition:background 120ms,translate 120ms}
+.plan-house .plan-movement{right:36px;bottom:70px;gap:5px}
+.plan-house .plan-movement>button{height:42px;min-width:42px;border-radius:9px;border:1px solid #ffffff70;background:#e9eee6d6;color:#36505a;box-shadow:0 6px 16px #243b450d;backdrop-filter:blur(18px);font:17px/1 system-ui,sans-serif;transition:background 120ms,translate 120ms}
 .plan-house .plan-movement>button:hover{background:#fff9ea;translate:0 -2px}
-.plan-house .plan-instruction{left:30px;bottom:10px;color:#8a9187;letter-spacing:.025em;font:8px ui-monospace,monospace}
+.plan-house .plan-instruction{left:38px;bottom:49px;color:#31484a;letter-spacing:.025em;font:8px ui-monospace,monospace}
 .house-object-preview{--object-accent:#3f6876;width:262px;padding:18px 20px;border:1px solid #ffffffa6;border-radius:16px;background:#fbf7edeb;box-shadow:0 12px 40px #17344525;backdrop-filter:blur(14px);color:#2b4550}
 .house-object-preview[data-app=finapp]{--object-accent:#4b7298}.house-object-preview[data-app=branchlab]{--object-accent:#806b98}.house-object-preview[data-app=garapp]{--object-accent:#ae6b4e}
 .house-object-preview .preview-room{color:#8a9388;letter-spacing:.13em;font-size:8px}
@@ -33,27 +35,28 @@ body:has(.plan-house) .v3-footer>a{text-underline-offset:3px}
 .house-object-preview>p:not(.preview-room){font-size:12px;line-height:1.6;color:#607175;margin-bottom:17px}
 .house-object-preview>button{border-radius:8px;background:var(--object-accent);font-size:11px;min-height:44px;padding:10px 12px}
 .house-object-preview>a{border-color:#35505b20;font-size:11px;font-weight:500;margin-top:7px}
-.house-demo-dock{left:28px;top:24px;border-radius:12px;border:1px solid #ffffffa0;background:#fbf7edec;box-shadow:0 8px 28px #17344515;color:#36505a;backdrop-filter:blur(12px)}
+.house-demo-dock{left:36px;top:84px;border-radius:12px;border:1px solid #ffffffa0;background:#fbf7edec;box-shadow:0 8px 28px #17344515;color:#36505a;backdrop-filter:blur(12px)}
 .house-demo-dock button{background:#e3e6dc;border-radius:7px;color:#36505a}
 .house-demo{border-radius:7px}.demo-garapp{border-radius:2px}
 .plan-host.plan-house.plan-is-fallback{height:auto;min-height:calc(100svh - 96px);overflow:visible}
+body:has(.plan-is-fallback) .experience-utilities,body:has(.plan-is-fallback) .v3-footer{position:relative}
 @media(max-width:760px){
- body:has(.plan-house) .experience-utilities{padding-inline:18px;font-size:9px}
- body:has(.plan-house) .v3-footer{height:40px;padding:7px 18px;gap:12px;font-size:8px}
+ body:has(.plan-house) .experience-utilities{height:60px;padding-inline:18px;font-size:9px}
+ body:has(.plan-house) .v3-footer{height:36px;padding:7px 18px;gap:12px;font-size:8px}
  body:has(.plan-house) .v3-footer>a:first-child{font-size:11px}
  body:has(.plan-house) .v3-footer p{font-size:0}body:has(.plan-house) .v3-footer .app-version{font-size:8px}
- .plan-host.plan-house{height:calc(100svh - 88px);min-height:560px}
- .plan-house .house-intro{left:22px;top:28px;width:285px}
+ .plan-host.plan-house{height:100svh;min-height:640px}
+ .plan-house .house-intro{left:24px;top:87px;width:285px}
  .house-intro>p:first-child{font-size:8px;margin-bottom:13px}
- .house-intro h2{font-size:38px;max-width:285px;margin-bottom:16px}
+ .house-intro h2{font-size:42px;max-width:285px;margin-bottom:16px}
  .house-intro>p:last-child{font-size:11px;line-height:1.6}
- .plan-house .plan-compass{left:12px;bottom:18px;width:204px;max-width:204px;border-radius:14px;padding:7px 8px;gap:1px}
+ .plan-house .plan-compass{left:12px;bottom:55px;width:204px;max-width:204px;border-radius:12px;padding:7px 8px;gap:1px}
  .plan-house .plan-compass>button,.plan-house .plan-compass summary{min-height:40px;font-size:10px;padding:5px 6px}
- .plan-house .plan-movement{right:12px;bottom:18px;gap:4px;grid-template-columns:repeat(3,40px)}
+ .plan-house .plan-movement{right:12px;bottom:55px;gap:4px;grid-template-columns:repeat(3,40px)}
  .plan-house .plan-movement>button{height:40px;min-height:40px;min-width:40px;border-radius:10px;font-size:16px}
  .house-object-preview{width:240px;padding:15px 17px;border-radius:13px}
  .house-object-preview h2{font-size:24px}
- .house-demo-dock{left:12px;right:12px;top:12px}
+ .house-demo-dock{left:12px;right:12px;top:68px}
  .plan-host.plan-house.plan-is-fallback{min-height:calc(100svh - 88px)}
 }
 @media(prefers-reduced-motion:reduce){.plan-house button{transition:none!important}}

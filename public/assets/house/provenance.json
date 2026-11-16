@@ -1,0 +1,79 @@
+[
+  {
+    "map": "color",
+    "file": "rock_boulder_dry-color.webp",
+    "asset": "rock_boulder_dry",
+    "page": "https://polyhaven.com/a/rock_boulder_dry",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_boulder_dry/rock_boulder_dry_diff_1k.jpg",
+    "license": "CC0-1.0",
+    "sha256": "0ae2c190973fc54ec8f5108249b87ecfbb2f6c3d723495f8dc0669a898cb9c7a",
+    "originalSha256": "20f653a42fb24f42aa40641663070d578678da49af18cc1049dbdd4ed8679f3c",
+    "transform": "WebP, 1024px, quality 88"
+  },
+  {
+    "map": "normal",
+    "file": "rock_boulder_dry-normal.webp",
+    "asset": "rock_boulder_dry",
+    "page": "https://polyhaven.com/a/rock_boulder_dry",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rock_boulder_dry/rock_boulder_dry_nor_gl_1k.jpg",
+    "license": "CC0-1.0",
+    "sha256": "f63be2c57594ce0d3e856465613d8abda578f96b66c959549a712896831f96f9",
+    "originalSha256": "5915fea28a97357c78a04fb31c2516f1f7ed1b3a9cef4ae25aa93e4655e6c595",
+    "transform": "WebP, 1024px, quality 95"
+  },
+  {
+    "map": "color",
+    "file": "gravel_ground_01-color.webp",
+    "asset": "gravel_ground_01",
+    "page": "https://polyhaven.com/a/gravel_ground_01",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/gravel_ground_01/gravel_ground_01_diff_1k.jpg",
+    "license": "CC0-1.0",
+    "sha256": "f40f48a5ecd5e2ef7af99ec32fd1c648238744ac6063ee346e01443053f73422",
+    "originalSha256": "c3a12b0e3a9399913158dd5cfa1d67ede066970acd1f99e5b89969ac13f89089",
+    "transform": "WebP, 1024px, quality 88"
+  },
+  {
+    "map": "normal",
+    "file": "gravel_ground_01-normal.webp",
+    "asset": "gravel_ground_01",
+    "page": "https://polyhaven.com/a/gravel_ground_01",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/gravel_ground_01/gravel_ground_01_nor_gl_1k.jpg",
+    "license": "CC0-1.0",
+    "sha256": "a7ac6d282fa7f58b45dd4dc39e4fa514072e0a30ceb3572f3ad3ea71ce0fbdd8",
+    "originalSha256": "3a832b27276d1457031b164147434558bd245469dc27fd1ff6ae075bde0b12b2",
+    "transform": "WebP, 1024px, quality 95"
+  },
+  {
+    "map": "normal",
+    "file": "grey_plaster-normal.webp",
+    "asset": "grey_plaster",
+    "page": "https://polyhaven.com/a/grey_plaster",
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/grey_plaster/grey_plaster_nor_gl_1k.jpg",
+    "license": "CC0-1.0",
+    "sha256": "32d39c3e148e5f33aa2034d66806854fd77b66d24c95a47ebe3e78b257be7515",
+    "originalSha256": "85fe18209cb354b582003892898ee0cd6fe6b853644e01983718fc011140c0c2",
+    "transform": "WebP, 1024px, quality 95"
+  },
+  {
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/oak_wood_planks/oak_wood_planks_diff_1k.jpg",
+    "asset": "oak_wood_planks",
+    "sha256": "7b880a992e32c4b87cc4512dcc9dc6d0670447c3b5979e4c48e93f933d963d0c",
+    "license": "CC0-1.0",
+    "file": "oak_wood_planks-color.webp",
+    "page": "https://polyhaven.com/a/oak_wood_planks",
+    "map": "color",
+    "originalSha256": "f715ed3e4346e94f971ef8dd61221ff6cc774886c20f65381e01e1dc0bb0a634",
+    "transform": "WebP, 1024px, quality 88"
+  },
+  {
+    "source": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/oak_wood_planks/oak_wood_planks_nor_gl_1k.jpg",
+    "asset": "oak_wood_planks",
+    "sha256": "0698b9d6d13e1cd2d11ef6b695e2f3492215db25deb815635723a71e22fde319",
+    "license": "CC0-1.0",
+    "file": "oak_wood_planks-normal.webp",
+    "page": "https://polyhaven.com/a/oak_wood_planks",
+    "map": "normal",
+    "originalSha256": "b4272cb2818f8f33f2620a2dc093c962f34920e9d485a4e132eb6d69de1ba950",
+    "transform": "WebP, 1024px, quality 95"
+  }
+]
