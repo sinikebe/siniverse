@@ -5,6 +5,8 @@ import {buildHouse} from '../public/concepts/v3/house-scene.mjs';
 import {APPS} from '../public/concepts/v3/catalog.mjs';
 import {EYE_HEIGHT,canStand,segmentClear,stepOnFloor,lookOnFloor,blendLook,floorPath,pointAlong} from '../public/concepts/v3/house-navigation.mjs';
 import {cleanPose} from '../public/concepts/v3/camera-math.mjs';
+import {readFileSync,statSync} from 'node:fs';
+import {createHash} from 'node:crypto';
 
 // Build the actual architecture without a renderer: collision bounds derive from its meshes.
 const scene=new THREE.Scene(),disposers=[],initialMaterials=[];
@@ -108,4 +110,32 @@ test('screen artwork maps once across the entire physical display',()=>{
     assert(values.every(value=>value>=0&&value<=1),'Screen artwork must not repeat or crop at negative UVs.');
     assert.equal(Math.min(...values),0);assert.equal(Math.max(...values),1);
   }
+});
+
+test('the planted landscape leaves the complete walking rectangle unobstructed',()=>{
+  const grass=scene.getObjectByName('house-garden-grasses'),matrix=new THREE.Matrix4(),position=new THREE.Vector3();
+  for(let i=0;i<grass.count;i++){
+    grass.getMatrixAt(i,matrix);position.setFromMatrixPosition(matrix);
+    assert(position.x<bounds.minX||position.x>bounds.maxX||position.z<bounds.minZ||position.z>bounds.maxZ);
+  }
+});
+
+test('photographic surfaces keep color and relief in their respective color spaces',()=>{
+  for(const name of ['house-office-floor','house-garden-terrain','house-wall-rear']){
+    const material=scene.getObjectByName(name).material;
+    assert(material.isMeshPhysicalMaterial);assert.equal(material.map.colorSpace,THREE.SRGBColorSpace);
+    assert.equal(material.roughnessMap.colorSpace,THREE.NoColorSpace);assert(material.roughness>0);
+  }
+});
+
+test('all photographed texture maps match their recorded local provenance and stay under 3 MB',()=>{
+  const base=new URL('../public/assets/house/',import.meta.url),manifest=JSON.parse(readFileSync(new URL('provenance.json',base),'utf8'));
+  let size=0;
+  for(const item of manifest){
+    assert.equal(item.license,'CC0-1.0');assert(item.source.startsWith('https://dl.polyhaven.org/'));
+    assert.match(item.file,/^[a-z0-9_-]+\.webp$/);
+    const file=new URL(item.file,base);size+=statSync(file).size;
+    assert.equal(createHash('sha256').update(readFileSync(file)).digest('hex'),item.sha256);
+  }
+  assert(size<3000000);
 });

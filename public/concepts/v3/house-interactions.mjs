@@ -20,7 +20,8 @@ export function createHouseInteractions(host, world, house, api, { onRead, onExi
     const element = document.createElement('section'); element.className = 'house-demo demo-' + app;
     element.setAttribute('aria-label', 'Essayer ' + api.apps[app].name + ' sur son support');
     element.innerHTML = markup;
-    const handle = world.surface({ ...house.surfaces[app], pixels: 320 }, element); handle.setEnabled(false);
+    if(app==='finapp')element.querySelector('svg').setAttribute('preserveAspectRatio','none');
+    const handle = world.surface({ ...house.surfaces[app], pixels: app==='garapp'?320:360 }, element); handle.setEnabled(false);
     surfaces.set(app, { element, handle });
     element.querySelector('#plan-demo-read-' + app).addEventListener('click', event => onRead(app, event.currentTarget));
   }

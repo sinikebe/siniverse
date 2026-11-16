@@ -1,14 +1,18 @@
+import { createSurfaceLibrary, setMetreUV, smoothSurfaceNormals } from './house-materials.mjs';
+import { buildLandscape } from './house-landscape.mjs';
+import { createHousePhotography } from './house-photography.mjs';
+
 // A small, tangible house. All coordinates are metres; navigation belongs to Plan.
 export function buildHouse(world, apps) {
   const T = world.THREE;
-  const P = { plaster: '#EADAC3', floor: '#B88F63', frame: '#263E49', roof: '#304B58',
-    garage: '#9BA9A4', metal: '#A5AFAC', cream: '#F8EAD3', paper: '#FBF0D7',
-    glass: '#9CBCC6', tyre: '#202D33', car: '#C96945', wood: '#B88B5A' };
+  const P = { plaster: '#F8F6EF', floor: '#FFFFFF', frame: '#273234', roof: '#344243',
+    garage: '#C7CCCA', metal: '#9AA5A4', cream: '#D8DBD4', paper: '#FBF0D7',
+    glass: '#B3CCD3', tyre: '#151C1E', car: '#758F89', wood: '#F8F1E6' };
   const root = new T.Group(); root.name = 'siniverse-house'; world.scene.add(root);
   const roof = new T.Group(); roof.name = 'house-roof'; root.add(roof);
   const shell = [], obstacles = [], textures = [], materials = new Set();
   const screens = {}, surfaces = {}, previews = {}, anchors = {};
-  const cache = new Map();
+  const surfaceLibrary = createSurfaceLibrary(T, () => world.requestRender?.(),world.quality);
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const hash = (x, y = 0) => { const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return n - Math.floor(n); };
 
@@ -24,57 +28,14 @@ export function buildHouse(world, apps) {
     texture.wrapS = texture.wrapT = T.RepeatWrapping; texture.anisotropy = 4;
     textures.push(texture); return texture;
   }
-  const wood = canvasTexture((ctx, n) => {
-    const pixels = ctx.createImageData(n, n);
-    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
-      const wave = Math.sin(y * .32 + Math.sin(x * .024) * 1.8) * 5 + Math.sin(y * 1.87 + x * .008) * 2;
-      const value = clamp(231 + wave + hash(x, y) * 10, 0, 255), i = (y * n + x) * 4;
-      pixels.data[i] = value; pixels.data[i + 1] = value - 3; pixels.data[i + 2] = value - 7; pixels.data[i + 3] = 255;
-    }
-    ctx.putImageData(pixels, 0, 0);
-  });
-  const grain = canvasTexture((ctx, n) => {
-    const pixels = ctx.createImageData(n, n);
-    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
-      const i = (y * n + x) * 4, value = 121 + Math.round(hash(x, y) * 16);
-      pixels.data[i] = pixels.data[i + 1] = pixels.data[i + 2] = value; pixels.data[i + 3] = 255;
-    }
-    ctx.putImageData(pixels, 0, 0);
-  }, 128, false);
   const contactMap = canvasTexture((ctx, n) => {
     const gradient = ctx.createRadialGradient(n / 2, n / 2, n * .08, n / 2, n / 2, n * .5);
     gradient.addColorStop(0, 'rgba(36,31,23,.65)'); gradient.addColorStop(.45, 'rgba(36,31,23,.33)');
     gradient.addColorStop(.8, 'rgba(36,31,23,.08)'); gradient.addColorStop(1, 'rgba(36,31,23,0)');
     ctx.fillStyle = gradient; ctx.fillRect(0, 0, n, n);
   }, 128);
-  const floorboards = canvasTexture((ctx, n) => {
-    ctx.fillStyle = '#EFE4CC'; ctx.fillRect(0, 0, n, n);
-    for (let plank = 0; plank < 8; plank++) {
-      const y = plank * n / 8, h = n / 8;
-      ctx.fillStyle = plank % 3 ? '#E9DBC0' : '#F5E8D0'; ctx.fillRect(0, y, n, h);
-      ctx.strokeStyle = '#A99A7F55'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(0, y + .5); ctx.lineTo(n, y + .5); ctx.stroke();
-      const joint = (plank % 3 + 1) * n / 4;
-      ctx.beginPath(); ctx.moveTo(joint, y); ctx.lineTo(joint, y + h); ctx.stroke();
-      ctx.strokeStyle = '#B8A18122';
-      for (let row = 6; row < h; row += 7) {
-        ctx.beginPath(); ctx.moveTo(0, y + row);
-        ctx.bezierCurveTo(n * .3, y + row - 3, n * .7, y + row + 3, n, y + row); ctx.stroke();
-      }
-    }
-  }, 512);
   function material(color, kind = 'paint') {
-    const key = color + ':' + kind;
-    if (cache.has(key)) return cache.get(key);
-    const options = { color, roughness: .64, metalness: .02 };
-    if (kind === 'plaster') Object.assign(options, { roughness: .91, bumpMap: grain, bumpScale: .018 });
-    if (kind === 'wood') Object.assign(options, { map: wood, roughness: .43, bumpMap: grain, bumpScale: .009 });
-    if (kind === 'metal') Object.assign(options, { metalness: .65, roughness: .30 });
-    if (kind === 'rubber') Object.assign(options, { roughness: .92, metalness: 0 });
-    if (kind === 'paper') Object.assign(options, { roughness: .95, metalness: 0 });
-    if (kind === 'glass') Object.assign(options, { transparent: true, opacity: .24, roughness: .08, metalness: .30, depthWrite: false, side: T.DoubleSide });
-    const value = kind === 'car' || kind === 'wood' ? new T.MeshPhysicalMaterial({ ...options, roughness: kind === 'car' ? .27 : .43, clearcoat: kind === 'car' ? .85 : .12, clearcoatRoughness: .22 }) : new T.MeshStandardMaterial(options);
-    materials.add(value); cache.set(key, value); return value;
+    return surfaceLibrary.get(color, kind);
   }
   function basic(color, { map = null, opacity = 1 } = {}) {
     const value = new T.MeshBasicMaterial({ color, map, transparent: opacity < 1 || Boolean(map), opacity, depthWrite: !map, toneMapped: false });
@@ -82,6 +43,7 @@ export function buildHouse(world, apps) {
   }
   function mesh(geometry, color, position = [0, 0, 0], parent = root, name = '', kind = 'paint') {
     const item = new T.Mesh(geometry, typeof color === 'string' ? material(color, kind) : color);
+    if (item.material.userData.metreUV) setMetreUV(geometry, item.material.userData.metreUV);
     item.position.set(...position); item.name = name; item.castShadow = true; item.receiveShadow = true; parent.add(item); return item;
   }
   // The central face is stretched; the remaining samples describe a rounded edge.
@@ -165,19 +127,15 @@ export function buildHouse(world, apps) {
       axis === 'x' ? [(from + to) / 2, (bottom + top) / 2, fixed] : [fixed, (bottom + top) / 2, (from + to) / 2], root, 'house-window-mullion', 'metal', .01);
   }
 
-  world.scene.background = new T.Color('#E8DFCF');
-  if(world.scene.fog)world.scene.fog.color.set('#E8DFCF');
-  const groundMaterial = new T.ShadowMaterial({color:'#263E49',opacity:.20,depthWrite:false}); materials.add(groundMaterial);
-  const ground = mesh(new T.PlaneGeometry(200,200),groundMaterial,[0,-.385,0],root,'house-studio-ground');
-  ground.rotation.x=-Math.PI/2;ground.castShadow=false;ground.userData.pickThrough=true;
-  contact([0,-.382,.6],[18,15],.32);
-  box([12.8, .30, 11.5], '#D1BE9F', [0, -.20, 1.25], root, 'house-approach-ground', 'plaster', .20);
-  box([12.65,.045,11.35], '#E0D0B6', [0,-.033,1.25],root,'house-paving-surface','plaster',.02);
-  for(const z of [4.18,4.90,5.62])box([1.34,.028,.57],'#BEB7A7',[-2.3,.001,z],root,'house-entry-paving','plaster',.045);
+  world.scene.background = new T.Color('#B9C5C7');
+  world.scene.fog = new T.FogExp2('#B9C5C7', .013);
+  const landscape = buildLandscape(T, world.scene, surfaceLibrary,world.quality);
+  box([11.1, .19, 7.7], '#D8DDD8', [0, -.16, 0], root, 'house-approach-ground', 'stone', .025);
+  box([4.45,.09,2.8], '#D5D9D4', [3.05,-.13,4.92],root,'house-driveway','stone',.025);
+  for(const z of [4.18,4.98,5.78,6.58])box([1.34,.10,.66],'#DEE0D8',[-2.3,-.11,z],root,'house-entry-paving','stone',.018);
   box([10.65, .16, 7.25], P.frame, [0, -.09, 0], root, 'house-foundation', 'paint', .055);
-  const officeFloor = box([6.1, .06, 7.18], P.floor, [-2.25, -.01, 0], root, 'house-office-floor', 'wood', .018);
-  officeFloor.material = officeFloor.material.clone(); officeFloor.material.map = floorboards; floorboards.repeat.set(1.7, 2.4); materials.add(officeFloor.material);
-  box([4.5, .06, 7.18], P.garage, [3.05, -.01, 0], root, 'house-garage-floor', 'plaster', .018);
+  box([6.1, .06, 7.18], P.floor, [-2.25, -.01, 0], root, 'house-office-floor', 'floor', .018);
+  box([4.5, .06, 7.18], P.garage, [3.05, -.01, 0], root, 'house-garage-floor', 'stone', .018);
   box([1.4, .045, .42], '#7C806A', [-2.3, .015, 3.55], root, 'house-entry-threshold', 'paint', .018);
   box([3.9, .025, .22], '#7C806A', [3.05, .015, 3.52], root, 'house-garage-threshold', 'metal', .01);
   wall('x', -3.49, -5.3, 5.3, [], 'rear'); wall('z', 5.19, -3.6, 3.6, [], 'right');
@@ -228,7 +186,7 @@ export function buildHouse(world, apps) {
   box([3.05,.055,.15],P.frame,[-2.8,2.68,-2.4],roof,'house-desk-light-housing','metal',.025);
   const stripMaterial=new T.MeshStandardMaterial({color:'#FFF0CD',emissive:'#FFE3AD',emissiveIntensity:1.3,roughness:.5});materials.add(stripMaterial);
   const strip=box([2.88,.018,.105],stripMaterial,[-2.8,2.642,-2.4],roof,'house-desk-light-diffuser','paint',.008);strip.castShadow=false;
-  const deskLight=new T.PointLight('#FFE4BE',5,5,2);deskLight.position.set(-2.8,2.4,-2.4);roof.add(deskLight);
+  const deskLight=new T.PointLight('#FFE4BE',8,5,2);deskLight.position.set(-2.8,2.4,-2.4);roof.add(deskLight);
   box([4.85, .20, 7.66], P.roof, [3.08, 2.97, 0], roof, 'house-garage-roof', 'paint', .07);
   // A folded metal roof: thin standing seams follow the slope and catch daylight.
   const seamPoses=[];for(let z=-3.4;z<3.6;z+=.62)for(const [x,slope]of [[-3.90,pitch],[-.60,-pitch]])seamPoses.push({x,z,slope});
@@ -243,11 +201,40 @@ export function buildHouse(world, apps) {
   }
 
   for(const x of [1,5.16])box([.11,.18,7.55],P.frame,[x,2.82,0],roof,'house-garage-roof-edge','metal',.03);
+
+  // Cedar rainscreen, recessed joinery, drainage and warm fixtures give the shell scale.
+  const siding = new T.InstancedMesh(roundedGeometry([.038, 2.64, .105], .006, 3), material('#EEE7D9', 'wood'), 60);
+  siding.name = 'house-wall-cedar-rainscreen'; siding.castShadow = false;siding.receiveShadow = true;
+  setMetreUV(siding.geometry, .55);
+  const verticalGrain=geometry=>{const uv=geometry.attributes.uv;for(let i=0;i<uv.count;i++){const u=uv.getX(i);uv.setXY(i,uv.getY(i),u);}};
+  verticalGrain(siding.geometry);
+  const sidingMatrix = new T.Matrix4();
+  for (let i = 0; i < 60; i++) siding.setMatrixAt(i, sidingMatrix.makeTranslation(5.325, 1.42, -3.43 + i * .116));
+  root.add(siding);
+  const gableSlats = [];
+  for (let x = -5.09; x < .71; x += .125) { const h = 1.18 - Math.abs(x + 2.25) * .403; if (h > .03) gableSlats.push([x, h]); }
+  const cladding = new T.InstancedMesh(roundedGeometry([.112, 1, .045], .005, 3), material('#F8F1E6', 'wood'), gableSlats.length);
+  setMetreUV(cladding.geometry, .55);verticalGrain(cladding.geometry); cladding.name = 'house-gable-cedar'; cladding.castShadow = false;cladding.receiveShadow = true;
+  gableSlats.forEach(([x, h], i) => { sidingMatrix.compose(new T.Vector3(x, 2.83 + h / 2, 3.605), new T.Quaternion(), new T.Vector3(1, h, 1)); cladding.setMatrixAt(i, sidingMatrix); }); roof.add(cladding);
+  for (const x of [-5.56, 1.07]) {
+    curve([[x, 2.79, -3.81], [x, 2.79, 3.84]], '#526162', .065, roof, 'house-zinc-gutter', false, 'metal');
+    curve([[x, 2.79, 3.76], [x, 2.57, 3.76], [x - .05, 2.42, 3.62], [x - .05, .13, 3.62]], '#566568', .038, root, 'house-rainwater-downpipe', false, 'metal');
+  }
+  for (const x of [-3.3, -1.32, 5.12]) {
+    box([.09,.29,.11],P.frame,[x,1.84,3.65],root,'house-exterior-sconce','metal',.013);
+    const glow = new T.MeshStandardMaterial({color:'#FFF3DC',emissive:'#FFD69A',emissiveIntensity:2.5,roughness:.25});materials.add(glow);
+    box([.058,.21,.012],glow,[x,1.84,3.711],root,'house-sconce-diffuser','paint',.01).castShadow=false;
+  }
+  for (const x of [1.12, 3.05, 4.98]) box([.008,.002,2.75],'#6C7776',[x,-.082,4.92],root,'house-driveway-expansion-joint','rubber',.001);
+  const drain = new T.InstancedMesh(new T.BoxGeometry(.025,.012,.16),material('#4B5858','metal'),50);drain.name='house-garage-drain';
+  for(let i=0;i<50;i++)drain.setMatrixAt(i,sidingMatrix.makeTranslation(1.18+i*.076,-.034,3.72));root.add(drain);
+
   const desk = new T.Group(); desk.name = 'house-office-workbench'; root.add(desk);
   box([4.6, .13, 1.18], P.wood, [-2.8, .76, -2.65], desk, 'house-desk-top', 'wood', .055);
   for (const x of [-4.98, -.62]) for (const z of [-3.14, -2.16]) box([.09, .70, .09], P.frame, [x, .35, z], desk, 'house-desk-leg', 'metal', .022);
   contact([-2.8, .024, -2.65], [4.9, 1.9], .40);
   function keyboard(x) {
+    box([1.08,.008,.51], '#3D4A4A', [x,.831,-2.34],desk,'house-felt-desk-mat','rubber',.04);
     box([.69, .035, .24], '#2E4550', [x, .844, -2.21], desk, 'house-keyboard', 'paint', .025);
     const keys = new T.InstancedMesh(roundedGeometry([.052, .012, .043], .006, 3), material('#E1D9C8'), 36);
     keys.name = 'house-keycaps'; const matrix = new T.Matrix4(); let index = 0;
@@ -257,9 +244,10 @@ export function buildHouse(world, apps) {
     keys.castShadow = false; keys.receiveShadow = true; desk.add(keys);
   }
   function screen(id, x) {
-    box([.60, .045, .38], '#7A8B7D', [x, .85, -2.63], desk, 'house-' + id + '-screen-foot', 'metal', .035);
-    box([.10, .29, .11], '#708477', [x, .99, -2.61], desk, 'house-' + id + '-screen-stand', 'metal', .03);
-    box([1.54, 1.14, .135], '#D5D3C5', [x, 1.65, -2.57], desk, 'house-' + id + '-screen-frame', 'metal', .055);
+    box([.60, .032, .38], '#9BA6A5', [x, .85, -2.63], desk, 'house-' + id + '-screen-foot', 'metal', .022);
+    box([.065, .29, .08], '#9BA6A5', [x, .99, -2.61], desk, 'house-' + id + '-screen-stand', 'metal', .018);
+    box([1.54, .96, .075], '#343F42', [x, 1.52, -2.55], desk, 'house-' + id + '-screen-frame', 'metal', .025);
+    box([1.46,.89,.012],'#121C21',[x,1.52,-2.51],desk,'house-display-inner-bezel','rubber',.018);
     const displayMap = canvasTexture((ctx,n)=>{
       ctx.fillStyle=id==='finapp'?'#132D37':'#25273C';ctx.fillRect(0,0,n,n);
       const glow=ctx.createRadialGradient(n*.75,n*.2,0,n*.75,n*.2,n*.9);glow.addColorStop(0,id==='finapp'?'#264C60':'#414061');glow.addColorStop(1,'#142A3200');ctx.fillStyle=glow;ctx.fillRect(0,0,n,n);
@@ -267,19 +255,21 @@ export function buildHouse(world, apps) {
       ctx.strokeStyle='#B5CDD51A';ctx.lineWidth=1;for(let y=60;y<230;y+=35){ctx.beginPath();ctx.moveTo(16,y);ctx.lineTo(n-16,y);ctx.stroke();}
       ctx.fillStyle='#C4D6DB';ctx.font='8px sans-serif';ctx.fillText(id==='finapp'?'DEUX CHOIX. UN HORIZON.':'DE LA SOURCE À L’ÉCRAN.',15,n-14);
     },256);
-    const screenGeometry = new T.ShapeGeometry(roundedShape(1.4, 1, .035), 5);
+    const screenGeometry = new T.ShapeGeometry(roundedShape(1.4, .825, .018), 5);
     const screenPosition = screenGeometry.attributes.position, screenUv = screenGeometry.attributes.uv;
-    for (let i = 0; i < screenUv.count; i++) screenUv.setXY(i, screenPosition.getX(i) / 1.4 + .5, screenPosition.getY(i) + .5);
-    const face = mesh(screenGeometry, basic('#FFFFFF', {map: displayMap}), [x, 1.65, -2.499], desk, 'house-' + id + '-screen');
+    screenGeometry.computeBoundingBox();const screenBox=screenGeometry.boundingBox;
+    for (let i = 0; i < screenUv.count; i++) screenUv.setXY(i, (screenPosition.getX(i)-screenBox.min.x)/(screenBox.max.x-screenBox.min.x), (screenPosition.getY(i)-screenBox.min.y)/(screenBox.max.y-screenBox.min.y));
+    const face = mesh(screenGeometry, basic('#FFFFFF', {map: displayMap}), [x, 1.52, -2.499], desk, 'house-' + id + '-screen');
     face.castShadow = face.receiveShadow = false;
     const idle = new T.Group(); idle.name = id + '-idle-drawing'; face.add(idle); face.userData.idle = idle;
-    const accent = mesh(new T.PlaneGeometry(1.14, .008), basic(apps[id]?.color || '#6789CD'), [x, 1.125, -2.495], desk, 'house-' + id + '-active-edge'); accent.castShadow = false;
+    const accent = mesh(new T.PlaneGeometry(1.14, .003), basic(apps[id]?.color || '#6789CD'), [x, 1.085, -2.495], desk, 'house-' + id + '-active-edge'); accent.castShadow = false;
     previews[id] = { idle, accent }; screens[id] = face;
-    surfaces[id] = { position: [x, 1.65, -2.475], width: 1.4, height: 1, rotationY: 0 };
-    anchors[id] = { position: [...surfaces[id].position], normal: [0, 0, 1], label: [x, 2.34, -2.47], room: 'bureau' };
+    surfaces[id] = { position: [x, 1.52, -2.475], width: 1.4, height: .825, rotationY: 0 };
+    anchors[id] = { position: [...surfaces[id].position], normal: [0, 0, 1], label: [x, 2.15, -2.47], room: 'bureau' };
     keyboard(x);
-    box([.52,.10,.46],'#627F80',[x,.46,-2.15],desk,'house-chair-seat','rubber',.11);
-    const back=box([.51,.42,.065],'#627F80',[x,.86,-1.97],desk,'house-chair-back','rubber',.10);back.rotation.x=-.12;
+    box([.52,.085,.46],'#6B7871',[x,.46,-2.15],desk,'house-chair-seat','rubber',.08);
+    const back=box([.51,.42,.055],'#6B7871',[x,.86,-1.97],desk,'house-chair-back','rubber',.08);back.rotation.x=-.12;
+    curve([[x-.235,.49,-1.96],[x,.49,-1.94],[x+.235,.49,-1.96]],'#8B9386',.0025,desk,'house-chair-piping');
     for(const dx of [-.20,.20])for(const dz of [-.15,.15])box([.035,.42,.035],P.frame,[x+dx,.21,-2.15+dz],desk,'house-chair-leg','metal',.01);
     const mouse=mesh(new T.SphereGeometry(.075,16,10),'#D1D3C8',[x+.46,.87,-2.23],desk,'house-mouse','paint');mouse.scale.set(.85,.43,1.4);
     return idle;
@@ -301,6 +291,17 @@ export function buildHouse(world, apps) {
   const cable = curve([[-.83, 1.24, -2.505], [-.84, 1.08, -2.30], [-1.12, .89, -2.20], [-1.35, .91, -2.25], [-1.22, 1.16, -2.48]], '#9176B7', .019, desk, 'house-branchlab-real-cable');
   const plug = box([.075, .048, .075], '#AFAEAA', [-.83, 1.24, -2.50], desk, 'house-branchlab-cable-plug', 'metal', .012);
   const signal = mesh(new T.SphereGeometry(.027, 12, 8), basic('#DBC3FF'), [-.83, 1.24, -2.50], desk, 'house-branchlab-signal'); signal.visible = false; signal.castShadow=false;
+  for(let row=0;row<8;row++)box([.23,.008,.004],'#243137',[-.83,1.36+row*.018,-2.537],desk,'house-computer-vent','rubber',.001);
+  const pot=mesh(new T.CylinderGeometry(.115,.085,.18,24),'#A69C87',[-4.9,.92,-2.91],desk,'house-stoneware-pot','stone');
+  mesh(new T.CylinderGeometry(.098,.098,.005,24),'#393E30',[-4.9,1.015,-2.91],desk,'house-pot-soil','rubber');
+  for(let i=0;i<9;i++){
+    const a=i*2.4,h=.12+hash(i)*.18;
+    const leaf=mesh(new T.SphereGeometry(.045,8,6),'#536950',[-4.9+Math.cos(a)*.055,1.06+h/2,-2.91+Math.sin(a)*.055],desk,'house-plant-leaf');
+    leaf.scale.set(.4,h/.045,.9);leaf.rotation.z=Math.cos(a)*.4;
+  }
+  for(let i=0;i<3;i++)box([.24,.018,.30],['#C1C7BB','#707F7C','#E0D7C3'][i],[-2.82,.848+i*.02,-2.84],desk,'house-stacked-notebook','paper',.008);
+  mesh(new T.CylinderGeometry(.055,.045,.095,24),'#CFCDC1',[-2.75,.882,-2.25],desk,'house-ceramic-cup','paint');
+  curve([[-2.69,.92,-2.25],[-2.65,.91,-2.25],[-2.65,.87,-2.25],[-2.69,.86,-2.25]],'#CFCDC1',.009,desk,'house-cup-handle');
   previews.branchlab.signal = signal; previews.branchlab.path = cable.path;
   obstacle(desk, 'office-workstations');
 
@@ -358,15 +359,22 @@ export function buildHouse(world, apps) {
   bodyGeometry.translate(0,0,-.82);
   const bodyPosition=bodyGeometry.attributes.position;
   for(let i=0;i<bodyPosition.count;i++){const z=bodyPosition.getX(i),y=bodyPosition.getY(i),x=bodyPosition.getZ(i);bodyPosition.setXYZ(i,-x*(1-.08*Math.pow(Math.abs(z)/2.2,2)),y,z);}
-  bodyGeometry.computeVertexNormals();mesh(bodyGeometry,P.car,[0,0,0],car,'car-sculpted-body','car');
+  smoothSurfaceNormals(T,bodyGeometry);mesh(bodyGeometry,P.car,[0,0,0],car,'car-sculpted-body','car');
   const cabin=loft([[-1.49,.73,.94,.97,.025],[-1.18,.68,.95,1.37,.07],[-.83,.65,.96,1.53,.09],[.04,.65,.96,1.53,.09],[.82,.75,.95,1.06,.05]],'#294B57','car-glazed-cabin','metal');
-  cabin.material=new T.MeshPhysicalMaterial({color:'#274752',roughness:.10,metalness:.45,clearcoat:1,clearcoatRoughness:.12});materials.add(cabin.material);
+  cabin.material=new T.MeshPhysicalMaterial({color:'#3A5054',roughness:.10,metalness:.25,clearcoat:1,clearcoatRoughness:.08,transparent:true,opacity:.62,depthWrite:false});cabin.castShadow=false;materials.add(cabin.material);
+  box([1.12,.09,.26],'#273435',[0,1.025,.38],car,'car-dashboard','rubber',.035);
+  for(const x of [-.34,.34]){
+    box([.39,.10,.43],'#394744',[x,.91,-.15],car,'car-seat-cushion','rubber',.055);
+    const seat=box([.38,.39,.11],'#394744',[x,1.12,-.43],car,'car-seat-back','rubber',.05);seat.rotation.x=-.1;
+    box([.22,.13,.10],'#394744',[x,1.37,-.46],car,'car-seat-headrest','rubber',.04);
+  }
+  const steering=mesh(new T.TorusGeometry(.135,.018,8,28),'#263431',[-.34,1.145,.25],car,'car-steering-wheel','rubber');steering.rotation.x=-.42;
   box([1.34,.10,1.04],P.cream,[0,1.53,-.39],car,'car-contrast-roof','car',.05);
   for(const side of [-1,1]){
     curve([[side*.74,.99,.82],[side*.63,1.48,.06],[side*.63,1.49,-.84],[side*.73,.99,-1.48]],P.cream,.033,car,'car-window-surround',true,'car');
     curve([[side*.73,1.0,-1.43],[side*.76,1.0,.78]],P.frame,.014,car,'car-window-sill');
     curve([[side*.75,1.01,-.40],[side*.65,1.49,-.40]],P.frame,.038,car,'car-window-pillar');
-    curve([[side*.864,.44,-.37],[side*.866,.89,-.37],[side*.77,.97,-.37]],'#9A472E',.006,car,'car-door-seam',false);
+    curve([[side*.864,.44,-.37],[side*.866,.89,-.37],[side*.77,.97,-.37]],'#3B5552',.004,car,'car-door-seam',false);
     box([.025,.03,.17],'#D7DBD0',[side*.86,.87,.12],car,'car-door-handle','metal',.014);
     box([.17,.10,.23],P.car,[side*.91,1.02,.60],car,'car-mirror','car',.045);
     box([.018,.065,.17],'#334D58',[side*1.002,1.025,.60],car,'car-mirror-glass','metal',.02);
@@ -378,7 +386,7 @@ export function buildHouse(world, apps) {
       const rim=mesh(new T.CylinderGeometry(.222,.222,.16,32),'#3C515B',[side*.925,.36,z],car,'car-wheel-rim','metal');rim.rotation.z=Math.PI/2;
       const hub=mesh(new T.CylinderGeometry(.066,.066,.165,20),'#C3C8BF',[side*.93,.36,z],car,'car-wheel-hub','metal');hub.rotation.z=Math.PI/2;
     }
-    curve([[side*.48,.975,.94],[side*.49,.949,1.44],[side*.46,.883,1.86]],'#D77F57',.009,car,'car-bonnet-crease',true,'car');
+    curve([[side*.48,.975,.94],[side*.49,.949,1.44],[side*.46,.883,1.86]],'#8FA7A0',.005,car,'car-bonnet-crease',true,'car');
   }
   const spokes=new T.InstancedMesh(roundedGeometry([.025,.265,.046],.012,3),material('#BAC5C4','metal'),20);spokes.name='car-alloy-spokes';
   const spokeMatrix=new T.Matrix4();let spokeIndex=0;
@@ -390,7 +398,7 @@ export function buildHouse(world, apps) {
   box([.72,.13,.025],'#253A43',[0,.655,2.225],car,'car-front-grille','rubber',.03);
   for(let x=-.27;x<.30;x+=.09)box([.018,.085,.016],'#779093',[x,.66,2.246],car,'car-grille-blade','metal',.008);
   box([.45,.075,.012],'#E6E2D4',[0,.46,2.28],car,'car-registration-plate','paint',.008);
-  const headlightMaterial=new T.MeshStandardMaterial({color:'#FFF1D5',roughness:.18,metalness:.12,emissive:'#FFD99B',emissiveIntensity:.05});materials.add(headlightMaterial);
+  const headlightMaterial=new T.MeshPhysicalMaterial({color:'#C5D4D0',roughness:.10,metalness:.15,clearcoat:1,clearcoatRoughness:.08,emissive:'#FFD99B',emissiveIntensity:.05});materials.add(headlightMaterial);
   for(const side of [-1,1]){
     box([.34,.16,.048],P.frame,[side*.55,.77,2.18],car,'car-lamp-housing','metal',.055);
     const lamp=box([.27,.065,.018],headlightMaterial,[side*.55,.80,2.211],car,'car-headlight','paint',.028);lamp.castShadow=false;
@@ -404,36 +412,50 @@ export function buildHouse(world, apps) {
   const lights = world.scene.children.filter(item => item.isLight);
   const sun = lights.find(item => item.isDirectionalLight && item.position.y > 20);
   for (const light of lights) {
-    if (light.isHemisphereLight) { light.color.set('#BFD7E3'); light.groundColor.set('#B59C7B'); light.intensity = .95; }
-    else if (light.isDirectionalLight && light !== sun) { light.color.set('#B0CADA'); light.intensity = .5; }
+    if (light.isHemisphereLight) { light.color.set('#BCCED8'); light.groundColor.set('#756F5B'); light.intensity = .36; }
+    else if (light.isDirectionalLight && light !== sun) { light.color.set('#C0D7E3'); light.intensity = .35; }
   }
   if (sun) {
-    sun.position.set(-11, 13, 9); sun.color.set('#FFE0AC'); sun.intensity = 3.8; sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -11, right: 11, top: 11, bottom: -11, near: .5, far: 45 });
-    sun.shadow.camera.updateProjectionMatrix(); sun.shadow.bias = -.00015; sun.shadow.normalBias = .025;
+    sun.position.set(-12, 10, 8); sun.color.set('#FFEBCC'); sun.intensity = 3.4; sun.castShadow = true;
+    const shadowSize=world.quality?.software?512:2048;sun.shadow.mapSize.set(shadowSize,shadowSize); Object.assign(sun.shadow.camera, { left: -13, right: 13, top: 13, bottom: -13, near: .5, far: 50 });
+    sun.shadow.camera.updateProjectionMatrix(); sun.shadow.bias = -.00012; sun.shadow.normalBias = .015; sun.shadow.radius = 5.5;
   }
-  const officeBounce = new T.PointLight('#D2E5EC', 5, 7, 2); officeBounce.position.set(-4.8, 2, 1.2); root.add(officeBounce);
+  const officeBounce = new T.PointLight('#D2E5EC', 4, 7, 2); officeBounce.position.set(-4.8, 2, 1.2); root.add(officeBounce);
   const garageBounce = new T.PointLight('#FFE7C8', 8, 7, 2); garageBounce.position.set(3, 2.2, 3.9); root.add(garageBounce);
-  let environmentTarget = null, cube = null;
+  let environmentTarget = null, environmentSource = null, carEnvironment = null, carCapture = null;
   if (world.renderer && globalThis.document) {
-    world.renderer.shadowMap.enabled = true; world.renderer.shadowMap.type = T.PCFSoftShadowMap;
-    world.renderer.toneMapping = T.ACESFilmicToneMapping; world.renderer.toneMappingExposure = .98;
+    world.renderer.shadowMap.enabled = true; world.renderer.shadowMap.type = T.PCFShadowMap;
+    world.renderer.toneMapping = T.ACESFilmicToneMapping; world.renderer.toneMappingExposure = 1.06;
     world.renderer.shadowMap.autoUpdate=false;world.renderer.shadowMap.needsUpdate=true;
-    // Large luminous rectangles behave like architectural windows in reflections.
-    const faces = Array.from({length:6},(_,face)=>{
-      const canvas=document.createElement('canvas');canvas.width=canvas.height=256;const ctx=canvas.getContext('2d');
-      const gradient=ctx.createLinearGradient(0,0,0,256);gradient.addColorStop(0,face===3?'#8B9D9F':'#BBD4DF');gradient.addColorStop(.50,'#CFCDBB');gradient.addColorStop(1,'#8F9D93');ctx.fillStyle=gradient;ctx.fillRect(0,0,256,256);
-      if(face===0||face===4){ctx.fillStyle='#FFF7DD';ctx.fillRect(25,22,98,178);ctx.fillStyle='#E4F3F2';ctx.fillRect(137,22,63,178);ctx.fillStyle='#9AABA6';ctx.fillRect(25,114,175,5);}
-      if(face===2){ctx.fillStyle='#FFF6DE';ctx.fillRect(55,55,146,146);}return canvas;
-    });
-    cube = new T.CubeTexture(faces); cube.colorSpace = T.SRGBColorSpace; cube.needsUpdate = true;
-    const generator = new T.PMREMGenerator(world.renderer); environmentTarget = generator.fromCubemap(cube); generator.dispose();
-    world.scene.environment = environmentTarget.texture; world.scene.environmentIntensity = .85;
+    // Linear HDR radiance, rather than clipped painted highlights. The sky lights every material.
+    const w=512,h=256,radiance=new Float32Array(w*h*4);
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+      const elevation=Math.cos(y/h*Math.PI),angle=x/w*Math.PI*2;
+      const horizon=Math.exp(-Math.abs(elevation)*5),sky=Math.max(0,elevation);
+      const sunGlow=Math.pow(Math.max(0,Math.cos(angle-2.55)),48)*Math.exp(-Math.pow((elevation-.35)*8,2));
+      const i=(y*w+x)*4;
+      radiance[i]=.18+sky*.38+horizon*.45+sunGlow*5;
+      radiance[i+1]=.20+sky*.50+horizon*.43+sunGlow*4.2;
+      radiance[i+2]=.20+sky*.67+horizon*.40+sunGlow*3.0;radiance[i+3]=1;
+    }
+    environmentSource=new T.DataTexture(radiance,w,h,T.RGBAFormat,T.FloatType);environmentSource.mapping=T.EquirectangularReflectionMapping;environmentSource.needsUpdate=true;
+    const generator=new T.PMREMGenerator(world.renderer);environmentTarget=generator.fromEquirectangular(environmentSource);
+    world.scene.environment=environmentTarget.texture;world.scene.environmentIntensity=.72;
+    if(!world.quality?.software){
+      carCapture=new T.WebGLCubeRenderTarget(128,{type:T.HalfFloatType});
+      const reflectionCamera=new T.CubeCamera(.1,90,carCapture);reflectionCamera.position.set(3.1,1.05,-.3);
+      car.visible=false;reflectionCamera.update(world.renderer,world.scene);car.visible=true;
+      carEnvironment=generator.fromCubemap(carCapture.texture);
+      car.traverse(node=>{if(node.isMesh&&node.material.isMeshPhysicalMaterial&&node.material.metalness>.1){node.material.envMap=carEnvironment.texture;node.material.envMapIntensity=1.15;}});
+      world.setRenderEffect?.(createHousePhotography(T,world.renderer));
+    }
+    generator.dispose();
+    world.renderer.shadowMap.needsUpdate=true;
   }
   function invalidateShadow(){if(world.renderer?.shadowMap)world.renderer.shadowMap.needsUpdate=true;}
   root.updateMatrixWorld(true);
   const roofMaterials = [];
-  roof.traverse(node => { if (!node.isMesh) return; node.material = node.material.clone(); node.material.transparent = true; materials.add(node.material); roofMaterials.push(node.material); });
+  roof.traverse(node => { if (!node.isMesh) return; node.material = node.material.clone(); node.material.transparent = true; materials.add(node.material);surfaceLibrary.track(node.material); roofMaterials.push(node.material); });
   let roofAmount = 0, roofRevision = 0, notebookAmount = 0;
   function setCutaway(open, { instant = false } = {}) {
     const end = open ? 1 : 0, from = roofAmount, token = ++roofRevision;
@@ -477,11 +499,12 @@ export function buildHouse(world, apps) {
   }
   world.cleanup?.(() => {
     for (const item of materials) item.dispose(); for (const texture of textures) texture.dispose();
+    surfaceLibrary.dispose();landscape.dispose();
     if (world.scene.environment === environmentTarget?.texture) world.scene.environment = null;
-    environmentTarget?.dispose(); cube?.dispose();
+    environmentTarget?.dispose();environmentSource?.dispose();carEnvironment?.dispose();carCapture?.dispose();
   });
   return { roof, entry, car, record, screens, surfaces, shell, obstacles, anchors, setPreview, setCutaway, setNotebook, setInteraction, signalAt,
     bounds: { minX: -6.4, maxX: 6.4, minZ: -4.5, maxZ: 7 },
-    inspectObjects: () => ({ roofAmount, notebookAmount, connected: plug.position.z === -2.50 }),
+    inspectObjects: () => ({ roofAmount, notebookAmount, connected: plug.position.z === -2.50,materialsReady:surfaceLibrary.ready() }),
     inspectPreview: () => ({ ...previewState }) };
 }

@@ -14,7 +14,7 @@ mkdirSync(output, { recursive: true });
 const report = { browser: null, checks: [], screenshots: [], exceptions: [], status: 'running' };
 let chrome, server, socket, profile;
 const MIME = { '.html': 'text/html; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml' };
+  '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.webp': 'image/webp' };
 
 function headersFor(pathname) {
   const headers = {};
@@ -420,7 +420,10 @@ async function run() {
   // V3 verifies physical gestures and camera/relief state in addition to semantic routes.
   const v3State=(concept,app='ensemble',angle='presentation')=>({concept,app,angle:concept==='plan'?'presentation':angle});
   // Read GPU pixels at visual/picking checkpoints, and reuse scene state for other assertions.
-  const v3Inspect=({full=false}={})=>socket.evaluate(full?'window.__siniverseV3.inspect()':'window.__siniverseV3.inspect({fast:true})',full?20000:10000);
+  const v3Inspect=async({full=false}={})=>{
+    if(full)await until('(()=>{const s=window.__siniverseV3.inspect({fast:true}).scene;return s.layout!=="house-v1"||s.objects.materialsReady})()','The local photographic texture maps did not finish loading.');
+    return socket.evaluate(full?'window.__siniverseV3.inspect()':'window.__siniverseV3.inspect({fast:true})',full?20000:10000);
+  };
   async function until(expression,message){
     const poll=expression.replaceAll('window.__siniverseV3.inspect()','window.__siniverseV3.inspect({fast:true})');
     for(let attempt=0;attempt<200;attempt++){if(await socket.evaluate(poll))return;await pause(60);}
