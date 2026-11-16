@@ -81,7 +81,7 @@ export function mountPlan(host,initialState,api){
   const gamingPosition=[-7.88,2.23,-2.45],gamingCutPosition=[-9.4,2.9,-2.45],gamingGuide=world.line([gamingPosition,gamingCutPosition],'#598AA9',.012);gamingGuide.visible=false;gamingGuide.userData.pickThrough=true;
   stationLabels.push({id:'gaming',position:gamingPosition,cutPosition:gamingCutPosition,guide:gamingGuide,handle:world.label(gamingPosition,gamingScreen,{clamp:false})});
   world.addPick(house.gaming.monitor,openGames,{key:'gaming'});world.addPick(house.gaming.pc,openGames,{key:'gaming'});
-  async function openGames(){if(state.room!=='gaming')await navigate({app:'ensemble',room:'gaming'},'plan-gaming-screen');if(!destroyed&&!failed){gamingLibrary.open();api.saveView();}}
+  async function openGames(){if(state.room!=='gaming')await navigate({app:'ensemble',room:'gaming'},'plan-gaming-screen');if(!destroyed&&!failed&&state.room==='gaming'){gamingLibrary.open();api.saveView();}}
 
   previewPanel=document.createElement('aside');previewPanel.className='house-object-preview';previewPanel.hidden=true;previewPanel.setAttribute('aria-live','polite');host.append(previewPanel);
   reader=createPlanReader(host,api,{onNavigate:destination=>openApp(destination.app,destination.angle),onClose:()=>{void closeReader();},onViewChange:()=>api.saveView()});
