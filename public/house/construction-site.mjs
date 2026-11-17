@@ -155,7 +155,8 @@ export function buildConstructionSite(world, kit) {
     ctx.scale(1, 1.78); const h = n / 1.78;
     ctx.fillStyle = '#E1DBC7'; ctx.fillRect(0, 0, n, h); ctx.fillStyle = '#BB9250'; ctx.fillRect(0, 0, n, 23);
     ctx.fillStyle = '#343B37'; ctx.font = 'bold 10px sans-serif'; ctx.fillText('SINIVERSE / CHANTIER EN COURS', 15, 16);
-    ctx.font = 'bold 25px sans-serif'; ctx.fillText('UN MONDE', 16, 63); ctx.fillText('EN CONSTRUCTION.', 16, 93);
+    ctx.font = 'bold 25px sans-serif'; ctx.fillText('UN MONDE', 16, 63);
+    ctx.font = 'bold 22px sans-serif'; ctx.fillText('EN CONSTRUCTION.', 16, 93, n - 32);
     ctx.font = '10px sans-serif'; ctx.fillText('De nouvelles idées prennent forme.', 16, 123);
   }, 256);
   const noticeMaterial = material('#FFFFFF', 'paper').clone(); noticeMaterial.map = notice; materials.add(noticeMaterial);
