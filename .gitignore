@@ -9,3 +9,6 @@ dist/
 *.log
 .DS_Store
 Thumbs.db
+
+# Temporary screenshots from the bounded system-browser CI check.
+/browser-review/
