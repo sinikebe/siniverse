@@ -1,29 +1,35 @@
-name: Concept browser review
+name: House browser review
 
 on:
   pull_request:
     branches: [dev, main]
     types: [opened, synchronize, reopened]
     paths:
-      - 'public/concepts/**'
+      - 'public/house/**'
+      - 'public/assets/house/**'
+      - 'public/index.html'
+      - 'public/_redirects'
       - 'public/_headers'
       - 'tools/build.mjs'
-      - 'tools/check-concepts-browser.mjs'
-      - '.github/workflows/concepts-browser.yml'
+      - 'tools/check-house-browser.mjs'
+      - '.github/workflows/house-browser.yml'
   push:
     branches: [dev]
     paths:
-      - 'public/concepts/**'
+      - 'public/house/**'
+      - 'public/assets/house/**'
+      - 'public/index.html'
+      - 'public/_redirects'
       - 'public/_headers'
       - 'tools/build.mjs'
-      - 'tools/check-concepts-browser.mjs'
-      - '.github/workflows/concepts-browser.yml'
+      - 'tools/check-house-browser.mjs'
+      - '.github/workflows/house-browser.yml'
 
 permissions:
   contents: read
 
 concurrency:
-  group: concept-browser-${{ github.repository }}-${{ github.event.pull_request.number || github.ref }}
+  group: house-browser-${{ github.repository }}-${{ github.event.pull_request.number || github.ref }}
   queue: max
   cancel-in-progress: false
 
@@ -46,12 +52,12 @@ jobs:
       - name: Build review assets and local Three modules
         run: node tools/build.mjs
       - name: Exercise the installed system Chrome without downloads
-        run: node tools/check-concepts-browser.mjs
+        run: node tools/check-house-browser.mjs
       - name: Save small screenshots and the journey report
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: siniverse-concepts-${{ github.run_id }}-${{ github.run_attempt }}
+          name: siniverse-house-${{ github.run_id }}-${{ github.run_attempt }}
           path: browser-review/
           retention-days: 1
           compression-level: 6

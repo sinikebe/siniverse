@@ -3,9 +3,9 @@ body:has(.plan-house){background:#b9c5c7;color:#263e49}
 body:has(.plan-house) #navigation-status{position:fixed;top:0;margin:0}
 body:has(.plan-house) .experience-utilities{position:absolute;inset:0 0 auto;z-index:400;height:76px;padding:0 38px;background:linear-gradient(#d9e0dc66,transparent);border:0;font:10px/1.4 ui-monospace,monospace;letter-spacing:.025em;pointer-events:none}
 body:has(.plan-house) .experience-utilities>*{pointer-events:auto}
-body:has(.plan-house) .v3-footer{position:absolute;inset:auto 0 0;z-index:140;height:44px;padding:10px 38px;display:grid;grid-template-columns:1fr auto auto auto;gap:25px;background:linear-gradient(transparent,#d4dbd477);border:0;color:#253c40;font-size:9px}
-body:has(.plan-house) .v3-footer>a:first-child{font-weight:700;color:#263e49;text-decoration:none;font-size:13px;letter-spacing:-.04em}
-body:has(.plan-house) .v3-footer>a{text-underline-offset:3px}
+body:has(.plan-house) .site-footer{position:absolute;inset:auto 0 0;z-index:140;height:44px;padding:10px 38px;display:grid;grid-template-columns:1fr auto auto auto;gap:25px;background:linear-gradient(transparent,#d4dbd477);border:0;color:#253c40;font-size:9px}
+body:has(.plan-house) .site-footer>a:first-child{font-weight:700;color:#263e49;text-decoration:none;font-size:13px;letter-spacing:-.04em}
+body:has(.plan-house) .site-footer>a{text-underline-offset:3px}
 .plan-host.plan-house{height:100svh;min-height:640px;background:#b9c5c7}
 .plan-house .house-intro{left:40px;top:116px;width:min(360px,29vw);padding:0;background:transparent;border:0;border-radius:0;box-shadow:none;color:#23393d}
 .house-intro>p:first-child{font:9px/1.5 ui-monospace,monospace;letter-spacing:.18em;margin:0 0 17px;color:#687572}
@@ -42,12 +42,12 @@ body:has(.plan-house) .v3-footer>a{text-underline-offset:3px}
 .demo-finapp .demo-horizon{grid-template-rows:14px 34px}
 .demo-finapp .demo-horizon input{height:34px}
 .plan-host.plan-house.plan-is-fallback{height:auto;min-height:calc(100svh - 96px);overflow:visible}
-body:has(.plan-is-fallback) .experience-utilities,body:has(.plan-is-fallback) .v3-footer{position:relative}
+body:has(.plan-is-fallback) .experience-utilities,body:has(.plan-is-fallback) .site-footer{position:relative}
 @media(max-width:760px){
  body:has(.plan-house) .experience-utilities{height:60px;padding-inline:18px;font-size:9px}
- body:has(.plan-house) .v3-footer{height:36px;padding:7px 18px;gap:12px;font-size:8px}
- body:has(.plan-house) .v3-footer>a:first-child{font-size:11px}
- body:has(.plan-house) .v3-footer p{font-size:0}body:has(.plan-house) .v3-footer .app-version{font-size:8px}
+ body:has(.plan-house) .site-footer{height:36px;padding:7px 18px;gap:12px;font-size:8px}
+ body:has(.plan-house) .site-footer>a:first-child{font-size:11px}
+ body:has(.plan-house) .site-footer p{font-size:0}body:has(.plan-house) .site-footer .app-version{font-size:8px}
  .plan-host.plan-house{height:100svh;min-height:640px}
  .plan-house .house-intro{left:24px;top:87px;width:285px}
  .house-intro>p:first-child{font-size:8px;margin-bottom:13px}
@@ -65,8 +65,8 @@ body:has(.plan-is-fallback) .experience-utilities,body:has(.plan-is-fallback) .v
 @media(prefers-reduced-motion:reduce){.plan-house button{transition:none!important}}
 
 /* The gaming wing keeps the shared controls readable against its dark materials. */
-body:has(.plan-house[data-room=gaming]) .experience-utilities,body:has(.plan-house[data-room=gaming]) .v3-footer{color:#dce5f6;background:linear-gradient(#10182d55,transparent)}
-body:has(.plan-house[data-room=gaming]) .v3-footer>a:first-child{color:#e7efff}
+body:has(.plan-house[data-room=gaming]) .experience-utilities,body:has(.plan-house[data-room=gaming]) .site-footer{color:#dce5f6;background:linear-gradient(#10182d55,transparent)}
+body:has(.plan-house[data-room=gaming]) .site-footer>a:first-child{color:#e7efff}
 body:has(.plan-house[data-room=gaming]) .settings-content{color:#263e49}
 .plan-house[data-room=gaming] .plan-instruction{color:#bdcce5}
 .plan-house .gaming-door{background:#283654ef;border-color:#6dc7ed88}

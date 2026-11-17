@@ -26,9 +26,14 @@ createServer(async (request, response) => {
   }
 
   try {
-    const pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
-    if (pathname.startsWith('/concepts/v3/vendor/')) {
-      const name = pathname.slice('/concepts/v3/vendor/'.length);
+    const requestUrl = new URL(request.url, 'http://localhost');
+    const pathname = decodeURIComponent(requestUrl.pathname);
+    if (pathname === '/concepts' || pathname.startsWith('/concepts/')) {
+      response.writeHead(301, { Location: '/' + requestUrl.search });
+      response.end(); return;
+    }
+    if (pathname.startsWith('/house/vendor/')) {
+      const name = pathname.slice('/house/vendor/'.length);
       if (!['three.module.min.js', 'three.core.min.js', 'LICENSE.txt', 'provenance.json'].includes(name)) {
         response.writeHead(404); response.end(); return;
       }

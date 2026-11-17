@@ -1,10 +1,10 @@
 import test, {after} from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import {buildHouse} from '../public/concepts/v3/house-scene.mjs';
-import {APPS} from '../public/concepts/v3/catalog.mjs';
-import {EYE_HEIGHT,canStand,segmentClear,stepOnFloor,lookOnFloor,blendLook,floorPath,pointAlong} from '../public/concepts/v3/house-navigation.mjs';
-import {cleanPose} from '../public/concepts/v3/camera-math.mjs';
+import {buildHouse} from '../public/house/house-scene.mjs';
+import {APPS} from '../public/house/catalog.mjs';
+import {EYE_HEIGHT,canStand,segmentClear,stepOnFloor,lookOnFloor,blendLook,floorPath,pointAlong} from '../public/house/house-navigation.mjs';
+import {cleanPose} from '../public/house/camera-math.mjs';
 import {readFileSync,statSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 

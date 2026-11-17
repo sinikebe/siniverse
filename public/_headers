@@ -4,13 +4,16 @@
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Cache-Control: no-cache
 
 /assets/*
   Cache-Control: public, max-age=3600, must-revalidate
 
-# Interactive concepts only; the homepage keeps script-src 'none'.
-/concepts/*
+# The house loads local code. Other documents remain script-free.
+/
   ! Content-Security-Policy
   Content-Security-Policy: default-src 'none'; style-src 'self'; img-src 'self'; script-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
-  Cache-Control: no-cache
-  X-Robots-Tag: noindex, nofollow
+
+/index.html
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'none'; style-src 'self'; img-src 'self'; script-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
