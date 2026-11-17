@@ -61,5 +61,8 @@ test('only the homepage can execute local scripts and the policy is not accumula
     assert.match(policies(path), /connect-src 'none'/);
     assert.doesNotMatch(policies(path), /unsafe-inline|unsafe-eval|https:/);
   }
-  for (const path of ['/confidentialite.html','/404.html']) assert.match(policies(path), /script-src 'none'/);
+  for (const path of ['/confidentialite','/confidentialite.html','/404.html']) assert.match(policies(path), /script-src 'none'/);
+  const globalBlock=file('public/_headers').split(/\n\s*\n/)[0];
+  assert.doesNotMatch(globalBlock,/Content-Security-Policy/,'Repeated wildcard Preview blocks must not add a second CSP to the house.');
+  assert.match(file('public/404.html'), /http-equiv="Content-Security-Policy"[^>]+script-src 'none'/);
 });

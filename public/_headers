@@ -1,5 +1,4 @@
 /*
-  Content-Security-Policy: default-src 'none'; style-src 'self'; img-src 'self'; script-src 'none'; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
@@ -9,11 +8,19 @@
 /assets/*
   Cache-Control: public, max-age=3600, must-revalidate
 
-# The house loads local code. Other documents remain script-free.
+# Keep document policies on disjoint paths. CI appends another /* Preview rule;
+# repeated wildcard blocks must not reapply a script-blocking policy to the home.
 /
-  ! Content-Security-Policy
   Content-Security-Policy: default-src 'none'; style-src 'self'; img-src 'self'; script-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
 
 /index.html
-  ! Content-Security-Policy
   Content-Security-Policy: default-src 'none'; style-src 'self'; img-src 'self'; script-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
+
+/confidentialite
+  Content-Security-Policy: default-src 'none'; style-src 'self'; img-src 'self'; script-src 'none'; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
+
+/confidentialite.html
+  Content-Security-Policy: default-src 'none'; style-src 'self'; img-src 'self'; script-src 'none'; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
+
+/404.html
+  Content-Security-Policy: default-src 'none'; style-src 'self'; img-src 'self'; script-src 'none'; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests
