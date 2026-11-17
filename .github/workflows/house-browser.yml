@@ -6,22 +6,24 @@ on:
     types: [opened, synchronize, reopened]
     paths:
       - 'public/house/**'
+      - 'public/assets/house/**'
       - 'public/index.html'
       - 'public/_redirects'
       - 'public/_headers'
       - 'tools/build.mjs'
       - 'tools/check-house-browser.mjs'
-      - '.github/workflows/concepts-browser.yml'
+      - '.github/workflows/house-browser.yml'
   push:
     branches: [dev]
     paths:
       - 'public/house/**'
+      - 'public/assets/house/**'
       - 'public/index.html'
       - 'public/_redirects'
       - 'public/_headers'
       - 'tools/build.mjs'
       - 'tools/check-house-browser.mjs'
-      - '.github/workflows/concepts-browser.yml'
+      - '.github/workflows/house-browser.yml'
 
 permissions:
   contents: read
