@@ -2,6 +2,7 @@ import { createSurfaceLibrary, setMetreUV, smoothSurfaceNormals } from './house-
 import { buildLandscape } from './house-landscape.mjs';
 import { createHousePhotography } from './house-photography.mjs';
 import { buildGamingRoom } from './gaming-room.mjs';
+import { buildConstructionSite } from './construction-site.mjs';
 
 // A small, tangible house. All coordinates are metres; navigation belongs to Plan.
 export function buildHouse(world, apps) {
@@ -132,6 +133,7 @@ export function buildHouse(world, apps) {
   world.scene.background = new T.Color('#B9C5C7');
   world.scene.fog = new T.FogExp2('#B9C5C7', .013);
   const landscape = buildLandscape(T, world.scene, surfaceLibrary,world.quality);
+  const construction = buildConstructionSite(world, { root: landscape.root, mesh, curve, material, canvasTexture, roundedGeometry, contact, materials, heightAt: landscape.heightAt });
   box([11.1, .19, 7.7], '#D8DDD8', [0, -.16, 0], root, 'house-approach-ground', 'stone', .025);
   box([4.45,.09,2.8], '#D5D9D4', [3.05,-.13,4.92],root,'house-driveway','stone',.025);
   for(const z of [4.18,4.98,5.78,6.58])box([1.34,.10,.66],'#DEE0D8',[-2.3,-.11,z],root,'house-entry-paving','stone',.018);
@@ -507,8 +509,9 @@ export function buildHouse(world, apps) {
     if (world.scene.environment === environmentTarget?.texture) world.scene.environment = null;
     environmentTarget?.dispose();environmentSource?.dispose();carEnvironment?.dispose();carCapture?.dispose();
   });
-  return { roof, entry, car, record, screens, surfaces, shell, obstacles, anchors, gaming, setPreview, setCutaway, setNotebook, setInteraction, signalAt,
+  return { roof, entry, car, record, screens, surfaces, shell, obstacles, anchors, gaming, construction, setPreview, setCutaway, setNotebook, setInteraction, signalAt,
     bounds: { minX: -10.7, maxX: 6.4, minZ: -4.5, maxZ: 7 },
     inspectObjects: () => ({ roofAmount, notebookAmount, connected: plug.position.z === -2.50,materialsReady:surfaceLibrary.ready() }),
+    inspectConstruction: () => ({ excavator: world.projectBounds?.(construction.excavator), crane: world.projectBounds?.(construction.crane) }),
     inspectPreview: () => ({ ...previewState }) };
 }

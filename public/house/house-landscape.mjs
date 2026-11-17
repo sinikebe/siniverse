@@ -1,10 +1,22 @@
+import { WORK_AREAS } from './construction-site.mjs';
 // A mineral garden, authored for this house. Planting stays outside the walking bounds.
 export function buildLandscape(T, scene, surfaces, {software=false}={}) {
   const root = new T.Group(); root.name = 'house-landscape'; scene.add(root);
   const resources = [], hash = n => { const v = Math.sin(n * 127.1) * 43758.5453; return v - Math.floor(v); };
-  const heightAt = (x, z) => {
+  const naturalHeight = (x, z) => {
     const away = Math.max(0, Math.min(1, (Math.max(Math.abs(x) / 12, Math.abs(z - 1) / 9) - 1) / 2));
     return -.25 + away * (.5 + Math.sin(x * .12 + z * .06) * .8 + Math.sin(z * .19 - x * .08) * .55);
+  };
+  const inWorkArea = (x, z, padding = 0) => WORK_AREAS.some(area => Math.abs(x - area.x) < area.width / 2 + padding && Math.abs(z - area.z) < area.depth / 2 + padding);
+  const heightAt = (x, z) => {
+    let value = naturalHeight(x, z);
+    for (const area of WORK_AREAS) {
+      const edge = Math.max(Math.abs(x - area.x) / (area.width / 2), Math.abs(z - area.z) / (area.depth / 2));
+      const blend = Math.max(0, Math.min(1, (1.15 - edge) / .3));
+      const smooth = blend * blend * (3 - 2 * blend);
+      value += (naturalHeight(area.x, area.z) - value) * smooth;
+    }
+    return value;
   };
   const segments=software?64:160;
   const ground = new T.PlaneGeometry(180, 180, segments, segments); ground.rotateX(-Math.PI / 2);
@@ -36,6 +48,7 @@ export function buildLandscape(T, scene, surfaces, {software=false}={}) {
     let x = Math.cos(angle) * distance;const z = Math.sin(angle) * distance - 1;
     const size = .3 + Math.pow(hash(i + 120), 2) * 1.6;
     if(x>-11.2-size&&x<6.9+size&&z>-5.1-size&&z<8.2+size)x=x<0?-11.5-size:7.2+size;
+    if(inWorkArea(x,z,size*1.4))x=-21-size*1.5;
     matrix.compose(new T.Vector3(x, heightAt(x, z) + size * .19, z), q.setFromAxisAngle(up, angle), new T.Vector3(size * 1.35, size * .55, size));
     rocks.setMatrixAt(i, matrix);
   }
@@ -64,6 +77,7 @@ export function buildLandscape(T, scene, surfaces, {software=false}={}) {
     let x = Math.cos(angle) * distance, z = Math.sin(angle) * distance;
     // An open approach and the complete navigation rectangle remain free of planting.
     if (x>-11.2&&x<6.9&&z>-5.1&&z<8.2) { x=x<0?-11.5-Math.abs(x)*.25:7.2+x; }
+    if(inWorkArea(x,z,.6))x=-21-Math.abs(x)*.15;
     const scale = .45 + hash(i + 1100) * .9;
     matrix.compose(new T.Vector3(x, heightAt(x, z), z), q.setFromAxisAngle(up, angle), new T.Vector3(scale, scale, scale));
     grass.setMatrixAt(i, matrix); grass.setColorAt(i, tint.setHSL(.13 + hash(i + 1500) * .035, .12 + hash(i + 1800) * .20, .40 + hash(i + 2100) * .25));
@@ -81,5 +95,5 @@ export function buildLandscape(T, scene, surfaces, {software=false}={}) {
     const m = new T.MeshBasicMaterial({ color: ['#879590', '#99A7A2', '#AFBAB6'][layer], side: T.DoubleSide }); resources.push(m);
     const hill = new T.Mesh(ridge, m); hill.position.set(0, 0, -52 - layer * 16); hill.userData.pickThrough = true; root.add(hill);
   }
-  return { root, dispose() { for (const m of resources) m.dispose();root.traverse(node=>node.geometry?.dispose());root.removeFromParent(); } };
+  return { root, heightAt, dispose() { for (const m of resources) m.dispose();root.traverse(node=>node.geometry?.dispose());root.removeFromParent(); } };
 }

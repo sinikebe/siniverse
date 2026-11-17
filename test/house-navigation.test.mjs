@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {buildHouse} from '../public/house/house-scene.mjs';
 import {APPS} from '../public/house/catalog.mjs';
+import {WORK_AREAS} from '../public/house/construction-site.mjs';
 import {EYE_HEIGHT,canStand,segmentClear,stepOnFloor,lookOnFloor,blendLook,floorPath,pointAlong} from '../public/house/house-navigation.mjs';
 import {cleanPose} from '../public/house/camera-math.mjs';
 import {readFileSync,statSync} from 'node:fs';
@@ -139,6 +140,31 @@ test('the planted landscape leaves the complete walking rectangle unobstructed',
   for(let i=0;i<grass.count;i++){
     grass.getMatrixAt(i,matrix);position.setFromMatrixPosition(matrix);
     assert(position.x<bounds.minX||position.x>bounds.maxX||position.z<bounds.minZ||position.z>bounds.maxZ);
+  }
+});
+
+test('construction scenery leaves all walking routes open and its tracks sit on the ground',()=>{
+  const site=scene.getObjectByName('construction-site');assert(site);
+  site.updateMatrixWorld(true);
+  site.traverse(node=>{
+    if(!node.isMesh)return;
+    const box=new THREE.Box3().setFromObject(node);
+    assert([...box.min.toArray(),...box.max.toArray()].every(Number.isFinite),node.name+' has invalid bounds.');
+    assert(box.max.x<bounds.minX||box.min.x>bounds.maxX||box.max.z<bounds.minZ||box.min.z>bounds.maxZ||box.min.y>2.8,node.name+' enters the walking clearance.');
+  });
+  const tracks=new THREE.Box3().setFromObject(site.getObjectByName('excavator-track-shoes'));
+  assert(Math.abs(tracks.min.y-house.construction.excavator.position.y)<.04,'The machine floats above its working pad.');
+  assert(site.getObjectByName('crane-lattice-diagonals').isInstancedMesh);
+});
+
+test('the working pads are free of grass clumps and garden boulders',()=>{
+  const matrix=new THREE.Matrix4(),position=new THREE.Vector3();
+  for(const name of ['house-garden-grasses','house-garden-boulders']){
+    const instances=scene.getObjectByName(name);
+    for(let i=0;i<instances.count;i++){
+      instances.getMatrixAt(i,matrix);position.setFromMatrixPosition(matrix);
+      for(const area of WORK_AREAS)assert(Math.abs(position.x-area.x)>=area.width/2||Math.abs(position.z-area.z)>=area.depth/2,name+' intersects a working pad.');
+    }
   }
 });
 

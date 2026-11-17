@@ -9,7 +9,7 @@ import { EYE_HEIGHT, canStand, segmentClear, stepOnFloor, lookOnFloor, blendLook
 const APPROACH={position:[-2.3,EYE_HEIGHT,5.7],target:[-2.3,EYE_HEIGHT,1.8]};
 const BUREAU={position:[-2.85,EYE_HEIGHT,2.7],target:[-2.85,1.5,-2.6]};
 const OVERVIEW={position:[13,6.8,19],target:[-3.1,1.4,.25]};
-const MOBILE_OVERVIEW={position:[15,9.2,21],target:[-2.2,1.5,0]};
+const MOBILE_OVERVIEW={position:[18,9.2,26],target:[-5,0,0]};
 const GARAGE_PASSAGE={position:[1.65,EYE_HEIGHT,1.65],target:[3.1,1,-.3]};
 const CAR_VIEW={position:[1.75,EYE_HEIGHT,4.9],target:[2.73,1.05,1.07]};
 const button=(id,label,className='')=>{const b=document.createElement('button');b.type='button';b.id=id;b.textContent=label;b.className=className;return b;};
@@ -50,7 +50,7 @@ export function mountPlan(host,initialState,api){
     const p=world.getPose().position,inside=p[0]>-5.3&&p[0]<5.3&&p[2]>-3.6&&p[2]<3.6;
     const gaming=p[0]>-9.65&&p[0]<-5.19&&p[2]>-3.6&&p[2]<3.6;
     host.dataset.room=gaming&&mode==='walk'?'gaming':'house';
-    gamingEntryLabel?.setPosition([-7.45,isMobile()?3.7:2.46,3.83]);gamingEntryLabel?.setEnabled(!(mode==='overview'&&roofOpen));
+    gamingEntryLabel?.setPosition([-7.45,isMobile()?5.2:2.46,3.83]);gamingEntryLabel?.setEnabled(!(mode==='overview'&&roofOpen));
     entranceLabel?.setEnabled(!(mode==='overview'&&roofOpen));
     hud.querySelector('#plan-location').textContent=mode==='overview'?'La maison / vue d’ensemble':gaming?'Dans la salle gaming':inside?(p[0]<.8?'Dans le bureau':'Dans le garage'):'Devant la maison';
     introduction.hidden=mode!=='overview'||state.app!=='ensemble';hud.querySelector('#plan-enter-house').hidden=mode==='walk';
@@ -78,7 +78,7 @@ export function mountPlan(host,initialState,api){
   if(house.entry)world.addPick(house.entry,()=>enterHouse(),{key:'entry'});
   const gamingEntry=button('plan-gaming-entry','Salle gaming →','house-door gaming-door');gamingEntry.addEventListener('click',()=>navigate({app:'ensemble',room:'gaming'}));gamingEntryLabel=world.label([-7.45,2.46,3.83],gamingEntry,{clamp:false});
   const gamingScreen=button('plan-gaming-screen','Les jeux','house-station gaming-station');gamingScreen.setAttribute('aria-label','La bibliothèque de jeux');gamingScreen.setAttribute('aria-haspopup','dialog');gamingScreen.setAttribute('aria-controls','gaming-library');gamingScreen.addEventListener('click',openGames);
-  const gamingPosition=[-7.88,2.23,-2.45],gamingCutPosition=[-10.4,2.7,-2.45],gamingGuide=world.line([gamingPosition,gamingCutPosition],'#598AA9',.012);gamingGuide.visible=false;gamingGuide.userData.pickThrough=true;
+  const gamingPosition=[-7.88,2.23,-2.45],gamingCutPosition=[-12.2,2.7,-2.45],gamingGuide=world.line([gamingPosition,gamingCutPosition],'#598AA9',.012);gamingGuide.visible=false;gamingGuide.userData.pickThrough=true;
   stationLabels.push({id:'gaming',position:gamingPosition,cutPosition:gamingCutPosition,guide:gamingGuide,handle:world.label(gamingPosition,gamingScreen,{clamp:false})});
   world.addPick(house.gaming.monitor,openGames,{key:'gaming'});world.addPick(house.gaming.pc,openGames,{key:'gaming'});
   async function openGames(){if(state.room!=='gaming')await navigate({app:'ensemble',room:'gaming'},'plan-gaming-screen');if(!destroyed&&!failed&&state.room==='gaming'){gamingLibrary.open();api.saveView();}}
@@ -259,5 +259,5 @@ export function mountPlan(host,initialState,api){
     if(token!==revision||failed)return;drawWorld();world.requestRender();
   }
   function pickInfo(app,point){const screen=world.project(point);return {app,screen,blocker:world.probe(screen.x,screen.y).intersections[0]?.name||null,occluded:!world.visiblePoint(point)};}
-  return {update,snapshot:()=>({layout:'house-v1',mode,pose:world.getPose(),roofOpen,gamingOpen:gamingLibrary.isOpen(),readerOpen:reader.isOpen(),readerScroll:reader.scrollTop(),sourceFocus,returnPose,previewApp,demo:demos.snapshot()}),inspect:options=>({...world.inspect(options),layout:'house-v1',mode,room:mode==='overview'?'outside':world.getPose().position[0]<-5.19?'gaming':world.getPose().position[0]<.8?'bureau':'garage',app:state.app,roofOpen,dragging,lastPick,previewApp,previewPhase,preview:house.inspectPreview?.(),reader:reader.inspect(),demo:demos.inspect(),objects:house.inspectObjects(),gaming:{open:gamingLibrary.isOpen()},blockedMoves,journey:lastJourney,journeyClear:lastJourney.slice(1).every((p,i)=>segmentClear([lastJourney[i][0],lastJourney[i][2]],[p[0],p[2]],obstacles,bounds)),obstacles,bounds,stations:Object.keys(api.apps),pickTargets:options?.fast?[]:[...[[0,.75,1.95],[-.8,.7,.9],[.8,.7,.9]].map(p=>pickInfo('garapp',house.car.localToWorld(new THREE.Vector3(...p)))),...Object.entries(house.surfaces).map(([app,s])=>pickInfo(app,new THREE.Vector3(...s.position)))]}),destroy(){destroyed=true;revision++;for(const fn of cleanups)fn();demos?.destroy();reader?.destroy();gamingLibrary.destroy();world.destroy();host.replaceChildren();host.classList.remove('plan-host','plan-house');}};
+  return {update,snapshot:()=>({layout:'house-v1',mode,pose:world.getPose(),roofOpen,gamingOpen:gamingLibrary.isOpen(),readerOpen:reader.isOpen(),readerScroll:reader.scrollTop(),sourceFocus,returnPose,previewApp,demo:demos.snapshot()}),inspect:options=>({...world.inspect(options),layout:'house-v1',mode,room:mode==='overview'?'outside':world.getPose().position[0]<-5.19?'gaming':world.getPose().position[0]<.8?'bureau':'garage',app:state.app,roofOpen,dragging,lastPick,previewApp,previewPhase,preview:house.inspectPreview?.(),reader:reader.inspect(),demo:demos.inspect(),objects:house.inspectObjects(),construction:options?.fast?null:house.inspectConstruction(),gaming:{open:gamingLibrary.isOpen()},blockedMoves,journey:lastJourney,journeyClear:lastJourney.slice(1).every((p,i)=>segmentClear([lastJourney[i][0],lastJourney[i][2]],[p[0],p[2]],obstacles,bounds)),obstacles,bounds,stations:Object.keys(api.apps),pickTargets:options?.fast?[]:[...[[0,.75,1.95],[-.8,.7,.9],[.8,.7,.9]].map(p=>pickInfo('garapp',house.car.localToWorld(new THREE.Vector3(...p)))),...Object.entries(house.surfaces).map(([app,s])=>pickInfo(app,new THREE.Vector3(...s.position)))]}),destroy(){destroyed=true;revision++;for(const fn of cleanups)fn();demos?.destroy();reader?.destroy();gamingLibrary.destroy();world.destroy();host.replaceChildren();host.classList.remove('plan-host','plan-house');}};
 }
