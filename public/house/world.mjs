@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.min.js';
-import { cleanPose } from './camera-math.mjs';
+import { cleanPose, projectedBounds } from './camera-math.mjs';
 export { THREE };
 export function createWorld(host,{reducedMotion=false,onContextLost=()=>{},cartoon=false,minCameraHeight=2,minCameraDistance=2,mobileFov=62,desktopFov=43,pixelBudget=Infinity}={}){
   const canvas=document.createElement('canvas');canvas.className='plan-canvas';canvas.tabIndex=0;
@@ -54,7 +54,7 @@ export function createWorld(host,{reducedMotion=false,onContextLost=()=>{},carto
     }
     for(const item of surfaces)projectSurface(item,rect);
   }
-  function visibleObject(object,includeDecor=false){for(let node=object;node;node=node.parent)if(!node.visible)return false;return object.isMesh&&(includeDecor||!object.userData.pickThrough)&&!(object.material?.opacity<=.02);}
+  function visibleObject(object){for(let node=object;node;node=node.parent)if(!node.visible)return false;return object.isMesh&&!object.userData.pickThrough&&!(object.material?.opacity<=.02);}
   function intersections(){const candidates=[];scene.traverse(object=>{if(visibleObject(object))candidates.push(object);});return raycaster.intersectObjects(candidates,false);}
   function pickedRoot(object){return picks.find(p=>{for(let node=object;node;node=node.parent)if(node===p.mesh)return true;return false;});}
   function visiblePoint(point){const direction=point.clone().sub(camera.position),distance=direction.length();raycaster.set(camera.position,direction.normalize());raycaster.near=0;raycaster.far=Math.max(0,distance-.035);const clear=intersections().length===0;raycaster.far=Infinity;return clear;}
@@ -131,13 +131,10 @@ export function createWorld(host,{reducedMotion=false,onContextLost=()=>{},carto
     const first=intersections()[0],item=first&&pickedRoot(first.object);
     return item?{key:item.key,name:item.mesh.name,point:first.point.toArray()}:null;
   }
-  function projectBounds(object,{includeDecor=false}={}){
+  function projectBounds(object,options={}){
     if(!object)return null;
     const rect=canvas.getBoundingClientRect();camera.aspect=rect.width/Math.max(1,rect.height);camera.updateProjectionMatrix();camera.updateMatrixWorld();object.updateWorldMatrix(true,true);
-    const bounds=new THREE.Box3();object.traverse(node=>{if(!visibleObject(node,includeDecor)||!node.geometry)return;if(node.isInstancedMesh){node.computeBoundingBox();bounds.union(node.boundingBox.clone().applyMatrix4(node.matrixWorld));}else{node.geometry.computeBoundingBox();bounds.union(node.geometry.boundingBox.clone().applyMatrix4(node.matrixWorld));}});
-    if(bounds.isEmpty())return null;
-    const points=[];for(const x of [bounds.min.x,bounds.max.x])for(const y of [bounds.min.y,bounds.max.y])for(const z of [bounds.min.z,bounds.max.z]){const p=new THREE.Vector3(x,y,z).project(camera);if(p.z>-1&&p.z<1)points.push({x:rect.left+(p.x*.5+.5)*rect.width,y:rect.top+(-p.y*.5+.5)*rect.height});}
-    if(!points.length)return null;const x=Math.min(...points.map(p=>p.x)),y=Math.min(...points.map(p=>p.y));return {x,y,width:Math.max(...points.map(p=>p.x))-x,height:Math.max(...points.map(p=>p.y))-y};
+    return projectedBounds(object,camera,rect,options);
   }
   function probe(clientX,clientY){
     const r=canvas.getBoundingClientRect();

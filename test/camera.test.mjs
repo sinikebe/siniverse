@@ -1,8 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {cleanPose,orbitPose,zoomPose,dragTracker} from '../public/house/camera-math.mjs';
+import {cleanPose,orbitPose,zoomPose,dragTracker,projectedBounds} from '../public/house/camera-math.mjs';
+import * as THREE from 'three';
 import {threeAssets} from '../tools/three-assets.mjs';
 const initial={position:[15,12,20],target:[0,0,0]};
+test('screen bounds include each instance and allow visible decoration without making it pickable',()=>{
+  const camera=new THREE.OrthographicCamera(-10,10,10,-10,.1,100);camera.position.set(0,0,20);camera.lookAt(0,0,0);camera.updateMatrixWorld(true);
+  const geometry=new THREE.BoxGeometry(2,2,2),material=new THREE.MeshBasicMaterial(),objects=new THREE.InstancedMesh(geometry,material,2);
+  objects.setMatrixAt(0,new THREE.Matrix4().makeTranslation(-4,0,0));objects.setMatrixAt(1,new THREE.Matrix4().makeTranslation(4,0,0));objects.userData.pickThrough=true;
+  const rect={left:0,top:0,width:100,height:100};
+  assert.equal(projectedBounds(objects,camera,rect,{precise:true}),null);
+  const actual=projectedBounds(objects,camera,rect,{precise:true,includeDecor:true});
+  for(const [key,value]of Object.entries({x:25,y:45,width:50,height:10}))assert(Math.abs(actual[key]-value)<1e-7);
+  objects.visible=false;assert.equal(projectedBounds(objects,camera,rect,{precise:true,includeDecor:true}),null);
+  geometry.dispose();material.dispose();
+});
 test('camera orbit remains finite, bounded above ground and keeps its centre',()=>{
   let pose=initial;
   for(let i=0;i<200;i++){pose=orbitPose(pose,.18,i%2?.15:-.17);assert(pose.position.every(Number.isFinite));assert(pose.position[1]>1);assert.deepEqual(pose.target,[0,0,0]);}

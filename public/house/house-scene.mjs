@@ -512,6 +512,6 @@ export function buildHouse(world, apps) {
   return { roof, entry, car, record, screens, surfaces, shell, obstacles, anchors, gaming, construction, setPreview, setCutaway, setNotebook, setInteraction, signalAt,
     bounds: { minX: -10.7, maxX: 6.4, minZ: -4.5, maxZ: 7 },
     inspectObjects: () => ({ roofAmount, notebookAmount, connected: plug.position.z === -2.50,materialsReady:surfaceLibrary.ready() }),
-    inspectConstruction: () => ({ excavator: world.projectBounds?.(construction.excavator,{includeDecor:true}), crane: world.projectBounds?.(construction.crane,{includeDecor:true}) }),
+    inspectConstruction: () => ({ excavator: world.projectBounds?.(construction.excavator,{includeDecor:true,precise:true}), crane: world.projectBounds?.(construction.crane,{includeDecor:true,precise:true}) }),
     inspectPreview: () => ({ ...previewState }) };
 }
