@@ -234,6 +234,12 @@ async function run() {
     await socket.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile});
     await navigate(rootHome);
     let inspected=await houseInspect({full:true});assert.equal(inspected.scene.kind,'webgl2');assert(inspected.scene.triangles>500&&inspected.scene.pixelColors>2);
+    for(const name of ['excavator','crane']){
+      const b=inspected.scene.construction[name];
+      assert(b&&b.width>12&&b.height>20&&b.x>=0&&b.x+b.width<=width&&b.y>=12&&b.y+b.height>76&&b.y<height-80,'Construction scenery is outside the '+format+' opening shot: '+name+' '+JSON.stringify(b));
+    }
+    assert.equal(inspected.scene.animationCount,0,'The static construction site introduced an animation loop.');
+    report.checks.push('Chantier/'+format+': pelleteuse et grue visibles dès l’accueil, décor statique');
     await screenshot('house-exterior-'+format,width);
     const overviewPose=(await houseInspect()).scene.pose,overviewUrl=await socket.evaluate('location.href'),overviewHistory=await socket.evaluate('history.length');
     const overviewGesture=await canvasPoint('#plan-canvas');await dragPoint(overviewGesture,{x:overviewGesture.x+40,y:overviewGesture.y+10},{touch:mobile});

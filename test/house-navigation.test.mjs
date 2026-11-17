@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {buildHouse} from '../public/house/house-scene.mjs';
 import {APPS} from '../public/house/catalog.mjs';
+import {WORK_AREAS} from '../public/house/construction-site.mjs';
 import {EYE_HEIGHT,canStand,segmentClear,stepOnFloor,lookOnFloor,blendLook,floorPath,pointAlong} from '../public/house/house-navigation.mjs';
-import {cleanPose} from '../public/house/camera-math.mjs';
+import {cleanPose,projectedBounds} from '../public/house/camera-math.mjs';
 import {readFileSync,statSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 
@@ -139,6 +140,41 @@ test('the planted landscape leaves the complete walking rectangle unobstructed',
   for(let i=0;i<grass.count;i++){
     grass.getMatrixAt(i,matrix);position.setFromMatrixPosition(matrix);
     assert(position.x<bounds.minX||position.x>bounds.maxX||position.z<bounds.minZ||position.z>bounds.maxZ);
+  }
+});
+
+test('construction scenery leaves all walking routes open and its tracks sit on the ground',()=>{
+  const site=scene.getObjectByName('construction-site');assert(site);
+  site.updateMatrixWorld(true);
+  site.traverse(node=>{
+    if(!node.isMesh)return;
+    const box=new THREE.Box3().setFromObject(node);
+    assert([...box.min.toArray(),...box.max.toArray()].every(Number.isFinite),node.name+' has invalid bounds.');
+    assert(box.max.x<bounds.minX||box.min.x>bounds.maxX||box.max.z<bounds.minZ||box.min.z>bounds.maxZ||box.min.y>2.8,node.name+' enters the walking clearance.');
+  });
+  const tracks=new THREE.Box3().setFromObject(site.getObjectByName('excavator-track-shoes'));
+  assert(Math.abs(tracks.min.y-house.construction.excavator.position.y)<.04,'The machine floats above its working pad.');
+  assert(site.getObjectByName('crane-lattice-diagonals').isInstancedMesh);
+});
+
+test('the working pads are free of grass clumps and garden boulders',()=>{
+  const matrix=new THREE.Matrix4(),position=new THREE.Vector3();
+  for(const name of ['house-garden-grasses','house-garden-boulders']){
+    const instances=scene.getObjectByName(name);
+    for(let i=0;i<instances.count;i++){
+      instances.getMatrixAt(i,matrix);position.setFromMatrixPosition(matrix);
+      for(const area of WORK_AREAS)assert(Math.abs(position.x-area.x)>=area.width/2||Math.abs(position.z-area.z)>=area.depth/2,name+' intersects a working pad.');
+    }
+  }
+});
+
+test('the actual construction meshes fit both opening cameras without empty-box clipping',()=>{
+  for(const [width,height,position,target,fov]of [[1365,900,[13,6.8,19],[-3.1,1.4,.25],50],[390,740,[18,9.2,26],[-5,0,0],78]]){
+    const camera=new THREE.PerspectiveCamera(fov,width/height,.1,160);camera.position.set(...position);camera.lookAt(new THREE.Vector3(...target));camera.updateMatrixWorld(true);
+    for(const object of [house.construction.excavator,house.construction.crane]){
+      const b=projectedBounds(object,camera,{left:0,top:0,width,height},{precise:true,includeDecor:true});
+      assert(b&&b.x>=0&&b.x+b.width<=width&&b.y>=12&&b.y+b.height<height-80,object.name+' is clipped: '+JSON.stringify(b));
+    }
   }
 });
 
