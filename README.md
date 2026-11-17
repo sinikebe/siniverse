@@ -8,7 +8,7 @@ La page d’accueil de **[siniverse.cc](https://siniverse.cc)** : un point d’e
 | Garapp | Suivre ses véhicules, interventions, composants, carburant, assurance et dépenses. | [garapp.siniverse.cc](https://garapp.siniverse.cc) |
 | Branchlab | Représenter ses appareils, ports et câbles pour comprendre les compatibilités et les limites des connexions vidéo directes. | [branchlab.siniverse.cc](https://branchlab.siniverse.cc) |
 
-Site statique en français, responsive et utilisable sans JavaScript côté visiteur. Aucune dépendance chargée par la page, aucun compte, aucun traceur, aucune police externe. Les illustrations de la page sont des exemples fictifs, pas des captures de données utilisateur.
+L’accueil est une maison 3D en plan-séquence : bureau, garage et salle gaming. Les ressources, textures et modules Three.js sont locaux ; aucun compte, traceur ou police externe. Sans JavaScript, les liens vers les applications restent accessibles ; sans WebGL, une présentation textuelle prend le relais. Les démonstrations sont fictives et n’accèdent à aucune donnée applicative. Voir [le parcours et ses liens directs](docs/house.md).
 
 ## CI et déploiement sur Cloudflare Workers
 
@@ -26,7 +26,7 @@ Le workflow `.github/workflows/ci.yml` utilise les runners Linux hébergés par
 GitHub, Node.js **24.22.2**, npm **11.19.1** et Wrangler **4.161.0**, épinglés dans `.node-version`, `package.json` et
 `package-lock.json`. Il installe les dépendances avec `npm ci`, vérifie la syntaxe,
 exécute les tests du site et de l’API, puis valide le paquet statique avec
-`wrangler deploy --dry-run` pour le site et l’API. Le site n’a pas de compilation front-end.
+`wrangler deploy --dry-run` pour le site et l’API. Le build prépare les modules Three.js locaux et injecte la version CI dans le footer sans modifier les sources.
 
 | Déclencheur | Résultat après validation |
 | --- | --- |
@@ -112,12 +112,13 @@ npm run build
 
 ## Modifier la page ou ajouter une application
 
-- `public/index.html` : contenu, liens et cartes des applications. Ajouter un nouvel `<article class="project-card">` dans `.project-grid` pour présenter un autre projet ; la grille s’adapte au nombre de cartes.
-- `public/assets/site.css` : mise en page, couleurs et affichage mobile. Chaque carte peut définir `--accent`, `--tint` et `--accent-light` pour son identité.
-- `public/assets/` : logos SVG locaux. Les logos Finapp et Garapp reprennent ceux de leurs applications ; Branchlab possède une icône de branchement.
-- `public/_headers` : politique de contenu et en-têtes servis par Workers Static Assets. La page ne charge pas de scripts ni de ressources externes ; réviser cette politique si ces besoins changent.
+- `public/index.html` : accueil unique, liens accessibles sans JavaScript et métadonnées.
+- `public/house/` : scène, navigation, lectures, jeux et styles de la maison. `catalog.mjs` contient les présentations des applications ; `gaming-library.mjs` prépare les futurs jeux.
+- `public/assets/house/` : textures locales et provenance. `public/assets/site.css` habille la confidentialité et la page 404.
+- `public/_headers` : politique de contenu locale de l’accueil ; les autres pages n’exécutent pas de scripts.
+- `public/_redirects` : anciens liens des concepts redirigés vers l’accueil. Les anciens concepts, leurs sélecteurs et leur rotation ont été retirés.
 - `public/404.html` : page d'erreur pour les chemins inconnus.
 - `public/confidentialite.html` : politique de confidentialité des applications et de la connexion facultative à Google Drive.
 - `public/robots.txt` et `public/sitemap.xml` : découverte par les moteurs de recherche.
 
-Conserver des liens HTTPS vers les versions de production et ne jamais ajouter de données personnelles, de sauvegardes, de jetons ou de secrets dans ce dépôt. Pour un projet sans adresse publique confirmée, afficher « En préparation » sans lien d’accès ni lien vers un dépôt privé. La section des principes présente les fonctions disponibles dans Finapp et Garapp.
+Conserver des liens HTTPS vers les versions de production et ne jamais ajouter de données personnelles, de sauvegardes, de jetons ou de secrets dans ce dépôt. Pour un projet sans adresse publique confirmée, afficher « En préparation » sans lien d’accès ni lien vers un dépôt privé.

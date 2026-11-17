@@ -24,14 +24,14 @@ export function createPlanReader(host,api,{onNavigate,onClose,onViewChange=()=>{
       else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
     }
   });
-  function setContent(app,angle,{scrollTop=0,focus=false}={}){
-    angle='presentation';current={app,angle};dialog.dataset.app=app;dialog.dataset.angle=angle;
-    const content=api.content(app,angle),name=api.apps[app].name;
+  function setContent(app,{scrollTop=0,focus=false}={}){
+    current={app};dialog.dataset.app=app;
+    const content=api.content(app),name=api.apps[app].name;
     dialog.querySelector('.reader-return-label').textContent=app==='garapp'?'Revenir au véhicule':'Revenir à l’écran';
     exit.href=api.apps[app].url;exit.textContent='Ouvrir '+name+' ↗';
     scroll.setAttribute('aria-label','Lecture de '+name);
     scroll.innerHTML='<div class="plan-reader-content"><article><header class="plan-reader-heading"><p class="reader-eyebrow">'+api.escape(name)+' / '+api.escape(content.eyebrow)+'</p><h1 id="plan-reader-title" tabindex="-1">'+api.escape(content.title)+'</h1></header><div class="plan-reader-layout"><div class="plan-reader-prose">'+content.body.map(p=>'<p>'+api.escape(p)+'</p>').join('')+(content.facts?.length?'<dl class="plan-reader-facts">'+content.facts.map(f=>'<div><dt>'+api.escape(f.label)+'</dt><dd>'+api.escape(f.value)+'</dd></div>').join('')+'</dl>':'')+(content.related?'<button type="button" id="plan-reader-related">'+api.escape(content.related.label)+' <span aria-hidden="true">→</span></button>':'')+'</div><figure class="plan-reader-figure">'+illustration(app)+'</figure></div><footer class="plan-reader-foot"><a class="reader-launch" href="'+api.apps[app].url+'">Continuer dans '+api.escape(name)+' <span aria-hidden="true">↗</span></a><span>Le portail vous ramène à votre point de départ.</span></footer></article></div>';
-    scroll.querySelector('#plan-reader-related')?.addEventListener('click',()=>onNavigate({app:content.related.app,angle:'presentation'}));
+    scroll.querySelector('#plan-reader-related')?.addEventListener('click',()=>onNavigate({app:content.related.app}));
     scroll.scrollTo({top:scrollTop,left:0,behavior:'instant'});
     if(focus)dialog.querySelector('#plan-reader-title').focus({preventScroll:true});
   }
@@ -47,11 +47,11 @@ export function createPlanReader(host,api,{onNavigate,onClose,onViewChange=()=>{
     try{await active.finished;}catch(error){if(error.name!=='AbortError')throw error;}
     if(animation===active){active.cancel();animation=null;}
   }
-  async function open({app,angle,origin,instant=false,scrollTop=0}){
+  async function open({app,origin,instant=false,scrollTop=0}){
     if(destroyed)return;
-    if(dialog.open&&phase!=='closing'){setContent(app,angle,{scrollTop,focus:true});return;}
+    if(dialog.open&&phase!=='closing'){setContent(app,{scrollTop,focus:true});return;}
     const token=++generation,alreadyOpen=dialog.open,from=alreadyOpen?{transform:getComputedStyle(dialog).transform,opacity:getComputedStyle(dialog).opacity,borderRadius:'0px'}:null;
-    setContent(app,angle,{scrollTop});phase='opening';document.body.classList.add('plan-reading-open');
+    setContent(app,{scrollTop});phase='opening';document.body.classList.add('plan-reading-open');
     if(!alreadyOpen){dialog.style.visibility='hidden';if(typeof dialog.showModal==='function')dialog.showModal();else{dialog.setAttribute('open','');dialog.setAttribute('aria-modal','true');}}
     await nextFrame();if(destroyed||token!==generation)return;
     sourceRect=cleanRect(origin());dialog.style.visibility='';
@@ -74,6 +74,6 @@ export function createPlanReader(host,api,{onNavigate,onClose,onViewChange=()=>{
   }
   return {open,close:shut,setContent,isOpen:()=>dialog.open,app:()=>current?.app,
     scrollTop:()=>scroll.scrollTop,
-    inspect:()=>({open:dialog.open,phase,app:current?.app,angle:current?.angle,scrollTop:scroll.scrollTop,scrollHeight:scroll.scrollHeight,viewportHeight:scroll.clientHeight,originRect:sourceRect,rect:(()=>{const r=dialog.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};})(),transform:dialog.open?getComputedStyle(dialog).transform:null,focus:document.activeElement?.id}),
+    inspect:()=>({open:dialog.open,phase,app:current?.app,scrollTop:scroll.scrollTop,scrollHeight:scroll.scrollHeight,viewportHeight:scroll.clientHeight,originRect:sourceRect,rect:(()=>{const r=dialog.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};})(),transform:dialog.open?getComputedStyle(dialog).transform:null,focus:document.activeElement?.id}),
     destroy(){destroyed=true;generation++;cancelAnimationFrame(saveFrame);animation?.cancel();document.body.classList.remove('plan-reading-open');if(dialog.open&&typeof dialog.close==='function')dialog.close();dialog.remove();}};
 }

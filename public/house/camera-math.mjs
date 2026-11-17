@@ -14,13 +14,6 @@ export function orbitPose(pose,dx,dy) {
   const radius=Math.hypot(x,y,z),yaw=Math.atan2(x,z)+dx,pitch=clamp(Math.acos(y/radius)+dy,.2,1.43);
   return {target:[...pose.target],position:[pose.target[0]+radius*Math.sin(pitch)*Math.sin(yaw),pose.target[1]+radius*Math.cos(pitch),pose.target[2]+radius*Math.sin(pitch)*Math.cos(yaw)]};
 }
-export function panPose(pose,forward,side) {
-  const x=pose.target[0]-pose.position[0],z=pose.target[2]-pose.position[2],length=Math.hypot(x,z)||1;
-  const dx=(x*forward-z*side)/length,dz=(z*forward+x*side)/length;
-  const nextTarget=[clamp(pose.target[0]+dx,-30,30),pose.target[1],clamp(pose.target[2]+dz,-25,30)];
-  const shift=[nextTarget[0]-pose.target[0],0,nextTarget[2]-pose.target[2]];
-  return {target:nextTarget,position:pose.position.map((n,i)=>n+shift[i])};
-}
 export function zoomPose(pose,factor) {
   const offset=pose.position.map((n,i)=>n-pose.target[i]),radius=Math.hypot(...offset);
   const distance=clamp(radius*factor,6,65);

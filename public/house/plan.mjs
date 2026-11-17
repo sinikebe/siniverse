@@ -34,13 +34,13 @@ export function mountPlan(host,initialState,api){
     host.dataset.room='house';
     failed=true;demos?.close({instant:true});if(previewPanel)previewPanel.hidden=true;host.classList.add('plan-is-fallback');hud.querySelector('h1').removeAttribute('id');hud.hidden=true;introduction.hidden=true;instruction.hidden=true;viewport.replaceChildren();
     const content=api.content(state.app);
-    viewport.innerHTML='<section class="plan-fallback"><p class="scene-kicker">LA MAISON / PARCOURS SANS WEBGL</p><h1 id="view-title" tabindex="-1">'+api.escape(content.title)+'</h1><p>Le lieu 3D n’est pas disponible ici. Les mêmes outils et explications restent accessibles.</p><div class="fallback-destinations"><a href="'+api.href({app:'ensemble',angle:'presentation'})+'" data-plan-fallback-app="ensemble">La maison</a>'+Object.entries(api.apps).map(([id,app])=>'<a href="'+api.href({app:id,angle:state.angle})+'" data-plan-fallback-app="'+id+'">'+app.name+'</a>').join('')+'</div>'+content.body.map(p=>'<p>'+api.escape(p)+'</p>').join('')+(api.apps[state.app]?'<a class="real-app-link" href="'+api.apps[state.app].url+'">Ouvrir '+api.apps[state.app].name+' ↗</a>':'')+'</section>';
-    for(const a of viewport.querySelectorAll('[data-plan-fallback-app]'))a.addEventListener('click',event=>{if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();navigate({app:a.dataset.planFallbackApp||state.app,angle:'presentation'});});
+    viewport.innerHTML='<section class="plan-fallback"><p class="scene-kicker">LA MAISON / PARCOURS SANS WEBGL</p><h1 id="view-title" tabindex="-1">'+api.escape(content.title)+'</h1><p>Le lieu 3D n’est pas disponible ici. Les mêmes outils et explications restent accessibles.</p><div class="fallback-destinations"><a href="'+api.href({app:'ensemble',room:undefined})+'" data-plan-fallback-app="ensemble">La maison</a>'+Object.entries(api.apps).map(([id,app])=>'<a href="'+api.href({app:id})+'" data-plan-fallback-app="'+id+'">'+app.name+'</a>').join('')+'</div>'+content.body.map(p=>'<p>'+api.escape(p)+'</p>').join('')+(api.apps[state.app]?'<a class="real-app-link" href="'+api.apps[state.app].url+'">Ouvrir '+api.apps[state.app].name+' ↗</a>':'')+'</section>';
+    for(const a of viewport.querySelectorAll('[data-plan-fallback-app]'))a.addEventListener('click',event=>{if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();navigate({app:a.dataset.planFallbackApp||state.app,room:undefined});});
     const gamesButton=button('plan-fallback-gaming','La bibliothèque de jeux');gamesButton.addEventListener('click',()=>gamingLibrary.open());viewport.querySelector('.fallback-destinations').append(gamesButton);
   }
   try{world=createWorld(viewport,{cartoon:true,minCameraHeight:EYE_HEIGHT,minCameraDistance:.4,mobileFov:78,desktopFov:50,pixelBudget:2400000,reducedMotion:api.reducedMotion,onContextLost:()=>{if(!destroyed)fallback();}});}
   catch{fallback();}
-  if(failed)return {update(next){state=next;fallback();},snapshot(){return null;},inspect(){return {kind:'fallback',app:state.app,angle:state.angle};},destroy(){destroyed=true;gamingLibrary.destroy();world?.destroy();host.replaceChildren();host.classList.remove('plan-host','plan-house');}};
+  if(failed)return {update(next){state=next;fallback();},snapshot(){return null;},inspect(){return {kind:'fallback',app:state.app};},destroy(){destroyed=true;gamingLibrary.destroy();world?.destroy();host.replaceChildren();host.classList.remove('plan-host','plan-house');}};
   world.canvas.id='plan-canvas';world.canvas.setAttribute('aria-label','La maison Siniverse. Glisser pour regarder. W A S D ou flèches pour marcher ; les murs et le véhicule arrêtent le déplacement.');
   house=buildHouse(world,api.apps);
   const supports={...house.screens,garapp:house.car};
@@ -62,18 +62,18 @@ export function mountPlan(host,initialState,api){
   const gamingButton=button('plan-gaming-room','Salle gaming');gamingButton.hidden=true;gamingButton.addEventListener('click',()=>navigate({app:'ensemble',room:'gaming'}));hud.querySelector('.plan-compass').insertBefore(gamingButton,hud.querySelector('.plan-compass details'));
   const gamingRoute=button('plan-direct-gaming','Salle gaming / jeux');gamingRoute.addEventListener('click',()=>{hud.querySelector('.plan-compass details').open=false;navigate({app:'ensemble',room:'gaming'});});hud.querySelector('.plan-direct-routes').append(gamingRoute);
   for(const [id,app]of Object.entries(api.apps)){
-    const link=document.createElement('a');link.id='plan-direct-'+id;link.href=api.href({app:id,angle:'presentation'});link.textContent=app.name+' / '+(id==='garapp'?'garage':'bureau');link.addEventListener('click',event=>{if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();hud.querySelector('.plan-compass details').open=false;openApp(id,'presentation',hud.querySelector('.plan-compass summary'));});hud.querySelector('.plan-direct-routes').append(link);
+    const link=document.createElement('a');link.id='plan-direct-'+id;link.href=api.href({app:id});link.textContent=app.name+' / '+(id==='garapp'?'garage':'bureau');link.addEventListener('click',event=>{if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();hud.querySelector('.plan-compass details').open=false;openApp(id,hud.querySelector('.plan-compass summary'));});hud.querySelector('.plan-direct-routes').append(link);
     const station=button('plan-app-'+id,app.name,'house-station');
     station.setAttribute('aria-haspopup','dialog');station.setAttribute('aria-controls','plan-reader-dialog');
     station.addEventListener('focus',()=>setPreview(id,'focus'));station.addEventListener('pointerenter',()=>setPreview(id,'hover'));
-    station.addEventListener('click',()=>openApp(id,'presentation',station));
+    station.addEventListener('click',()=>openApp(id,station));
     const spec=house.surfaces[id],position=id==='garapp'?[3.1,1.8,1.6]:[spec.position[0],spec.position[1]+spec.height/2+.12,spec.position[2]+.08];
     const cutPosition=id==='finapp'?[position[0],5.2,position[2]]:id==='branchlab'?[position[0],2.5,position[2]]:position;
     const guide=id==='garapp'?null:world.line([position,cutPosition],'#52685b',.012);if(guide)guide.visible=false;
     stationLabels.push({id,position,cutPosition,guide,handle:world.label(position,station,{clamp:false})});
   }
-  world.addPick(house.car,()=>openApp('garapp','presentation',world.canvas),{key:'garapp'});house.car.name='voiture-garapp';
-  for(const [id,mesh]of Object.entries(house.screens)){mesh.name='poste-'+id;world.addPick(mesh,()=>openApp(id,'presentation',world.canvas),{key:id});}
+  world.addPick(house.car,()=>openApp('garapp',world.canvas),{key:'garapp'});house.car.name='voiture-garapp';
+  for(const [id,mesh]of Object.entries(house.screens)){mesh.name='poste-'+id;world.addPick(mesh,()=>openApp(id,world.canvas),{key:id});}
   const entrance=button('plan-door','Entrer dans le bureau →','house-door');entrance.addEventListener('click',()=>enterHouse());entranceLabel=world.label([-2.3,1.8,3.82],entrance,{clamp:false});
   if(house.entry)world.addPick(house.entry,()=>enterHouse(),{key:'entry'});
   const gamingEntry=button('plan-gaming-entry','Salle gaming →','house-door gaming-door');gamingEntry.addEventListener('click',()=>navigate({app:'ensemble',room:'gaming'}));gamingEntryLabel=world.label([-7.45,2.46,3.83],gamingEntry,{clamp:false});
@@ -84,8 +84,8 @@ export function mountPlan(host,initialState,api){
   async function openGames(){if(state.room!=='gaming')await navigate({app:'ensemble',room:'gaming'},'plan-gaming-screen');if(!destroyed&&!failed&&state.room==='gaming'){gamingLibrary.open();api.saveView();}}
 
   previewPanel=document.createElement('aside');previewPanel.className='house-object-preview';previewPanel.hidden=true;previewPanel.setAttribute('aria-live','polite');host.append(previewPanel);
-  reader=createPlanReader(host,api,{onNavigate:destination=>openApp(destination.app,destination.angle),onClose:()=>{void closeReader();},onViewChange:()=>api.saveView()});
-  demos=createHouseInteractions(host,world,house,api,{onRead:(app,trigger)=>openApp(app,'presentation',trigger),onExit:()=>{demos.close();updateLocation();world.canvas.focus({preventScroll:true});api.saveView();},onChange:()=>api.saveView()});
+  reader=createPlanReader(host,api,{onNavigate:destination=>openApp(destination.app),onClose:()=>{void closeReader();},onViewChange:()=>api.saveView()});
+  demos=createHouseInteractions(host,world,house,api,{onRead:(app,trigger)=>openApp(app,trigger),onExit:()=>{demos.close();updateLocation();world.canvas.focus({preventScroll:true});api.saveView();},onChange:()=>api.saveView()});
   function placePreview(){
     if(!previewApp||previewPanel.hidden)return;
     const bounds=world.projectBounds(supports[previewApp]);if(!bounds){previewPanel.hidden=true;return;}
@@ -103,9 +103,9 @@ export function mountPlan(host,initialState,api){
     const token=++previewRevision,amounts=house.inspectPreview?.()||{};
     if(app&&!same){
       const lead={finapp:'Comparer des scénarios au même horizon.',garapp:'Retrouver le fil de vie d’un véhicule.',branchlab:'Comprendre une liaison, de la source à l’écran.'}[app];
-      previewPanel.innerHTML='<p class="preview-room">'+(app==='garapp'?'Dans le garage':'Dans le bureau')+'</p><h2>'+api.escape(api.apps[app].name)+'</h2><p>'+lead+'</p><button id="plan-preview-try" type="button">'+(app==='garapp'?'Feuilleter le carnet':app==='branchlab'?'Essayer la liaison':'Faire varier les scénarios')+' <span aria-hidden="true">→</span></button><a id="plan-preview-open" href="'+api.href({app,angle:'presentation'})+'" aria-haspopup="dialog">Découvrir '+api.escape(api.apps[app].name)+' <span aria-hidden="true">↗</span></a>';
+      previewPanel.innerHTML='<p class="preview-room">'+(app==='garapp'?'Dans le garage':'Dans le bureau')+'</p><h2>'+api.escape(api.apps[app].name)+'</h2><p>'+lead+'</p><button id="plan-preview-try" type="button">'+(app==='garapp'?'Feuilleter le carnet':app==='branchlab'?'Essayer la liaison':'Faire varier les scénarios')+' <span aria-hidden="true">→</span></button><a id="plan-preview-open" href="'+api.href({app})+'" aria-haspopup="dialog">Découvrir '+api.escape(api.apps[app].name)+' <span aria-hidden="true">↗</span></a>';
       previewPanel.querySelector('button').addEventListener('click',()=>{void tryObject(app);});
-      previewPanel.querySelector('a').addEventListener('click',event=>{if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();openApp(app,'presentation',event.currentTarget);});
+      previewPanel.querySelector('a').addEventListener('click',event=>{if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();openApp(app,event.currentTarget);});
     }
     previewPanel.hidden=!app||!show||pendingOpen||reader?.isOpen()||Boolean(demos?.active());
     if(!previewPanel.hidden)placePreview();
@@ -125,11 +125,11 @@ export function mountPlan(host,initialState,api){
     await demos.open(app);if(token!==revision||failed)return;
     pendingOpen=false;updateLocation();world.refresh();api.saveView();
   }
-  function openApp(app,angle='presentation',trigger=null){
+  function openApp(app,trigger=null){
     const sameOpen=reader.isOpen()&&reader.app()===app;
     if(!sameOpen)sourceFocus=trigger?.id||(reader.isOpen()?'plan-app-'+app:'plan-canvas');
     pendingOpen=true;setPreview(app,'opening',{show:false});
-    return api.navigate({app,angle},{focusId:'plan-reader-title'});
+    return api.navigate({app},{focusId:'plan-reader-title'});
   }
   function visibleElement(id){
     const e=document.getElementById(id),r=e?.getBoundingClientRect();return e&&r.width>0&&r.height>0&&!e.closest('[hidden]')?e:null;
@@ -148,7 +148,7 @@ export function mountPlan(host,initialState,api){
     })();closingTask=task;void task.then(()=>{if(closingTask===task)closingTask=null;},()=>{if(closingTask===task)closingTask=null;});return task;
   }
   function drawWorld(){
-    const c=api.content(state.app,state.angle);hud.querySelector('#view-title').textContent=state.app==='ensemble'?(state.room==='gaming'?'La salle gaming / Les jeux du Siniverse':'La maison Siniverse'):api.apps[state.app].name+' / '+c.title;
+    const c=api.content(state.app);hud.querySelector('#view-title').textContent=state.app==='ensemble'?(state.room==='gaming'?'La salle gaming / Les jeux du Siniverse':'La maison Siniverse'):api.apps[state.app].name+' / '+c.title;
     updateLocation();world.requestRender();
   }
   function targetPose(app){
@@ -176,7 +176,7 @@ export function mountPlan(host,initialState,api){
     const token=++revision;pendingOpen=false;demos.close();setPreview(null);lastJourney=[];await walkTo(BUREAU,{token});if(token===revision&&!failed){api.saveView();world.canvas.focus({preventScroll:true});}
   }
   hud.querySelector('#plan-enter-house').addEventListener('click',enterHouse);
-  hud.querySelector('#plan-origin').addEventListener('click',()=>navigate({app:'ensemble',angle:'presentation',room:undefined}));
+  hud.querySelector('#plan-origin').addEventListener('click',()=>navigate({app:'ensemble',room:undefined}));
   function manual(pose){revision++;pendingOpen=false;demos.close();setPreview(null);world.cancelFlight();setPose(pose);}
   function moveOnFloor(forward,side){
     if(mode==='overview'){mode='walk';setPose(APPROACH);}
@@ -220,7 +220,7 @@ export function mountPlan(host,initialState,api){
     if(reader.isOpen()&&(!wantsReader||reader.app()!==next.app)){
       await closeReader({save:false,focus:false,token});if(token!==revision||destroyed)return;
     }
-    state=next;if(failed){fallback();if(wantsReader)await reader.open({app:state.app,angle:state.angle,origin:()=>null,instant:true,scrollTop:snapshot?.readerScroll||0});return;}
+    state=next;if(failed){fallback();if(wantsReader)await reader.open({app:state.app,origin:()=>null,instant:true,scrollTop:snapshot?.readerScroll||0});return;}
     if(demos.active()&&(!restored?demos.active()!==state.app:!snapshot.demo))demos.close({instant});
     if(state.app!=='garapp'&&demos.active()!=='garapp')house.setNotebook(0);
     if(restored){roofOpen=Boolean(snapshot.roofOpen);sourceFocus=snapshot.sourceFocus||'plan-canvas';}
@@ -231,7 +231,7 @@ export function mountPlan(host,initialState,api){
         mode=snapshot.mode;setPose(snapshot.pose);returnPose=snapshot.returnPose||snapshot.pose;
         if(snapshot.demo&&api.apps[snapshot.demo.app])await demos.open(snapshot.demo.app,{instant:true,focus:false,snapshot:snapshot.demo});
         if(token!==revision||failed)return;
-        if(wantsReader){pendingOpen=true;if(state.app==='garapp')house.setNotebook(1);setPreview(state.app,'opening',{show:false});await reader.open({app:state.app,angle:state.angle,origin:()=>sourceRect(state.app),instant,scrollTop:snapshot.readerScroll||0});}
+        if(wantsReader){pendingOpen=true;if(state.app==='garapp')house.setNotebook(1);setPreview(state.app,'opening',{show:false});await reader.open({app:state.app,origin:()=>sourceRect(state.app),instant,scrollTop:snapshot.readerScroll||0});}
         else setPreview(snapshot.previewApp||null,'focus');
         if(state.room==='gaming'&&snapshot.gamingOpen)gamingLibrary.open({focus:false});
         pendingOpen=false;updateLocation();return;
@@ -247,7 +247,7 @@ export function mountPlan(host,initialState,api){
         returnPose=world.getPose();window.scrollTo({left:0,top:0,behavior:'instant'});
       }
       if(state.app==='garapp'&&house.inspectObjects().notebookAmount<1){const from=house.inspectObjects().notebookAmount;await world.animate(instant?0:480,t=>{if(token===revision)house.setNotebook(from+(1-from)*t);});if(token!==revision||failed)return;}
-      await reader.open({app:state.app,angle:state.angle,origin:()=>sourceRect(state.app),instant});pendingOpen=false;
+      await reader.open({app:state.app,origin:()=>sourceRect(state.app),instant});pendingOpen=false;
     }else if(state.room==='gaming'){
       pendingOpen=true;setPreview(null);await walkTo(isMobile()?{position:[-7.4,EYE_HEIGHT,1.5],target:[-7.4,1.5,-2.5]}:house.gaming.view,{instant,token});
       if(token!==revision||failed)return;pendingOpen=false;setPreview(null);
@@ -259,5 +259,5 @@ export function mountPlan(host,initialState,api){
     if(token!==revision||failed)return;drawWorld();world.requestRender();
   }
   function pickInfo(app,point){const screen=world.project(point);return {app,screen,blocker:world.probe(screen.x,screen.y).intersections[0]?.name||null,occluded:!world.visiblePoint(point)};}
-  return {update,snapshot:()=>({layout:'house-v1',mode,pose:world.getPose(),roofOpen,gamingOpen:gamingLibrary.isOpen(),readerOpen:reader.isOpen(),readerScroll:reader.scrollTop(),sourceFocus,returnPose,previewApp,demo:demos.snapshot()}),inspect:options=>({...world.inspect(options),layout:'house-v1',mode,room:mode==='overview'?'outside':world.getPose().position[0]<-5.19?'gaming':world.getPose().position[0]<.8?'bureau':'garage',app:state.app,angle:state.angle,roofOpen,dragging,lastPick,previewApp,previewPhase,preview:house.inspectPreview?.(),reader:reader.inspect(),demo:demos.inspect(),objects:house.inspectObjects(),gaming:{open:gamingLibrary.isOpen()},blockedMoves,journey:lastJourney,journeyClear:lastJourney.slice(1).every((p,i)=>segmentClear([lastJourney[i][0],lastJourney[i][2]],[p[0],p[2]],obstacles,bounds)),obstacles,bounds,stations:Object.keys(api.apps),pickTargets:options?.fast?[]:[...[[0,.75,1.95],[-.8,.7,.9],[.8,.7,.9]].map(p=>pickInfo('garapp',house.car.localToWorld(new THREE.Vector3(...p)))),...Object.entries(house.surfaces).map(([app,s])=>pickInfo(app,new THREE.Vector3(...s.position)))]}),destroy(){destroyed=true;revision++;for(const fn of cleanups)fn();demos?.destroy();reader?.destroy();gamingLibrary.destroy();world.destroy();host.replaceChildren();host.classList.remove('plan-host','plan-house');}};
+  return {update,snapshot:()=>({layout:'house-v1',mode,pose:world.getPose(),roofOpen,gamingOpen:gamingLibrary.isOpen(),readerOpen:reader.isOpen(),readerScroll:reader.scrollTop(),sourceFocus,returnPose,previewApp,demo:demos.snapshot()}),inspect:options=>({...world.inspect(options),layout:'house-v1',mode,room:mode==='overview'?'outside':world.getPose().position[0]<-5.19?'gaming':world.getPose().position[0]<.8?'bureau':'garage',app:state.app,roofOpen,dragging,lastPick,previewApp,previewPhase,preview:house.inspectPreview?.(),reader:reader.inspect(),demo:demos.inspect(),objects:house.inspectObjects(),gaming:{open:gamingLibrary.isOpen()},blockedMoves,journey:lastJourney,journeyClear:lastJourney.slice(1).every((p,i)=>segmentClear([lastJourney[i][0],lastJourney[i][2]],[p[0],p[2]],obstacles,bounds)),obstacles,bounds,stations:Object.keys(api.apps),pickTargets:options?.fast?[]:[...[[0,.75,1.95],[-.8,.7,.9],[.8,.7,.9]].map(p=>pickInfo('garapp',house.car.localToWorld(new THREE.Vector3(...p)))),...Object.entries(house.surfaces).map(([app,s])=>pickInfo(app,new THREE.Vector3(...s.position)))]}),destroy(){destroyed=true;revision++;for(const fn of cleanups)fn();demos?.destroy();reader?.destroy();gamingLibrary.destroy();world.destroy();host.replaceChildren();host.classList.remove('plan-host','plan-house');}};
 }
