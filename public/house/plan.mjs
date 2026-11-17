@@ -55,7 +55,7 @@ export function mountPlan(host,initialState,api){
     hud.querySelector('#plan-location').textContent=mode==='overview'?'La maison / vue d’ensemble':gaming?'Dans la salle gaming':inside?(p[0]<.8?'Dans le bureau':'Dans le garage'):'Devant la maison';
     introduction.hidden=mode!=='overview'||state.app!=='ensemble';hud.querySelector('#plan-enter-house').hidden=mode==='walk';
     hud.querySelector('#plan-gaming-room').hidden=mode==='overview';
-    for(const station of stationLabels){const separated=mode==='overview'&&roofOpen&&station.id!=='garapp';station.handle.setEnabled((!reader?.isOpen()||station.id!==reader.app())&&station.id!==demos?.active());station.handle.setPosition(separated?(isMobile()&&station.id==='finapp'?[station.cutPosition[0],6.8,station.cutPosition[2]]:station.cutPosition):station.position);if(station.guide)station.guide.visible=separated;}
+    for(const station of stationLabels){const separated=mode==='overview'&&roofOpen&&station.id!=='garapp';station.handle.setEnabled((!reader?.isOpen()||station.id!==reader.app())&&station.id!==demos?.active());station.handle.setPosition(separated?(isMobile()&&station.id==='finapp'?[station.cutPosition[0],7.4,station.cutPosition[2]]:station.cutPosition):station.position);if(station.guide)station.guide.visible=separated;}
   }
   function setRoof(open,{instant=false}={}){roofOpen=open;void house.setCutaway(open,{instant});hud.querySelector('#plan-cutaway').setAttribute('aria-pressed',String(open));hud.querySelector('#plan-cutaway').textContent=open?'Remettre le toit':'Voir en coupe';updateLocation();world.requestRender();}
   hud.querySelector('#plan-cutaway').addEventListener('click',()=>{setPreview(null);setRoof(!roofOpen);api.saveView();});
