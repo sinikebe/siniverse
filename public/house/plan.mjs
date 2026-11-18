@@ -50,7 +50,7 @@ export function mountPlan(host,initialState,api){
   catch{fallback();}
   if(failed)return {update(next){state=next;if(state.room!=='office')officeDesktop.close({save:false,focus:false});fallback();if(state.room==='office')officeDesktop.open({program:state.program,expanded:true});},snapshot(){return {office:officeDesktop.snapshot()};},inspect(){return {kind:'fallback',app:state.app,office:officeDesktop.inspect()};},destroy(){destroyed=true;officeDesktop.destroy();gamingLibrary.destroy();world?.destroy();host.replaceChildren();host.classList.remove('plan-host','plan-house');}};
   world.canvas.id='plan-canvas';world.canvas.setAttribute('aria-label','La maison Siniverse. Glisser pour regarder. W A S D ou flèches pour marcher ; les murs et le véhicule arrêtent le déplacement.');
-  house=buildHouse(world,api.apps);officeDesktop.attach(world,house.office.surface);
+  house=buildHouse(world,api.apps);officeDesktop.attach(world,house.office.surface);gamingLibrary.attach(world,house.gaming.surface);
   const supports={...house.screens,garapp:house.car};
   const obstacles=house.obstacles,bounds=house.bounds;
   const setPose=pose=>{world.setPose(pose);updateLocation();};
