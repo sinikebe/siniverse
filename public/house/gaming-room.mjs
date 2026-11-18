@@ -63,7 +63,6 @@ export function buildGamingRoom(world, kit) {
     ctx.strokeStyle='#65DCED24';ctx.lineWidth=1;for(let x=18;x<n;x+=24){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,n);ctx.stroke();}
     ctx.fillStyle='#67D8F0';ctx.font='9px monospace';ctx.fillText('SINIVERSE / PLAY',28,25);
     ctx.fillStyle='#EDF5FF';ctx.font='600 26px sans-serif';ctx.fillText('Les jeux prennent vie ici.',27,63);
-    ctx.fillStyle='#AEBAD2';ctx.font='10px sans-serif';ctx.fillText('LE BUREAU GAMING',28,88);
     ctx.fillStyle='#5EE0EF';ctx.fillRect(28,height-18,n-56,1);
   },512);
   const monitor=mesh(new T.PlaneGeometry(1.76,.78),basic('#FFFFFF',{map:screenMap}),[-7.88,1.55,-2.482],desk,'house-gaming-screen');monitor.castShadow=monitor.receiveShadow=false;
