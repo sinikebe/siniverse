@@ -248,55 +248,44 @@ export function buildHouse(world, apps) {
     }
     keys.castShadow = false; keys.receiveShadow = true; desk.add(keys);
   }
-  function screen(id, x) {
-    box([.60, .032, .38], '#9BA6A5', [x, .85, -2.63], desk, 'house-' + id + '-screen-foot', 'metal', .022);
-    box([.065, .29, .08], '#9BA6A5', [x, .99, -2.61], desk, 'house-' + id + '-screen-stand', 'metal', .018);
-    box([1.54, .96, .075], '#343F42', [x, 1.52, -2.55], desk, 'house-' + id + '-screen-frame', 'metal', .025);
-    box([1.46,.89,.012],'#121C21',[x,1.52,-2.51],desk,'house-display-inner-bezel','rubber',.018);
-    const displayMap = canvasTexture((ctx,n)=>{
-      ctx.fillStyle=id==='finapp'?'#132D37':'#25273C';ctx.fillRect(0,0,n,n);
-      const glow=ctx.createRadialGradient(n*.75,n*.2,0,n*.75,n*.2,n*.9);glow.addColorStop(0,id==='finapp'?'#264C60':'#414061');glow.addColorStop(1,'#142A3200');ctx.fillStyle=glow;ctx.fillRect(0,0,n,n);
-      ctx.fillStyle='#D5E3E6';ctx.font='600 13px sans-serif';ctx.fillText(id.toUpperCase(),15,25);
-      ctx.strokeStyle='#B5CDD51A';ctx.lineWidth=1;for(let y=60;y<230;y+=35){ctx.beginPath();ctx.moveTo(16,y);ctx.lineTo(n-16,y);ctx.stroke();}
-      ctx.fillStyle='#C4D6DB';ctx.font='8px sans-serif';ctx.fillText(id==='finapp'?'DEUX CHOIX. UN HORIZON.':'DE LA SOURCE À L’ÉCRAN.',15,n-14);
-    },256);
-    const screenGeometry = new T.ShapeGeometry(roundedShape(1.4, .825, .018), 5);
-    const screenPosition = screenGeometry.attributes.position, screenUv = screenGeometry.attributes.uv;
-    screenGeometry.computeBoundingBox();const screenBox=screenGeometry.boundingBox;
-    for (let i = 0; i < screenUv.count; i++) screenUv.setXY(i, (screenPosition.getX(i)-screenBox.min.x)/(screenBox.max.x-screenBox.min.x), (screenPosition.getY(i)-screenBox.min.y)/(screenBox.max.y-screenBox.min.y));
-    const face = mesh(screenGeometry, basic('#FFFFFF', {map: displayMap}), [x, 1.52, -2.499], desk, 'house-' + id + '-screen');
-    face.castShadow = face.receiveShadow = false;
-    const idle = new T.Group(); idle.name = id + '-idle-drawing'; face.add(idle); face.userData.idle = idle;
-    const accent = mesh(new T.PlaneGeometry(1.14, .003), basic(apps[id]?.color || '#6789CD'), [x, 1.085, -2.495], desk, 'house-' + id + '-active-edge'); accent.castShadow = false;
-    previews[id] = { idle, accent }; screens[id] = face;
-    surfaces[id] = { position: [x, 1.52, -2.475], width: 1.4, height: .825, rotationY: 0 };
-    anchors[id] = { position: [...surfaces[id].position], normal: [0, 0, 1], label: [x, 2.15, -2.47], room: 'bureau' };
-    keyboard(x);
-    box([.52,.085,.46],'#6B7871',[x,.46,-2.15],desk,'house-chair-seat','rubber',.08);
-    const back=box([.51,.42,.055],'#6B7871',[x,.86,-1.97],desk,'house-chair-back','rubber',.08);back.rotation.x=-.12;
-    curve([[x-.235,.49,-1.96],[x,.49,-1.94],[x+.235,.49,-1.96]],'#8B9386',.0025,desk,'house-chair-piping');
-    for(const dx of [-.20,.20])for(const dz of [-.15,.15])box([.035,.42,.035],P.frame,[x+dx,.21,-2.15+dz],desk,'house-chair-leg','metal',.01);
-    const mouse=mesh(new T.SphereGeometry(.075,16,10),'#D1D3C8',[x+.46,.87,-2.23],desk,'house-mouse','paint');mouse.scale.set(.85,.43,1.4);
-    return idle;
-  }
-  const finance = screen('finapp', -4), financeInk = basic('#89B9F1'), financeOther = basic('#C1DACB');
-  const graphA = curve([[-.57, -.29, .01], [-.30, -.22, .01], [-.03, -.12, .01], [.22, .09, .01], [.57, .31, .01]], financeInk, .014, finance, 'house-finapp-scenario-a').item;
-  curve([[-.57, -.29, .014], [-.30, -.17, .014], [-.03, -.07, .014], [.22, -.01, .014], [.57, .12, .014]], financeOther, .011, finance, 'house-finapp-scenario-b');
-  curve([[-.60, .35, .005], [-.60, -.34, .005], [.60, -.34, .005]], basic('#55756A'), .004, finance, 'house-finapp-axis', false);
-  previews.finapp.graph = graphA;
-  const hardware = screen('branchlab', -1.7);
-  for (const x of [-.42, .42]) {
-    const symbol = mesh(new T.ShapeGeometry(roundedShape(.28, .23, .055), 5), basic('#ADB9CE'), [x, 0, .009], hardware, 'house-branchlab-device-symbol');
-    symbol.castShadow = false;
-    const centre = mesh(new T.ShapeGeometry(roundedShape(.24, .19, .04), 4), basic('#142D29'), [x, 0, .012], hardware); centre.castShadow = false;
-  }
-  curve([[-.28, 0, .014], [.28, 0, .014]], basic('#AC91D1'), .014, hardware, 'house-branchlab-screen-link');
-  box([.34, .65, .48], '#526875', [-.83, 1.145, -2.78], desk, 'house-branchlab-computer', 'paint', .05);
-  box([.09, .043, .027], '#1E302D', [-.83, 1.24, -2.528], desk, 'house-branchlab-port', 'metal', .009);
-  const cable = curve([[-.83, 1.24, -2.505], [-.84, 1.08, -2.30], [-1.12, .89, -2.20], [-1.35, .91, -2.25], [-1.22, 1.16, -2.48]], '#9176B7', .019, desk, 'house-branchlab-real-cable');
-  const plug = box([.075, .048, .075], '#AFAEAA', [-.83, 1.24, -2.50], desk, 'house-branchlab-cable-plug', 'metal', .012);
-  const signal = mesh(new T.SphereGeometry(.027, 12, 8), basic('#DBC3FF'), [-.83, 1.24, -2.50], desk, 'house-branchlab-signal'); signal.visible = false; signal.castShadow=false;
-  for(let row=0;row<8;row++)box([.23,.008,.004],'#243137',[-.83,1.36+row*.018,-2.537],desk,'house-computer-vent','rubber',.001);
+  const officeX=-2.8;
+  box([.72,.032,.42],'#9BA6A5',[officeX,.85,-2.63],desk,'house-office-screen-foot','metal',.025);
+  box([.085,.31,.10],'#9BA6A5',[officeX,1.00,-2.61],desk,'house-office-screen-stand','metal',.02);
+  box([2.25,1.35,.085],'#343F42',[officeX,1.62,-2.55],desk,'house-office-screen-frame','metal',.035);
+  box([2.17,1.27,.014],'#101A20',[officeX,1.62,-2.50],desk,'house-display-inner-bezel','rubber',.02);
+  const desktopMap=canvasTexture((ctx,n)=>{
+    ctx.scale(n/512,n/288);
+    const background=ctx.createLinearGradient(0,288,512,0);background.addColorStop(0,'#132D38');background.addColorStop(1,'#32344C');ctx.fillStyle=background;ctx.fillRect(0,0,512,288);
+    ctx.fillStyle='#A1BAC9';ctx.font='11px sans-serif';ctx.fillText('SINIVERSE / BUREAU',25,28);
+    ctx.fillStyle='#D6E3E8';ctx.font='24px sans-serif';ctx.fillText('Vos outils. Un seul PC.',25,67);
+    for(const [x,id,color]of [[113,'FINAPP','#477EAF'],[290,'BRANCHLAB','#8572A4']]){
+      ctx.fillStyle='#D9EBFF12';ctx.fillRect(x-28,91,140,130);ctx.fillStyle=color;ctx.fillRect(x+14,111,52,52);
+      ctx.strokeStyle='#E4EFF3';ctx.lineWidth=3;ctx.beginPath();
+      if(id==='FINAPP'){ctx.moveTo(x+23,150);ctx.lineTo(x+33,139);ctx.lineTo(x+42,142);ctx.lineTo(x+55,124);}else{ctx.moveTo(x+25,125);ctx.lineTo(x+25,149);ctx.lineTo(x+52,149);ctx.moveTo(x+42,137);ctx.lineTo(x+54,137);}
+      ctx.stroke();ctx.fillStyle='#E1E9EE';ctx.font='14px sans-serif';ctx.fillText(id,x+(id==='FINAPP'?13:0),193);
+    }
+    ctx.fillStyle='#A3BCCB';ctx.font='10px sans-serif';ctx.fillText('OUVRIR LE BUREAU →',25,264);
+  },512);
+  const screenGeometry=new T.ShapeGeometry(roundedShape(2.08,1.17,.025),5),screenPosition=screenGeometry.attributes.position,screenUv=screenGeometry.attributes.uv;
+  screenGeometry.computeBoundingBox();const screenBox=screenGeometry.boundingBox;
+  for(let i=0;i<screenUv.count;i++)screenUv.setXY(i,(screenPosition.getX(i)-screenBox.min.x)/(screenBox.max.x-screenBox.min.x),(screenPosition.getY(i)-screenBox.min.y)/(screenBox.max.y-screenBox.min.y));
+  const officeScreen=mesh(screenGeometry,basic('#FFFFFF',{map:desktopMap}),[officeX,1.62,-2.485],desk,'house-office-screen');officeScreen.castShadow=officeScreen.receiveShadow=false;
+  const officeAccent=mesh(new T.PlaneGeometry(1.86,.006),basic('#8CB9C5'),[officeX,1.01,-2.48],desk,'house-office-active-edge');officeAccent.castShadow=false;
+  const officeSurface={position:[officeX,1.62,-2.46],width:2.08,height:1.17,rotationY:0};
+  // Both semantic app destinations refer to this one physical monitor.
+  for(const id of ['finapp','branchlab']){screens[id]=officeScreen;surfaces[id]=officeSurface;anchors[id]={position:[...officeSurface.position],normal:[0,0,1],room:'bureau'};}
+  keyboard(officeX);
+  box([.58,.09,.48],'#6B7871',[officeX,.46,-1.83],desk,'house-chair-seat','rubber',.08);
+  const officeBack=box([.57,.44,.065],'#6B7871',[officeX,.85,-1.63],desk,'house-chair-back','rubber',.07);officeBack.rotation.x=-.12;
+  for(const dx of [-.22,.22])for(const dz of [-.17,.17])box([.035,.42,.035],P.frame,[officeX+dx,.21,-1.83+dz],desk,'house-chair-leg','metal',.01);
+  const officeMouse=mesh(new T.SphereGeometry(.075,16,10),'#D1D3C8',[officeX+.48,.87,-2.23],desk,'house-mouse','paint');officeMouse.scale.set(.85,.43,1.4);
+  const computer=new T.Group();computer.name='house-office-computer';computer.position.set(-1.02,.825,-2.77);desk.add(computer);
+  box([.39,.74,.64],'#526875',[0,.37,0],computer,'house-office-computer-case','paint',.045);
+  box([.31,.57,.018],'#26373E',[0,.37,.328],computer,'house-office-computer-front','paint',.015);
+  for(let row=0;row<10;row++)box([.24,.012,.006],'#667A80',[0,.19+row*.032,.341],computer,'house-computer-vent','metal',.003);
+  const power=mesh(new T.CircleGeometry(.016,16),basic('#A6D8E4'),[0,.65,.341],computer,'house-office-power');power.castShadow=false;
+  curve([[-1.02,.89,-3.08],[-1.4,.84,-3.12],[-2.6,.87,-3.12],[officeX,1.0,-2.62]],'#35494D',.012,desk,'house-office-display-cable');
+  const office={screen:officeScreen,computer,surface:officeSurface};
   const pot=mesh(new T.CylinderGeometry(.115,.085,.18,24),'#A69C87',[-4.9,.92,-2.91],desk,'house-stoneware-pot','stone');
   mesh(new T.CylinderGeometry(.098,.098,.005,24),'#393E30',[-4.9,1.015,-2.91],desk,'house-pot-soil','rubber');
   for(let i=0;i<9;i++){
@@ -304,10 +293,9 @@ export function buildHouse(world, apps) {
     const leaf=mesh(new T.SphereGeometry(.045,8,6),'#536950',[-4.9+Math.cos(a)*.055,1.06+h/2,-2.91+Math.sin(a)*.055],desk,'house-plant-leaf');
     leaf.scale.set(.4,h/.045,.9);leaf.rotation.z=Math.cos(a)*.4;
   }
-  for(let i=0;i<3;i++)box([.24,.018,.30],['#C1C7BB','#707F7C','#E0D7C3'][i],[-2.82,.848+i*.02,-2.84],desk,'house-stacked-notebook','paper',.008);
-  mesh(new T.CylinderGeometry(.055,.045,.095,24),'#CFCDC1',[-2.75,.882,-2.25],desk,'house-ceramic-cup','paint');
-  curve([[-2.69,.92,-2.25],[-2.65,.91,-2.25],[-2.65,.87,-2.25],[-2.69,.86,-2.25]],'#CFCDC1',.009,desk,'house-cup-handle');
-  previews.branchlab.signal = signal; previews.branchlab.path = cable.path;
+  for(let i=0;i<3;i++)box([.24,.018,.30],['#C1C7BB','#707F7C','#E0D7C3'][i],[-4.2,.848+i*.02,-2.84],desk,'house-stacked-notebook','paper',.008);
+  mesh(new T.CylinderGeometry(.055,.045,.095,24),'#CFCDC1',[-4.05,.882,-2.25],desk,'house-ceramic-cup','paint');
+  curve([[-3.99,.92,-2.25],[-3.95,.91,-2.25],[-3.95,.87,-2.25],[-3.99,.86,-2.25]],'#CFCDC1',.009,desk,'house-cup-handle');
   obstacle(desk, 'office-workstations');
 
   // The vehicle's physical record is the garage support, not a separate pedestal.
@@ -479,27 +467,12 @@ export function buildHouse(world, apps) {
   function setNotebook(amount) {
     notebookAmount = clamp(Number(amount) || 0, 0, 1); cover.rotation.y = -notebookAmount * 2.45;invalidateShadow(); world.requestRender?.();
   }
-  function setInteraction(app, value = null) {
-    invalidateShadow();
-    if (app === 'finapp' || app === 'branchlab') previews[app].idle.visible = !value;
-    if (app === 'branchlab') {
-      const connected = !value || value.connected;
-      plug.position.z = connected ? -2.50 : -2.30;
-      cable.item.position.z = connected ? 0 : .20;
-      signal.visible = Boolean(value?.connected);
-    }
-    world.requestRender?.();
-  }
-  function signalAt(progress) { signal.position.copy(cable.path.getPoint(clamp(progress, 0, 1))); world.requestRender?.(); }
   const previewState = { finapp: 0, branchlab: 0, garapp: 0 };
   function setPreview(app, strength, phase = 'hover') {
     if (!Object.hasOwn(previewState, app)) return;
     const amount = clamp(Number(strength) || 0, 0, 1); previewState[app] = amount;
-    if (app === 'finapp') { previews.finapp.idle.scale.y = .96 + amount * .04; financeInk.color.set(amount ? '#B3DAFF' : '#89B9F1'); previews.finapp.accent.material.color.set(amount ? '#A5C8FF' : apps.finapp?.color || '#6789CD'); }
-    if (app === 'branchlab') {
-      if (previews.branchlab.idle.visible) { previews.branchlab.signal.visible = amount > .03; previews.branchlab.signal.position.copy(previews.branchlab.path.getPoint(.1 + amount * .8)); }
-      previews.branchlab.accent.material.color.set(amount ? '#DBC3FF' : apps.branchlab?.color || '#9176B7');
-    }
+    const selected=previewState.finapp>=previewState.branchlab?'finapp':'branchlab',accentStrength=Math.max(previewState.finapp,previewState.branchlab);
+    officeAccent.material.color.set(accentStrength>.02?(apps[selected]?.color||'#8CB9C5'):'#8CB9C5');
     if (app === 'garapp') previews.garapp.headlightMaterial.emissiveIntensity = .05 + amount * (phase === 'opening' ? .7 : .4);
     world.requestRender?.();
   }
@@ -509,9 +482,9 @@ export function buildHouse(world, apps) {
     if (world.scene.environment === environmentTarget?.texture) world.scene.environment = null;
     environmentTarget?.dispose();environmentSource?.dispose();carEnvironment?.dispose();carCapture?.dispose();
   });
-  return { roof, entry, car, record, screens, surfaces, shell, obstacles, anchors, gaming, construction, setPreview, setCutaway, setNotebook, setInteraction, signalAt,
+  return { roof, entry, car, record, screens, surfaces, shell, obstacles, anchors, gaming, office, construction, setPreview, setCutaway, setNotebook,
     bounds: { minX: -10.7, maxX: 6.4, minZ: -4.5, maxZ: 7 },
-    inspectObjects: () => ({ roofAmount, notebookAmount, connected: plug.position.z === -2.50,materialsReady:surfaceLibrary.ready() }),
+    inspectObjects: () => ({ roofAmount, notebookAmount, materialsReady:surfaceLibrary.ready() }),
     inspectConstruction: () => ({ excavator: world.projectBounds?.(construction.excavator,{includeDecor:true,precise:true}), crane: world.projectBounds?.(construction.crane,{includeDecor:true,precise:true}) }),
     inspectPreview: () => ({ ...previewState }) };
 }

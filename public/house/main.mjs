@@ -46,7 +46,7 @@ async function render(record, { instant = false } = {}) {
     host.dataset.sceneError = error.message;
   }
   if (token === revision) {
-    document.title = (APPS[state.app]?.name || (state.room === 'gaming' ? 'La salle gaming' : 'La maison')) + ' — Siniverse';
+    document.title = (APPS[state.app]?.name || (state.room === 'gaming' ? 'La salle gaming' : state.room === 'office' ? 'Le PC du bureau' : 'La maison')) + ' — Siniverse';
     document.querySelector('#permalink').href = routeHref(state);
     document.documentElement.dataset.houseState = JSON.stringify(state);
     document.documentElement.dataset.houseReady = 'true';

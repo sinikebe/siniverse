@@ -103,14 +103,22 @@ test('cutaway movement can be reversed without changing collision walls or leavi
   }finally{world.animate=previous;}
 });
 
-test('the notebook hinge stays finite and the real cable visibly disconnects and returns',()=>{
+test('the notebook hinge stays finite',()=>{
   house.setNotebook(Infinity);assert.equal(house.inspectObjects().notebookAmount,1);
   house.setNotebook(NaN);assert.equal(house.inspectObjects().notebookAmount,0);
-  const plug=scene.getObjectByName('house-branchlab-cable-plug'),rest=plug.position.clone();
-  house.setInteraction('branchlab',{connected:false});assert(plug.position.distanceTo(rest)>.1);assert.equal(house.inspectObjects().connected,false);
-  house.setPreview('branchlab',0);assert.equal(house.inspectObjects().connected,false,'Hover must not reconnect a manually unplugged cable.');
-  house.setInteraction('branchlab',{connected:true});assert.equal(plug.position.distanceTo(rest),0);
-  house.setInteraction('branchlab',null);assert.equal(house.inspectObjects().connected,true);
+});
+
+test('Finapp and Branchlab share one real office PC and one physical display',()=>{
+  assert.equal(house.screens.finapp,house.screens.branchlab);
+  assert.equal(house.screens.finapp,house.office.screen);
+  assert.equal(house.surfaces.finapp,house.office.surface);
+  assert.equal(house.surfaces.branchlab,house.office.surface);
+  const desk=scene.getObjectByName('house-office-workbench');
+  const names=[];desk.traverse(node=>names.push(node.name));
+  assert.equal(names.filter(name=>name==='house-keyboard').length,1);
+  assert.equal(names.filter(name=>name==='house-office-screen').length,1);
+  assert.equal(names.filter(name=>name==='house-office-computer').length,1);
+  assert.equal(names.filter(name=>name==='house-chair-seat').length,1);
 });
 
 test('the sculpted car has outward body panels and genuinely open wheel arches',()=>{

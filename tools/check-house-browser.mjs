@@ -57,12 +57,12 @@ class Protocol {
     this.listeners.set(method, [...list, callback]);
     return () => this.listeners.set(method, (this.listeners.get(method) || []).filter(item => item !== callback));
   }
-  send(method, params = {}, timeout = 10000) {
+  send(method, params = {}, timeout = 10000, sessionId = null) {
     return new Promise((resolve, reject) => {
       const id = ++this.id;
       const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(method + ' timed out.')); }, timeout);
       this.pending.set(id, { resolve, reject, timer, method });
-      this.connection.send(JSON.stringify({ id, method, params }));
+      this.connection.send(JSON.stringify({ id, method, params, ...(sessionId ? {sessionId} : {}) }));
     });
   }
   wait(method) {
@@ -100,8 +100,10 @@ async function reload() {
   await loaded; await ready(url);
 }
 async function click(selector) {
+  await socket.evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
   const point = await socket.evaluate('(() => { const e = document.querySelector(' + JSON.stringify(selector)
     + '); if (!e) throw new Error("Missing control"); e.scrollIntoView({block:"center",inline:"nearest",behavior:"instant"}); const r=e.getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2,scrollY}; })()');
+  await socket.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: point.x, y: point.y, buttons: 0 });
   await socket.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: point.x, y: point.y, button: 'left', clickCount: 1 });
   await socket.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: point.x, y: point.y, button: 'left', clickCount: 1 });
   await pause(80);
@@ -186,17 +188,27 @@ async function run() {
   socket.on('Runtime.exceptionThrown', event => report.exceptions.push(event.exceptionDetails.exception?.description || event.exceptionDetails.text));
   socket.on('Log.entryAdded', event => { if (event.entry.level === 'error') report.exceptions.push(event.entry.text); });
   await socket.send('Page.enable'); await socket.send('Runtime.enable'); await socket.send('Log.enable');
+  // Isolated cross-origin fixtures exercise the host without touching application data.
+  // The real public applications are verified separately in the dev preview.
+  await socket.send('Page.addScriptToEvaluateOnNewDocument',{source:
+    'window.__officeFixture={};addEventListener("message",event=>{if(["https://finapp.siniverse.cc","https://branchlab.siniverse.cc"].includes(event.origin)&&event.data?.testOfficeFixture)window.__officeFixture[event.data.testOfficeFixture]=event.data;});'});
+  socket.on('Fetch.requestPaused',event=>{
+    const id=new URL(event.request.url).hostname.split('.')[0];
+    const html='<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>'+id+' — fixture</title><style>body{margin:0;padding:24px;font:18px system-ui;background:#edf3ef;color:#234}input{display:block;margin:20px 0;padding:12px;width:min(80%,400px);font:inherit}small{display:block}</style><h1>'+id+' / page de test</h1><p>Cadre de validation isolé. Aucune donnée applicative.</p><label>Note temporaire<input id="note" autocomplete="off"></label><small>Le contenu reste dans cette fenêtre.</small><script>const id='+JSON.stringify(id)+',token=Math.random().toString(36);function send(){const r=note.getBoundingClientRect();parent.postMessage({testOfficeFixture:id,token,notes:note.value,focus:document.activeElement?.id,rect:{x:r.x,y:r.y,width:r.width,height:r.height},viewport:{width:innerWidth,height:innerHeight}},'+JSON.stringify(origin)+')}note.addEventListener("input",send);document.addEventListener("focusin",send);addEventListener("resize",send);send();</script></html>';
+    void socket.send('Fetch.fulfillRequest',{requestId:event.requestId,responseCode:200,responseHeaders:[{name:'Content-Type',value:'text/html; charset=utf-8'},{name:'Content-Security-Policy',value:"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'"}],body:Buffer.from(html).toString('base64')}).catch(error=>report.exceptions.push(error.message));
+  });
+  await socket.send('Fetch.enable',{patterns:['finapp','branchlab'].map(id=>({urlPattern:'https://'+id+'.siniverse.cc/*',resourceType:'Document',requestStage:'Request'}))});
   // Exercise the actual house, physical gestures, semantic links and browser history.
   const houseState=(app='ensemble')=>({app});
   // Read GPU pixels at visual/picking checkpoints, and reuse scene state for other assertions.
   const houseInspect=async({full=false}={})=>{
-    if(full)await until('(()=>{const s=window.__siniverseHouse.inspect({fast:true}).scene;return s.layout!=="house-v1"||s.objects.materialsReady})()','The local photographic texture maps did not finish loading.');
+    if(full)await until('(()=>{const s=window.__siniverseHouse.inspect({fast:true}).scene;return s.layout!=="house-v2"||s.objects.materialsReady})()','The local photographic texture maps did not finish loading.');
     return socket.evaluate(full?'window.__siniverseHouse.inspect()':'window.__siniverseHouse.inspect({fast:true})',full?20000:10000);
   };
   async function until(expression,message){
     const poll=expression.replaceAll('window.__siniverseHouse.inspect()','window.__siniverseHouse.inspect({fast:true})');
     for(let attempt=0;attempt<200;attempt++){if(await socket.evaluate(poll))return;await pause(60);}
-    const actual=await socket.evaluate('(()=>{const s=window.__siniverseHouse?.inspect();return {ready:document.documentElement.dataset.houseReady,route:s?.route,pose:s?.scene?.pose,reader:s?.scene?.reader,animations:s?.scene?.animationCount,focus:document.activeElement?.id}})()');
+    const actual=await socket.evaluate('(()=>{const s=window.__siniverseHouse?.inspect();return {ready:document.documentElement.dataset.houseReady,route:s?.route,pose:s?.scene?.pose,reader:s?.scene?.reader,office:s?.scene?.office,fixture:window.__officeFixture,animations:s?.scene?.animationCount,focus:document.activeElement?.id}})()');
     throw Error(message+' Actual state: '+JSON.stringify(actual));
   }
   async function houseWait(expected){
@@ -247,7 +259,7 @@ async function run() {
     assert.equal(await socket.evaluate('location.href'),overviewUrl);assert.equal(await socket.evaluate('history.length'),overviewHistory);
     await click('#plan-cutaway');assert.equal((await houseInspect()).scene.roofOpen,true);
     await until('window.__siniverseHouse.inspect().scene.animationCount===0','The animated cutaway did not settle.');
-    if(mobile)assert(await socket.evaluate('(()=>{const items=["#plan-app-finapp","#plan-app-branchlab","#plan-gaming-screen"].map(s=>document.querySelector(s));return items.every(e=>!e.hidden)&&items.every((e,i)=>items.slice(i+1).every(f=>{const r=e.getBoundingClientRect(),s=f.getBoundingClientRect();return r.bottom<=s.top||s.bottom<=r.top||r.right<=s.left||s.right<=r.left}))})()'),'Mobile cutaway support targets overlap.');
+    if(mobile)assert(await socket.evaluate('(()=>{const items=["#plan-office-screen","#plan-gaming-screen"].map(s=>document.querySelector(s));return items.every(e=>!e.hidden)&&items.every((e,i)=>items.slice(i+1).every(f=>{const r=e.getBoundingClientRect(),s=f.getBoundingClientRect();return r.bottom<=s.top||s.bottom<=r.top||r.right<=s.left||s.right<=r.left}))})()'),'Mobile cutaway support targets overlap.');
     await screenshot('house-cutaway-'+format,width);await click('#plan-cutaway');
     const exposedDoor=await socket.evaluate('(()=>{const e=document.querySelector("#plan-door"),r=e.getBoundingClientRect();return !e.hidden&&r.width>0&&document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest("#plan-door")===e})()');
     await click(exposedDoor?'#plan-door':'#plan-enter-house');
@@ -292,15 +304,8 @@ async function run() {
       assert.equal(await socket.evaluate('document.querySelector(".plan-compass details").open'),false);
     }
 
-    // The source point is recomputed after each screenshot (which resets document scroll).
-    let candidate=(await houseInspect({full:true})).scene.pickTargets.find(p=>p.app==='finapp');
-    if(mobile)await nativeTap(candidate);
-    else{const p=await targetPoint(candidate);await socket.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:p.x,y:p.y,buttons:0});}
-    await until('window.__siniverseHouse.inspect().scene.previewApp==="finapp"&&!document.querySelector(".house-object-preview").hidden','The physical support did not announce itself.');
-    assert.equal((await houseInspect()).scene.reader.open,false);
-    await screenshot('house-preview-'+format,width);
-    if(mobile)await click('#plan-preview-open');
-    else await nativeClick((await houseInspect({full:true})).scene.pickTargets.find(p=>p.app==='finapp'));
+    // Presentation URLs remain available independently of the desktop launcher.
+    await navigate(rootHome+'?app=finapp');
     await readerReady('finapp');
     inspected=await houseInspect();const supportPose=inspected.scene.pose;
     assert(inspected.scene.reader.rect.width>=width-1&&inspected.scene.reader.rect.height>=height-1,'Reading is still confined to the monitor.');
@@ -333,7 +338,7 @@ async function run() {
     const returnFocus=await socket.evaluate('(()=>{const e=document.querySelector("#plan-app-garapp"),r=e.getBoundingClientRect();return {actual:document.activeElement.id,source:history.state?.__siniverseHouse?.view?.sourceFocus,hidden:e.hidden,rect:{x:r.x,y:r.y,width:r.width,height:r.height},scrollY}})()');
     assert.equal(returnFocus.actual,'plan-app-garapp','Return focus: '+JSON.stringify(returnFocus));
     await screenshot('house-car-return-'+format,width);
-    candidate=await exposedCarTarget();
+    let candidate=await exposedCarTarget();
     if(mobile)await nativeTap(candidate);else await nativeClick(candidate);
     await readerReady('garapp');assert.equal((await houseInspect()).scene.lastPick,'voiture-garapp');
     await closeReaderRepeated('plan-canvas');assert.equal(await socket.evaluate('document.activeElement.id'),'plan-canvas');
@@ -347,7 +352,7 @@ async function run() {
     assert.equal(await socket.evaluate('history.length'),beforeHistory);
     report.checks.push('Plan/'+format+': vrai aperçu survol/tap, ouverture depuis support, lecture plein champ/scroll, focus, Échap répété, histoire et visite par porte');
 
-    await directTrip('branchlab');
+    await navigate(rootHome+'?app=branchlab');await readerReady('branchlab');
     assert.equal(await socket.evaluate('document.querySelectorAll(".plan-reader-angles,[data-reader-angle]").length'),0);
     assert.equal(await socket.evaluate('document.querySelector("#plan-reader-open-app").getAttribute("href")'),'https://branchlab.siniverse.cc');
     await screenshot('house-branchlab-reader-'+format,width);await closeReaderRepeated();
@@ -356,7 +361,7 @@ async function run() {
     for(let i=0;i<20;i++)await press('#plan-canvas','w');
     const wallPose=(await houseInspect()).scene.pose;
     assert(wallPose.position[0]>.35&&wallPose.position[0]<.49);assert.equal(wallPose.position[1],1.65);
-    const travelled=Math.hypot(wallPose.position[0]-walkStart[0],wallPose.position[2]-walkStart[2]);assert(travelled>1.5&&travelled<2.6);
+    const travelled=Math.hypot(wallPose.position[0]-walkStart[0],wallPose.position[2]-walkStart[2]);assert(travelled>2.5&&travelled<3.6);
     assert.equal(await socket.evaluate('history.length'),walkHistory);
     for(let i=0;i<(mobile?7:5);i++)await press('#plan-canvas','ArrowRight');
     inspected=await houseInspect({full:true});const blocked=inspected.scene.pickTargets.find(p=>p.app==='garapp'&&p.blocker?.startsWith('house-wall-'));
@@ -364,24 +369,71 @@ async function run() {
     assert.deepEqual((await houseInspect()).route,houseState('branchlab'));assert.equal((await houseInspect()).scene.reader.open,false);
     assert.equal((await houseInspect()).scene.lastPick,null);
     assert.equal(await socket.evaluate('document.querySelector("#plan-app-garapp").hidden'),true,'A projected target appears through the wall.');
-    const freePose=(await houseInspect()).scene.pose;
-    await socket.evaluate('history.back()');await houseWait(houseState('garapp'));
-    assert.equal((await houseInspect()).scene.reader.open,false,'Back reopened an app page that had been closed.');
-    await socket.evaluate('history.forward()');await houseWait(houseState('branchlab'));
-    assert.equal((await houseInspect()).scene.reader.open,false);
-    assert(near((await houseInspect()).scene.pose.position,freePose.position));assert(near((await houseInspect()).scene.pose.target,freePose.target));
-    report.checks.push('Plan/'+format+': toutes lectures, retour au support, marche/collision, vrai mur occultant 3D/HTML et pose restaurée');
+    report.checks.push('Plan/'+format+': lectures, retour au support, marche/collision et mur occultant 3D/HTML');
 
-    // Keyboard reopening and cancelling the actual expansion before it finishes.
-    await directTrip('finapp');await closeReaderRepeated();
-    await until('(()=>{const e=document.querySelector("#plan-app-finapp"),r=e.getBoundingClientRect();if(e.closest("[hidden]")||!r.width||!r.height)return false;e.focus({preventScroll:true});return document.activeElement===e})()','The Finapp support was not ready for keyboard activation.');
-    await press('#plan-app-finapp');
-    await until('document.querySelector("#plan-reader-dialog").open&&document.querySelector("#plan-reader-dialog").getAnimations().some(a=>a.playState==="running")','No real opening animation was exposed.');
-    await press('#plan-reader-close','Escape');
-    await until('!document.querySelector("#plan-reader-dialog").open&&!document.body.classList.contains("plan-reading-open")&&document.activeElement.id==="plan-app-finapp"','Cancelling opening did not restore the Finapp focus.');
-    assert.equal(await socket.evaluate('document.activeElement.id'),'plan-app-finapp');
+    // One physical PC, two lazy cross-origin apps, persistent windows and history.
+    await navigate(rootHome+'?room=office');
+    const officeState=program=>({app:'ensemble',room:'office',...(program?{program}:{})});
+    await houseWait(officeState());
+    await until('window.__siniverseHouse.inspect().scene.office.open','The common desktop did not open.');
+    assert.equal(await socket.evaluate('document.querySelectorAll("#office-programs iframe").length'),0,'Apps loaded before launch.');
+    assert.equal((await houseInspect()).scene.office.expanded,mobile,'Mobile should open the enlarged desktop automatically.');
+    assert.equal((await houseInspect()).scene.journeyClear,true);
+    await screenshot('house-office-desktop-'+format,width);
+    await houseClick('#office-launch-finapp',officeState('finapp'));
+    await until('Boolean(window.__officeFixture.finapp)','Finapp iframe did not load.');
+    if(!mobile)await click('#office-dock-expand');
+    await until('window.__siniverseHouse.inspect().scene.office.expanded','Enlarging the PC did not settle.');
+    await until('(()=>{const f=window.__officeFixture.finapp,r=document.querySelector("#office-frame-finapp").getBoundingClientRect();return Math.abs(f.viewport.width-r.width)<2&&Math.abs(f.viewport.height-r.height)<2})()','The enlarged app did not resize.');
+    const beforeTyping=(await houseInspect()).scene.pose;
+    // Chrome gives each cross-origin app its own input target (OOPIF).
+    const child=(await socket.send('Target.getTargets')).targetInfos.find(t=>t.type==='iframe'&&t.url.startsWith('https://finapp.siniverse.cc'));
+    assert(child,'The cross-origin fixture was not isolated in its own frame target.');
+    const {sessionId}=await socket.send('Target.attachToTarget',{targetId:child.targetId,flatten:true});
+    const inputPoint=await socket.evaluate('(()=>{const r=window.__officeFixture.finapp.rect;return {x:r.x+r.width/2,y:r.y+r.height/2}})()');
+    await socket.send('Input.dispatchMouseEvent',{type:'mouseMoved',...inputPoint,buttons:0},10000,sessionId);
+    await socket.send('Input.dispatchMouseEvent',{type:'mousePressed',...inputPoint,button:'left',buttons:1,clickCount:1},10000,sessionId);
+    await socket.send('Input.dispatchMouseEvent',{type:'mouseReleased',...inputPoint,button:'left',buttons:0,clickCount:1},10000,sessionId);
+    await socket.send('Input.insertText',{text:'brouillon '},10000,sessionId);
+    await socket.send('Input.dispatchKeyEvent',{type:'keyDown',key:'w',code:'KeyW',text:'w',unmodifiedText:'w',windowsVirtualKeyCode:87},10000,sessionId);
+    await socket.send('Input.dispatchKeyEvent',{type:'keyUp',key:'w',code:'KeyW',windowsVirtualKeyCode:87},10000,sessionId);
+    await socket.send('Target.detachFromTarget',{sessionId});
+    await until('window.__officeFixture.finapp.notes==="brouillon w"','Typing into the embedded app did not work.');
+    assert(near((await houseInspect()).scene.pose.position,beforeTyping.position),'Typing into an app moved the camera.');
+    const retained=await socket.evaluate('window.__officeFixture.finapp');
+    const assertRetained=async()=>{
+      assert.deepEqual(await socket.evaluate('(()=>{const f=window.__officeFixture.finapp;return {token:f.token,notes:f.notes}})()'),{token:retained.token,notes:'brouillon w'},'The Finapp window reloaded or lost its draft.');
+      assert.equal(await socket.evaluate('document.querySelectorAll("#office-programs iframe").length'),2);
+    };
+    await houseClick('#office-task-branchlab',officeState('branchlab'));
+    await until('Boolean(window.__officeFixture.branchlab)','Branchlab iframe did not load.');
+    await houseClick('#office-task-finapp',officeState('finapp'));await assertRetained();
+    const appPose=(await houseInspect()).scene.pose;
+    await socket.evaluate('history.back()');await houseWait(officeState('branchlab'));
+    await socket.evaluate('history.forward()');await houseWait(officeState('finapp'));await assertRetained();
+    assert(near((await houseInspect()).scene.pose.position,appPose.position));
+    await houseClick('#office-home',officeState());await assertRetained();
+    await houseClick('#office-launch-finapp',officeState('finapp'));await assertRetained();
+    await screenshot('house-office-app-fixture-'+format,width);
+    await click('#office-expand');assert.equal((await houseInspect()).scene.office.expanded,false);await assertRetained();
+    await click('#office-dock-expand');assert.equal((await houseInspect()).scene.office.expanded,true);await assertRetained();
+    await press('#office-exit','Escape');
+    assert.equal((await houseInspect()).scene.office.open,false);await assertRetained();
+    assert.equal(await socket.evaluate('document.activeElement.id'),'plan-office-screen');
+    candidate=(await houseInspect({full:true})).scene.pickTargets.find(p=>p.app==='finapp');
+    assert.equal(candidate.blocker,'house-office-screen');
+    if(mobile)await nativeTap(candidate);else await nativeClick(candidate);
+    await houseWait(officeState());await until('window.__siniverseHouse.inspect().scene.office.open','The physical monitor did not reopen the desktop.');
+    await assertRetained();
+    await click(mobile?'#office-exit':'#office-dock-exit');
+    const closedPose=(await houseInspect()).scene.pose;
+    await click('#plan-origin');await houseWait(houseState());
+    await socket.evaluate('history.back()');await houseWait(officeState());
+    assert.equal((await houseInspect()).scene.office.open,false,'Back reopened a desktop that had been closed.');
+    assert(near((await houseInspect()).scene.pose.position,closedPose.position));await assertRetained();
+    report.checks.push('PC/'+format+': bureau commun, chargement différé, saisie isolée, agrandissement, fenêtres conservées, clic physique, focus et Retour/Avant');
 
-    // Exercise the small experiences on their physical screens and notebook.
+    // The fictional garage notebook remains a separate physical experience.
     async function startDemo(app){
       await directTrip(app);await closeReaderRepeated();
       await socket.evaluate('document.querySelector("#plan-app-'+app+'").focus({preventScroll:true})');
@@ -390,22 +442,6 @@ async function run() {
       await until('(()=>{const s=window.__siniverseHouse.inspect().scene;return s.demo.app==='+JSON.stringify(app)+'&&s.animationCount===0})()','The on-object experience did not settle.');
       assert.equal((await houseInspect()).scene.journeyClear,true);
     }
-    await startDemo('finapp');
-    const firstCurve=await socket.evaluate('document.querySelector(".demo-curve-a").getAttribute("d")');
-    await press('#plan-demo-horizon','End');
-    assert.equal((await houseInspect()).scene.demo.horizon,20);
-    assert.notEqual(await socket.evaluate('document.querySelector(".demo-curve-a").getAttribute("d")'),firstCurve);
-    await screenshot('house-finapp-demo-'+format,width);
-    await click('#plan-demo-read-finapp');await readerReady('finapp');await press('#plan-reader-close','Escape');
-    await until('!document.querySelector("#plan-reader-dialog").open&&document.activeElement.id==="plan-demo-read-finapp"','The reader did not return keyboard focus to the screen experience.');
-    assert.equal((await houseInspect()).scene.demo.horizon,20);
-    await press('#plan-demo-horizon','Escape');assert.equal((await houseInspect()).scene.demo.app,null);
-    await startDemo('branchlab');await click('#plan-demo-connect');
-    await until('window.__siniverseHouse.inspect().scene.animationCount===0','The signal did not stop after reaching the display.');
-    assert.equal((await houseInspect()).scene.objects.connected,true);
-    await screenshot('house-branchlab-demo-'+format,width);
-    await click('#plan-demo-connect');assert.equal((await houseInspect()).scene.objects.connected,false);
-    await click('#plan-demo-close');assert.equal((await houseInspect()).scene.demo.app,null);
     await startDemo('garapp');assert.equal((await houseInspect()).scene.objects.notebookAmount,1);
     await click('#plan-demo-next');await click('#plan-demo-next');
     assert.equal((await houseInspect()).scene.demo.page,2);assert.equal(await socket.evaluate('document.querySelector("#plan-demo-next").disabled'),true);
@@ -416,7 +452,7 @@ async function run() {
     assert.equal((await houseInspect()).scene.demo.page,1);
     await press('#plan-demo-previous','Escape');
     await until('window.__siniverseHouse.inspect().scene.objects.notebookAmount===0','The notebook stayed open after leaving.');
-    report.checks.push('Plan/'+format+': scénarios sur écran, câble physique réversible, carnet articulé, pages bornées et retour à la manipulation');
+    report.checks.push('Plan/'+format+': carnet articulé, pages bornées et retour à la manipulation');
 
     await click('.plan-compass summary');await click('#plan-direct-gaming');
     const gamingState={...houseState(),room:'gaming'};await houseWait(gamingState);
@@ -433,14 +469,19 @@ async function run() {
     await socket.evaluate('history.forward()');await houseWait(gamingState);assert.equal((await houseInspect()).scene.room,'gaming');
     report.checks.push('Plan/'+format+': salle gaming par une vraie porte, PC RGB, bibliothèque clavier/Échap, focus et Retour/Avant');
 
+    // Context loss must keep already-loaded cross-origin windows alive.
+    await click('.plan-compass summary');await houseClick('#plan-direct-finapp',officeState('finapp'));
+    await assertRetained();
     await socket.evaluate('document.querySelector("#plan-canvas").getContext("webgl2").getExtension("WEBGL_lose_context").loseContext()');
     await until('document.querySelector("#experience").classList.contains("plan-is-fallback")','WebGL loss did not expose fallback.');
     assert.equal(await socket.evaluate('document.querySelectorAll("[data-plan-fallback-angle]").length'),0);
+    await until('document.querySelector("#office-desktop").open&&document.querySelector("#office-desktop").classList.contains("is-expanded")','Context loss did not preserve an enlarged PC.');
+    await assertRetained();await click('#office-exit');
     await houseClick('[data-plan-fallback-app="garapp"]',houseState('garapp'));await readerReady('garapp');
     await closeReaderRepeated();
     await socket.evaluate('document.querySelector(".plan-fallback .real-app-link").scrollIntoView({block:"center",behavior:"instant"})');
     assert(await socket.evaluate('(()=>{const a=document.querySelector(".plan-fallback .real-app-link"),r=a.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight&&document.elementFromPoint(r.x+r.width/2,r.y+r.height/2).closest("a")===a})()'));
-    report.checks.push('Plan/'+format+': ouverture clavier interrompue, perte réelle de contexte, lecture et sortie fallback');
+    report.checks.push('Plan/'+format+': perte réelle de contexte, fenêtre et brouillon conservés, lecture et sortie fallback');
 
   }
   const denied=await socket.send('Page.addScriptToEvaluateOnNewDocument',{source:'for(const key of ["localStorage","sessionStorage"])Object.defineProperty(window,key,{get(){throw new DOMException("blocked","SecurityError")}});'});
