@@ -63,8 +63,6 @@ export function buildGamingRoom(world, kit) {
     ctx.strokeStyle='#65DCED24';ctx.lineWidth=1;for(let x=18;x<n;x+=24){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,n);ctx.stroke();}
     ctx.fillStyle='#67D8F0';ctx.font='9px monospace';ctx.fillText('SINIVERSE / PLAY',28,25);
     ctx.fillStyle='#EDF5FF';ctx.font='600 26px sans-serif';ctx.fillText('Les jeux prennent vie ici.',27,63);
-    ctx.fillStyle='#AEBAD2';ctx.font='10px sans-serif';ctx.fillText('DÉCOUVRIR LA BIBLIOTHÈQUE',28,88);
-    for(let i=0;i<3;i++){const x=28+i*153;ctx.fillStyle=['#2B5470','#3F355F','#214A53'][i];ctx.fillRect(x,113,138,78);ctx.strokeStyle='#9DDDEF44';ctx.strokeRect(x+.5,113.5,137,77);ctx.fillStyle='#92A7BD';ctx.font='8px monospace';ctx.fillText('EN CRÉATION',x+13,175);}
     ctx.fillStyle='#5EE0EF';ctx.fillRect(28,height-18,n-56,1);
   },512);
   const monitor=mesh(new T.PlaneGeometry(1.76,.78),basic('#FFFFFF',{map:screenMap}),[-7.88,1.55,-2.482],desk,'house-gaming-screen');monitor.castShadow=monitor.receiveShadow=false;
@@ -105,5 +103,5 @@ export function buildGamingRoom(world, kit) {
   for(let i=0;i<5;i++){const a=i*Math.PI*2/5;curve([[0,.10,0],[Math.cos(a)*.31,.065,Math.sin(a)*.31]],metal,.022,chair,'house-gaming-chair-spoke',false,'metal');const wheel=mesh(new T.SphereGeometry(.045,10,8),metal,[Math.cos(a)*.31,.045,Math.sin(a)*.31],chair,'house-gaming-chair-caster','rubber');wheel.scale.set(1,.8,1);}
   contact([-7.45,.025,-2.10],[3.8,2.9],.6);
   obstacle(desk,'gaming-workstation');
-  return {room,monitor,pc,door,doorway:[-5.19,1.85],view:{position:[-7.55,1.65,.9],target:[-7.65,1.45,-2.5]},screenView:{position:[-7.88,1.65,-.3],target:[-7.88,1.55,-2.48]}};
+  return {room,monitor,pc,door,surface:{position:[-7.88,1.55,-2.46],width:1.76,height:.78,rotationY:0},doorway:[-5.19,1.85],view:{position:[-7.55,1.65,.9],target:[-7.65,1.45,-2.5]},screenView:{position:[-7.88,1.65,-.3],target:[-7.88,1.55,-2.48]}};
 }

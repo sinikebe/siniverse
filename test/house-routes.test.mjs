@@ -1,6 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeState, parseRoute, routeHref } from '../public/house/model.mjs';
+import { GAMES, gameHref } from '../public/house/games.mjs';
+
+test('the gaming shortcut uses the dev game until the site is promoted to production',()=>{
+  assert.equal(GAMES.length,1);
+  assert.equal(GAMES[0].name,'Décalage');
+  for(const host of ['dev.siniverse.cc','localhost','127.0.0.1'])assert.equal(gameHref(GAMES[0],host),'https://dev.decalage.siniverse.cc');
+  for(const host of ['siniverse.cc','www.siniverse.cc'])assert.equal(gameHref(GAMES[0],host),'https://decalage.siniverse.cc');
+});
 
 test('home and all public destinations round-trip without a concept selector', () => {
   for (const state of [{app:'ensemble'}, {app:'finapp'}, {app:'garapp'}, {app:'branchlab'}, {app:'ensemble',room:'gaming'}, {app:'ensemble',room:'office'}, {app:'ensemble',room:'office',program:'finapp'}, {app:'ensemble',room:'office',program:'branchlab'}]) {

@@ -462,6 +462,11 @@ async function run() {
     await press('#plan-gaming-screen');await until('document.querySelector("#gaming-library").open','The PC did not open the games library.');
     assert.equal(await socket.evaluate('document.activeElement.id'),'gaming-library-title');
     assert(await socket.evaluate('document.querySelector("#gaming-library").scrollWidth<=innerWidth+1'),'Games library overflows horizontally.');
+    // Inspect the shortcut only. Never open or test the game from the house review.
+    for(const scope of ['#gaming-library','.gaming-screen-desktop']){
+      const link=await socket.evaluate('(()=>{const a=document.querySelector('+JSON.stringify(scope+' .gaming-game-shortcut')+');return a&&{url:a.href,target:a.target,rel:a.rel,name:a.textContent}})()');
+      assert.equal(link?.url,'https://dev.decalage.siniverse.cc/');assert.equal(link.target,'_blank');assert.match(link.rel,/noopener/);assert.match(link.name,/Décalage/);
+    }
     await screenshot('house-gaming-library-'+format,width);
     await press('#gaming-library-close','Escape');assert.equal(await socket.evaluate('document.querySelector("#gaming-library").open'),false);
     assert.equal(await socket.evaluate('document.activeElement.id'),'plan-gaming-screen');
