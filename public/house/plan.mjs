@@ -3,6 +3,7 @@ import { createPlanReader } from './plan-reader.mjs';
 import { orbitPose, zoomPose, dragTracker } from './camera-math.mjs';
 import { buildHouse } from './house-scene.mjs';
 import { createHouseInteractions } from './house-interactions.mjs';
+import { createOfficeDesktop } from './office-desktop.mjs';
 import { createGamingLibrary } from './gaming-library.mjs';
 import { EYE_HEIGHT, canStand, segmentClear, stepOnFloor, lookOnFloor, blendLook, floorPath, pointAlong } from './house-navigation.mjs';
 
@@ -29,20 +30,27 @@ export function mountPlan(host,initialState,api){
   const navigate=(destination,focusId='view-title')=>api.navigate(destination,{focusId});
   const isMobile=()=>viewport.clientWidth<760;
   const gamingLibrary=createGamingLibrary(host,{escape:api.escape,onChange:()=>api.saveView()});
+  const officeDesktop=createOfficeDesktop(host,api,{onLaunch:program=>openOffice(program),onExit:()=>{
+    officeDesktop.close({save:false,focus:false});
+    if(!failed){updateLocation();world.refresh();(visibleElement('plan-office-screen')||world.canvas).focus({preventScroll:true});}
+    else viewport.querySelector('#plan-fallback-office')?.focus({preventScroll:true});
+    api.saveView();
+  },onChange:()=>api.saveView()});
 
   function fallback(){
-    host.dataset.room='house';
+    host.dataset.room='house';officeDesktop.fallback();
     failed=true;demos?.close({instant:true});if(previewPanel)previewPanel.hidden=true;host.classList.add('plan-is-fallback');hud.querySelector('h1').removeAttribute('id');hud.hidden=true;introduction.hidden=true;instruction.hidden=true;viewport.replaceChildren();
     const content=api.content(state.app);
     viewport.innerHTML='<section class="plan-fallback"><p class="scene-kicker">LA MAISON / PARCOURS SANS WEBGL</p><h1 id="view-title" tabindex="-1">'+api.escape(content.title)+'</h1><p>Le lieu 3D n’est pas disponible ici. Les mêmes outils et explications restent accessibles.</p><div class="fallback-destinations"><a href="'+api.href({app:'ensemble',room:undefined})+'" data-plan-fallback-app="ensemble">La maison</a>'+Object.entries(api.apps).map(([id,app])=>'<a href="'+api.href({app:id})+'" data-plan-fallback-app="'+id+'">'+app.name+'</a>').join('')+'</div>'+content.body.map(p=>'<p>'+api.escape(p)+'</p>').join('')+(api.apps[state.app]?'<a class="real-app-link" href="'+api.apps[state.app].url+'">Ouvrir '+api.apps[state.app].name+' ↗</a>':'')+'</section>';
     for(const a of viewport.querySelectorAll('[data-plan-fallback-app]'))a.addEventListener('click',event=>{if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();navigate({app:a.dataset.planFallbackApp||state.app,room:undefined});});
+    const officeButton=button('plan-fallback-office','Le PC du bureau');officeButton.addEventListener('click',()=>openOffice());viewport.querySelector('.fallback-destinations').append(officeButton);
     const gamesButton=button('plan-fallback-gaming','La bibliothèque de jeux');gamesButton.addEventListener('click',()=>gamingLibrary.open());viewport.querySelector('.fallback-destinations').append(gamesButton);
   }
   try{world=createWorld(viewport,{cartoon:true,minCameraHeight:EYE_HEIGHT,minCameraDistance:.4,mobileFov:78,desktopFov:50,pixelBudget:2400000,reducedMotion:api.reducedMotion,onContextLost:()=>{if(!destroyed)fallback();}});}
   catch{fallback();}
-  if(failed)return {update(next){state=next;fallback();},snapshot(){return null;},inspect(){return {kind:'fallback',app:state.app};},destroy(){destroyed=true;gamingLibrary.destroy();world?.destroy();host.replaceChildren();host.classList.remove('plan-host','plan-house');}};
+  if(failed)return {update(next){state=next;if(state.room!=='office')officeDesktop.close({save:false,focus:false});fallback();if(state.room==='office')officeDesktop.open({program:state.program,expanded:true});},snapshot(){return {office:officeDesktop.snapshot()};},inspect(){return {kind:'fallback',app:state.app,office:officeDesktop.inspect()};},destroy(){destroyed=true;officeDesktop.destroy();gamingLibrary.destroy();world?.destroy();host.replaceChildren();host.classList.remove('plan-host','plan-house');}};
   world.canvas.id='plan-canvas';world.canvas.setAttribute('aria-label','La maison Siniverse. Glisser pour regarder. W A S D ou flèches pour marcher ; les murs et le véhicule arrêtent le déplacement.');
-  house=buildHouse(world,api.apps);
+  house=buildHouse(world,api.apps);officeDesktop.attach(world,house.office.surface);
   const supports={...house.screens,garapp:house.car};
   const obstacles=house.obstacles,bounds=house.bounds;
   const setPose=pose=>{world.setPose(pose);updateLocation();};
@@ -55,25 +63,30 @@ export function mountPlan(host,initialState,api){
     hud.querySelector('#plan-location').textContent=mode==='overview'?'La maison / vue d’ensemble':gaming?'Dans la salle gaming':inside?(p[0]<.8?'Dans le bureau':'Dans le garage'):'Devant la maison';
     introduction.hidden=mode!=='overview'||state.app!=='ensemble';hud.querySelector('#plan-enter-house').hidden=mode==='walk';
     hud.querySelector('#plan-gaming-room').hidden=mode==='overview';
-    for(const station of stationLabels){const separated=mode==='overview'&&roofOpen&&station.id!=='garapp';station.handle.setEnabled((!reader?.isOpen()||station.id!==reader.app())&&station.id!==demos?.active());station.handle.setPosition(separated?(isMobile()&&station.id==='finapp'?[station.cutPosition[0],7.4,station.cutPosition[2]]:station.cutPosition):station.position);if(station.guide)station.guide.visible=separated;}
+    for(const station of stationLabels){const separated=mode==='overview'&&roofOpen&&station.id!=='garapp';station.handle.setEnabled((!reader?.isOpen()||station.id!==reader.app())&&station.id!==demos?.active()&&!(station.id==='office'&&officeDesktop.isOpen()));station.handle.setPosition(separated?station.cutPosition:station.position);if(station.guide)station.guide.visible=separated;}
   }
   function setRoof(open,{instant=false}={}){roofOpen=open;void house.setCutaway(open,{instant});hud.querySelector('#plan-cutaway').setAttribute('aria-pressed',String(open));hud.querySelector('#plan-cutaway').textContent=open?'Remettre le toit':'Voir en coupe';updateLocation();world.requestRender();}
   hud.querySelector('#plan-cutaway').addEventListener('click',()=>{setPreview(null);setRoof(!roofOpen);api.saveView();});
   const gamingButton=button('plan-gaming-room','Salle gaming');gamingButton.hidden=true;gamingButton.addEventListener('click',()=>navigate({app:'ensemble',room:'gaming'}));hud.querySelector('.plan-compass').insertBefore(gamingButton,hud.querySelector('.plan-compass details'));
   const gamingRoute=button('plan-direct-gaming','Salle gaming / jeux');gamingRoute.addEventListener('click',()=>{hud.querySelector('.plan-compass details').open=false;navigate({app:'ensemble',room:'gaming'});});hud.querySelector('.plan-direct-routes').append(gamingRoute);
+  const officeRoute=button('plan-direct-office','Le PC / Finapp et Branchlab');officeRoute.addEventListener('click',()=>{hud.querySelector('.plan-compass details').open=false;openOffice();});hud.querySelector('.plan-direct-routes').append(officeRoute);
   for(const [id,app]of Object.entries(api.apps)){
-    const link=document.createElement('a');link.id='plan-direct-'+id;link.href=api.href({app:id});link.textContent=app.name+' / '+(id==='garapp'?'garage':'bureau');link.addEventListener('click',event=>{if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();hud.querySelector('.plan-compass details').open=false;openApp(id,hud.querySelector('.plan-compass summary'));});hud.querySelector('.plan-direct-routes').append(link);
+    const link=document.createElement('a');link.id='plan-direct-'+id;link.href=id==='garapp'?api.href({app:id}):api.href({app:'ensemble',room:'office',program:id});link.textContent=app.name+' / '+(id==='garapp'?'garage':'le PC');link.addEventListener('click',event=>{if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();hud.querySelector('.plan-compass details').open=false;if(id==='garapp')openApp(id,hud.querySelector('.plan-compass summary'));else openOffice(id);});hud.querySelector('.plan-direct-routes').append(link);
+    if(id!=='garapp')continue;
     const station=button('plan-app-'+id,app.name,'house-station');
     station.setAttribute('aria-haspopup','dialog');station.setAttribute('aria-controls','plan-reader-dialog');
     station.addEventListener('focus',()=>setPreview(id,'focus'));station.addEventListener('pointerenter',()=>setPreview(id,'hover'));
     station.addEventListener('click',()=>openApp(id,station));
-    const spec=house.surfaces[id],position=id==='garapp'?[3.1,1.8,1.6]:[spec.position[0],spec.position[1]+spec.height/2+.12,spec.position[2]+.08];
-    const cutPosition=id==='finapp'?[position[0],5.2,position[2]]:id==='branchlab'?[position[0],2.5,position[2]]:position;
-    const guide=id==='garapp'?null:world.line([position,cutPosition],'#52685b',.012);if(guide)guide.visible=false;
+    const position=[3.1,1.8,1.6],cutPosition=position,guide=null;
     stationLabels.push({id,position,cutPosition,guide,handle:world.label(position,station,{clamp:false})});
   }
   world.addPick(house.car,()=>openApp('garapp',world.canvas),{key:'garapp'});house.car.name='voiture-garapp';
-  for(const [id,mesh]of Object.entries(house.screens)){mesh.name='poste-'+id;world.addPick(mesh,()=>openApp(id,world.canvas),{key:id});}
+  const officeStation=button('plan-office-screen','Le PC','house-station');officeStation.setAttribute('aria-label','Le PC du bureau');officeStation.setAttribute('aria-haspopup','dialog');officeStation.setAttribute('aria-controls','office-desktop');officeStation.addEventListener('click',()=>openOffice());
+  const officePosition=[-2.8,2.365,-2.4],officeCutPosition=[-2.8,5.3,-2.4],officeGuide=world.line([officePosition,officeCutPosition],'#52685b',.012);officeGuide.visible=false;officeGuide.userData.pickThrough=true;
+  stationLabels.push({id:'office',position:officePosition,cutPosition:officeCutPosition,guide:officeGuide,handle:world.label(officePosition,officeStation,{clamp:false})});
+  for(const object of [house.office.screen,house.office.computer])world.addPick(object,()=>openOffice(),{key:'office'});
+  function openOffice(program){return navigate({app:'ensemble',room:'office',program},'office-desktop-title');}
+  function officePose(){return {position:[-2.8,EYE_HEIGHT,isMobile()?.35:-.25],target:[-2.8,1.62,-2.46]};}
   const entrance=button('plan-door','Entrer dans le bureau →','house-door');entrance.addEventListener('click',()=>enterHouse());entranceLabel=world.label([-2.3,1.8,3.82],entrance,{clamp:false});
   if(house.entry)world.addPick(house.entry,()=>enterHouse(),{key:'entry'});
   const gamingEntry=button('plan-gaming-entry','Salle gaming →','house-door gaming-door');gamingEntry.addEventListener('click',()=>navigate({app:'ensemble',room:'gaming'}));gamingEntryLabel=world.label([-7.45,2.46,3.83],gamingEntry,{clamp:false});
@@ -103,7 +116,7 @@ export function mountPlan(host,initialState,api){
     const token=++previewRevision,amounts=house.inspectPreview?.()||{};
     if(app&&!same){
       const lead={finapp:'Comparer des scénarios au même horizon.',garapp:'Retrouver le fil de vie d’un véhicule.',branchlab:'Comprendre une liaison, de la source à l’écran.'}[app];
-      previewPanel.innerHTML='<p class="preview-room">'+(app==='garapp'?'Dans le garage':'Dans le bureau')+'</p><h2>'+api.escape(api.apps[app].name)+'</h2><p>'+lead+'</p><button id="plan-preview-try" type="button">'+(app==='garapp'?'Feuilleter le carnet':app==='branchlab'?'Essayer la liaison':'Faire varier les scénarios')+' <span aria-hidden="true">→</span></button><a id="plan-preview-open" href="'+api.href({app})+'" aria-haspopup="dialog">Découvrir '+api.escape(api.apps[app].name)+' <span aria-hidden="true">↗</span></a>';
+      previewPanel.innerHTML='<p class="preview-room">'+(app==='garapp'?'Dans le garage':'Dans le bureau')+'</p><h2>'+api.escape(api.apps[app].name)+'</h2><p>'+lead+'</p><button id="plan-preview-try" type="button">'+(app==='garapp'?'Feuilleter le carnet':'Ouvrir sur le PC')+' <span aria-hidden="true">→</span></button><a id="plan-preview-open" href="'+api.href({app})+'" aria-haspopup="dialog">Découvrir '+api.escape(api.apps[app].name)+' <span aria-hidden="true">↗</span></a>';
       previewPanel.querySelector('button').addEventListener('click',()=>{void tryObject(app);});
       previewPanel.querySelector('a').addEventListener('click',event=>{if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();openApp(app,event.currentTarget);});
     }
@@ -116,6 +129,8 @@ export function mountPlan(host,initialState,api){
     world.refresh();return world.projectBounds(app==='garapp'&&demos?.active()==='garapp'?house.record:supports[app]);
   }
   async function tryObject(app){
+    if(app!=='garapp')return openOffice(app);
+    officeDesktop.close({save:false,focus:false});
     const token=++revision;pendingOpen=true;demos.close({instant:true});setPreview(null);lastJourney=[];
     if(app==='garapp'&&mode==='overview'){await walkTo(GARAGE_PASSAGE,{token});if(token!==revision||failed)return;}
     const s=house.surfaces[app],distance=isMobile()?2.05:1.8;
@@ -148,7 +163,7 @@ export function mountPlan(host,initialState,api){
     })();closingTask=task;void task.then(()=>{if(closingTask===task)closingTask=null;},()=>{if(closingTask===task)closingTask=null;});return task;
   }
   function drawWorld(){
-    const c=api.content(state.app);hud.querySelector('#view-title').textContent=state.app==='ensemble'?(state.room==='gaming'?'La salle gaming / Les jeux du Siniverse':'La maison Siniverse'):api.apps[state.app].name+' / '+c.title;
+    const c=api.content(state.app);hud.querySelector('#view-title').textContent=state.app==='ensemble'?(state.room==='gaming'?'La salle gaming / Les jeux du Siniverse':state.room==='office'?'Le PC du bureau / Finapp et Branchlab':'La maison Siniverse'):api.apps[state.app].name+' / '+c.title;
     updateLocation();world.requestRender();
   }
   function targetPose(app){
@@ -173,11 +188,11 @@ export function mountPlan(host,initialState,api){
     if(token===revision&&!failed)setPose(end);
   }
   async function enterHouse(){
-    const token=++revision;pendingOpen=false;demos.close();setPreview(null);lastJourney=[];await walkTo(BUREAU,{token});if(token===revision&&!failed){api.saveView();world.canvas.focus({preventScroll:true});}
+    const token=++revision;pendingOpen=false;officeDesktop.close({save:false,focus:false});demos.close();setPreview(null);lastJourney=[];await walkTo(BUREAU,{token});if(token===revision&&!failed){api.saveView();world.canvas.focus({preventScroll:true});}
   }
   hud.querySelector('#plan-enter-house').addEventListener('click',enterHouse);
   hud.querySelector('#plan-origin').addEventListener('click',()=>navigate({app:'ensemble',room:undefined}));
-  function manual(pose){revision++;pendingOpen=false;demos.close();setPreview(null);world.cancelFlight();setPose(pose);}
+  function manual(pose){revision++;pendingOpen=false;officeDesktop.close({save:false,focus:false});demos.close();setPreview(null);world.cancelFlight();setPose(pose);}
   function moveOnFloor(forward,side){
     if(mode==='overview'){mode='walk';setPose(APPROACH);}
     const before=world.getPose(),next=stepOnFloor(before,forward,side,obstacles,bounds);
@@ -214,13 +229,14 @@ export function mountPlan(host,initialState,api){
   for(const b of hud.querySelectorAll('[data-move]'))b.addEventListener('click',()=>{const a=b.dataset.move;moveOnFloor(a==='forward'||a==='in'?.25:a==='back'||a==='out'?-.25:0,a==='left'?-.25:a==='right'?.25:0);});
   for(const [name,fn,options]of [['pointerdown',down],['pointermove',move],['pointerup',up],['pointercancel',cancel],['wheel',wheel,{passive:false}],['keydown',key]]){world.canvas.addEventListener(name,fn,options);cleanups.push(()=>world.canvas.removeEventListener(name,fn,options));}
   async function update(next,{snapshot=null,instant=false}={}){
-    const token=++revision,previousApp=state.app,restored=snapshot?.layout==='house-v1';
+    const token=++revision,previousApp=state.app,restored=snapshot?.layout==='house-v2',keepOffice=officeDesktop.isOpen()&&next.app==='ensemble'&&next.room==='office';
+    if(!keepOffice)officeDesktop.close({save:false,focus:false});
     if(gamingLibrary.isOpen())gamingLibrary.close({save:false,focus:false});
     const wantsReader=next.app!=='ensemble'&&(!restored||snapshot.readerOpen===true);
     if(reader.isOpen()&&(!wantsReader||reader.app()!==next.app)){
       await closeReader({save:false,focus:false,token});if(token!==revision||destroyed)return;
     }
-    state=next;if(failed){fallback();if(wantsReader)await reader.open({app:state.app,origin:()=>null,instant:true,scrollTop:snapshot?.readerScroll||0});return;}
+    state=next;if(failed){fallback();if(wantsReader)await reader.open({app:state.app,origin:()=>null,instant:true,scrollTop:snapshot?.readerScroll||0});else if(state.room==='office')officeDesktop.open({program:state.program,expanded:true});return;}
     if(demos.active()&&(!restored?demos.active()!==state.app:!snapshot.demo))demos.close({instant});
     if(state.app!=='garapp'&&demos.active()!=='garapp')house.setNotebook(0);
     if(restored){roofOpen=Boolean(snapshot.roofOpen);sourceFocus=snapshot.sourceFocus||'plan-canvas';}
@@ -234,6 +250,8 @@ export function mountPlan(host,initialState,api){
         if(wantsReader){pendingOpen=true;if(state.app==='garapp')house.setNotebook(1);setPreview(state.app,'opening',{show:false});await reader.open({app:state.app,origin:()=>sourceRect(state.app),instant,scrollTop:snapshot.readerScroll||0});}
         else setPreview(snapshot.previewApp||null,'focus');
         if(state.room==='gaming'&&snapshot.gamingOpen)gamingLibrary.open({focus:false});
+        if(state.room==='office'&&snapshot.office?.open)officeDesktop.open({program:state.program,expanded:snapshot.office.expanded,focus:false});
+        else if(state.room==='office')officeDesktop.close({save:false,focus:false});
         pendingOpen=false;updateLocation();return;
       }
     }
@@ -248,6 +266,11 @@ export function mountPlan(host,initialState,api){
       }
       if(state.app==='garapp'&&house.inspectObjects().notebookAmount<1){const from=house.inspectObjects().notebookAmount;await world.animate(instant?0:480,t=>{if(token===revision)house.setNotebook(from+(1-from)*t);});if(token!==revision||failed)return;}
       await reader.open({app:state.app,origin:()=>sourceRect(state.app),instant});pendingOpen=false;
+    }else if(state.room==='office'){
+      pendingOpen=true;setPreview(null);
+      if(!keepOffice)await walkTo(officePose(),{instant,token});
+      if(token!==revision||failed)return;
+      officeDesktop.open({program:state.program,expanded:keepOffice?officeDesktop.isExpanded():undefined,focus:false});pendingOpen=false;
     }else if(state.room==='gaming'){
       pendingOpen=true;setPreview(null);await walkTo(isMobile()?{position:[-7.4,EYE_HEIGHT,1.5],target:[-7.4,1.5,-2.5]}:house.gaming.view,{instant,token});
       if(token!==revision||failed)return;pendingOpen=false;setPreview(null);
@@ -259,5 +282,5 @@ export function mountPlan(host,initialState,api){
     if(token!==revision||failed)return;drawWorld();world.requestRender();
   }
   function pickInfo(app,point){const screen=world.project(point);return {app,screen,blocker:world.probe(screen.x,screen.y).intersections[0]?.name||null,occluded:!world.visiblePoint(point)};}
-  return {update,snapshot:()=>({layout:'house-v1',mode,pose:world.getPose(),roofOpen,gamingOpen:gamingLibrary.isOpen(),readerOpen:reader.isOpen(),readerScroll:reader.scrollTop(),sourceFocus,returnPose,previewApp,demo:demos.snapshot()}),inspect:options=>({...world.inspect(options),layout:'house-v1',mode,room:mode==='overview'?'outside':world.getPose().position[0]<-5.19?'gaming':world.getPose().position[0]<.8?'bureau':'garage',app:state.app,roofOpen,dragging,lastPick,previewApp,previewPhase,preview:house.inspectPreview?.(),reader:reader.inspect(),demo:demos.inspect(),objects:house.inspectObjects(),construction:options?.fast?null:house.inspectConstruction(),gaming:{open:gamingLibrary.isOpen()},blockedMoves,journey:lastJourney,journeyClear:lastJourney.slice(1).every((p,i)=>segmentClear([lastJourney[i][0],lastJourney[i][2]],[p[0],p[2]],obstacles,bounds)),obstacles,bounds,stations:Object.keys(api.apps),pickTargets:options?.fast?[]:[...[[0,.75,1.95],[-.8,.7,.9],[.8,.7,.9]].map(p=>pickInfo('garapp',house.car.localToWorld(new THREE.Vector3(...p)))),...Object.entries(house.surfaces).map(([app,s])=>pickInfo(app,new THREE.Vector3(...s.position)))]}),destroy(){destroyed=true;revision++;for(const fn of cleanups)fn();demos?.destroy();reader?.destroy();gamingLibrary.destroy();world.destroy();host.replaceChildren();host.classList.remove('plan-host','plan-house');}};
+  return {update,snapshot:()=>({layout:'house-v2',mode,pose:world.getPose(),roofOpen,gamingOpen:gamingLibrary.isOpen(),office:officeDesktop.snapshot(),readerOpen:reader.isOpen(),readerScroll:reader.scrollTop(),sourceFocus,returnPose,previewApp,demo:demos.snapshot()}),inspect:options=>({...world.inspect(options),layout:'house-v2',mode,room:mode==='overview'?'outside':world.getPose().position[0]<-5.19?'gaming':world.getPose().position[0]<.8?'bureau':'garage',app:state.app,roofOpen,dragging,lastPick,previewApp,previewPhase,preview:house.inspectPreview?.(),reader:reader.inspect(),demo:demos.inspect(),objects:house.inspectObjects(),construction:options?.fast?null:house.inspectConstruction(),gaming:{open:gamingLibrary.isOpen()},office:officeDesktop.inspect(),blockedMoves,journey:lastJourney,journeyClear:lastJourney.slice(1).every((p,i)=>segmentClear([lastJourney[i][0],lastJourney[i][2]],[p[0],p[2]],obstacles,bounds)),obstacles,bounds,stations:Object.keys(api.apps),pickTargets:options?.fast?[]:[...[[0,.75,1.95],[-.8,.7,.9],[.8,.7,.9]].map(p=>pickInfo('garapp',house.car.localToWorld(new THREE.Vector3(...p)))),...Object.entries(house.surfaces).map(([app,s])=>pickInfo(app,new THREE.Vector3(...s.position)))]}),destroy(){destroyed=true;revision++;for(const fn of cleanups)fn();demos?.destroy();reader?.destroy();officeDesktop.destroy();gamingLibrary.destroy();world.destroy();host.replaceChildren();host.classList.remove('plan-host','plan-house');}};
 }

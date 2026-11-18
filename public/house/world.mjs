@@ -60,6 +60,7 @@ export function createWorld(host,{reducedMotion=false,onContextLost=()=>{},carto
   function visiblePoint(point){const direction=point.clone().sub(camera.position),distance=direction.length();raycaster.set(camera.position,direction.normalize());raycaster.near=0;raycaster.far=Math.max(0,distance-.035);const clear=intersections().length===0;raycaster.far=Infinity;return clear;}
   function projectSurface(item,rect){
     const {element,position,quaternion,width,height}=item;
+    if(item.overlay){element.hidden=item.disabled;return;}
     const normal=new THREE.Vector3(0,0,1).applyQuaternion(quaternion);
     const front=normal.dot(camera.position.clone().sub(position))>.05;
     const projected=position.clone().project(camera);
@@ -115,9 +116,9 @@ export function createWorld(host,{reducedMotion=false,onContextLost=()=>{},carto
     const quaternion=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),spec.rotationY||0),normal=new THREE.Vector3(0,0,1).applyQuaternion(quaternion);
     const position=new THREE.Vector3(...spec.position).addScaledVector(normal,.025);
     const pixels=spec.pixels||360;
-    element.classList.add('world-surface');element.style.width=pixels+'px';element.style.height=String(pixels*spec.height/spec.width)+'px';labelLayer.append(element);
+    element.classList.add('world-surface');element.style.width=pixels+'px';element.style.height=String(pixels*spec.height/spec.width)+'px';(spec.layer||labelLayer).append(element);
     const item={element,position,quaternion,width:spec.width,height:spec.height,disabled:false};surfaces.push(item);request();
-    return {element,setEnabled(enabled){item.disabled=!enabled;request();},remove(){item.disabled=true;element.remove();}};
+    return {element,setEnabled(enabled){item.disabled=!enabled;request();},setOverlay(enabled){item.overlay=enabled;request();},remove(){item.disabled=true;element.remove();}};
   }
   function pick(clientX,clientY){
     const rect=canvas.getBoundingClientRect();pointer.set((clientX-rect.left)/rect.width*2-1,-(clientY-rect.top)/rect.height*2+1);

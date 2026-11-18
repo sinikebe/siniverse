@@ -59,7 +59,9 @@ test('only the homepage can execute local scripts and the policy is not accumula
   for (const path of ['/','/index.html']) {
     assert.match(policies(path), /script-src 'self'/);
     assert.match(policies(path), /connect-src 'none'/);
-    assert.doesNotMatch(policies(path), /unsafe-inline|unsafe-eval|https:/);
+    assert.doesNotMatch(policies(path), /unsafe-inline|unsafe-eval/);
+    assert.match(policies(path), /script-src 'self';/);
+    assert.equal(policies(path).match(/frame-src ([^;]+);/)[1],'https://finapp.siniverse.cc https://branchlab.siniverse.cc https://garapp.siniverse.cc');
   }
   for (const path of ['/confidentialite','/confidentialite.html','/404.html']) assert.match(policies(path), /script-src 'none'/);
   const globalBlock=file('public/_headers').split(/\n\s*\n/)[0];
