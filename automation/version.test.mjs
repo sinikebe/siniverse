@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { assignVersion, assertVersion, bumpVersion, classifyPullRequest, compareVersions, EPOCH,
+import { assignVersion, assertVersion, bumpVersion, compareVersions, EPOCH, VERSION_POLICY,
   githubVersionClient, requireMainPromotion, resolveVersionForSha, tagName, validateRecord, versionContext } from './version.mjs';
 
 const repository = 'sinikebe/siniverse';
@@ -86,7 +86,8 @@ function fixture({ current = head, seed = [], commits = { [head]: base }, prs = 
       return { status: after.has(previous) ? 'ahead' : 'diverged', behind_by: after.has(previous) ? 0 : 1,
         base_commit: { sha: previous }, merge_base_commit: { sha: after.has(previous) ? previous : null },
         total_commits: range.length, ahead_by: range.length,
-        commits: range.slice((page - 1) * 100, page * 100).map(sha => ({ sha })) };
+        commits: range.slice((page - 1) * 100, page * 100).map(sha => ({ sha,
+          parents: (Array.isArray(commits[sha]) ? commits[sha] : commits[sha] ? [commits[sha]] : []).map(sha => ({ sha })) })) };
     }
     throw new Error('Unexpected request ' + path);
   };
@@ -103,14 +104,16 @@ test('strict SemVer increments and precedence have no lexical or numeric overflo
   for (const value of ['v0.0.1', '01.0.0', '0.1', '1.0.0\n', '1.2.3-dev', '1.2.3+sha', '1.2.3<script>']) assert.throws(() => assertVersion(value));
 });
 
-test('one semver label overrides breaking and feat; otherwise explicit breaking, feat and default patch apply', () => {
-  assert.deepEqual(classifyPullRequest({ title: 'feat!: incompatible', labels: [{ name: 'semver:patch' }] }), { level: 'patch', explicit: true });
-  assert.deepEqual(classifyPullRequest({ title: 'feat(ui): new screen' }), { level: 'minor', explicit: false });
-  assert.deepEqual(classifyPullRequest({ title: 'fix!: migration' }), { level: 'major', explicit: true });
-  assert.deepEqual(classifyPullRequest({ body: 'Details\nBREAKING CHANGE: incompatible' }), { level: 'major', explicit: true });
-  assert.deepEqual(classifyPullRequest({ title: 'docs: instructions' }), { level: 'patch', explicit: false });
-  assert.throws(() => classifyPullRequest({ labels: [{ name: 'semver:major' }, { name: 'semver:patch' }] }), /exactly one/);
-  assert.throws(() => classifyPullRequest({ labels: [{ name: 'semver:automatic' }] }), /exactly one/);
+test('dev always patches regardless of titles, breaking markers or semver labels', async () => {
+  for (const metadata of [
+    { title: 'feat: screen' }, { title: 'fix!: incompatible', body: 'BREAKING CHANGE: schema' },
+    { labels: [{ name: 'semver:major' }, { name: 'semver:minor' }] }, { labels: [{ name: 'semver:unknown' }] },
+  ]) {
+    const state = fixture({ seed: [record('dev', '0.0.1', base)], prs: [pr(1, head, metadata)] });
+    const result = await assignVersion(context(), state.request);
+    assert.equal(result.version, '0.0.2'); assert.equal(result.bump, 'patch');
+    assert.equal(result.versionPolicy, VERSION_POLICY);
+  }
 });
 
 test('the trusted context rejects private/fork/foreign repositories, PRs, invalid refs and Cloudflare credentials', () => {
@@ -136,7 +139,7 @@ test('bootstrap assigns exactly 0.0.1 even for a feature reset, and a rerun reus
   assert.equal(state.calls.filter(call => call.method === 'POST').length, writes);
 });
 
-test('a coalesced run replays every exact merged PR through paginated lists and patches only the direct tip', async () => {
+test('a coalesced run replays each dev integration through paginated lists, including direct commits', async () => {
   const c = sha('c'), d = sha('d'), e = sha('e');
   const filler = Array.from({ length: 100 }, (_, index) => ({ number: index + 100, merged_at: null }));
   const state = fixture({ current: e, seed: [record('dev', '0.0.1', base)],
@@ -144,13 +147,13 @@ test('a coalesced run replays every exact merged PR through paginated lists and 
     prs: [...filler, pr(2, head), pr(3, d, { title: 'feat: another screen' }),
       pr(4, c, { base: { ref: 'main', repo: { full_name: repository } } }), pr(80, base), pr(81, base)] });
   const result = await assignVersion(context({ sha: e }), state.request);
-  assert.equal(result.version, '0.1.1');
+  assert.equal(result.version, '0.0.5');
   assert.deepEqual(state.assigned().map(value => [value.sha, value.version]),
-    [[base, '0.0.1'], [head, '0.0.2'], [d, '0.1.0'], [e, '0.1.1']]);
+    [[base, '0.0.1'], [head, '0.0.2'], [c, '0.0.3'], [d, '0.0.4'], [e, '0.0.5']]);
   assert(state.calls.some(call => call.path.includes('state=closed&base=dev&per_page=100&page=2')));
   assert(!state.calls.some(call => call.path.includes('/commits/') && call.path.includes('/pulls')));
-  assert.equal((await assignVersion(context({ sha: e }), state.request)).version, '0.1.1');
-  assert.equal(state.assigned().length, 4);
+  assert.equal((await assignVersion(context({ sha: e }), state.request)).version, '0.0.5');
+  assert.equal(state.assigned().length, 5);
 });
 
 test('stale queued events never assign old SHAs, and rewritten history fails closed', async () => {
@@ -172,17 +175,46 @@ test('fast-forwarding dev to a main promotion accepts its prior version through 
   assert.equal(result.priorTag, tagName('dev', '0.1.0'));
 });
 
-test('a comparison longer than one API page is complete and does not bump each direct commit', async () => {
+test('a comparison longer than one API page assigns one patch per direct dev commit', async () => {
   const commits = {}, targets = Array.from({ length: 102 }, (_, index) => (index + 100).toString(16).padStart(40, '0'));
   targets.forEach((target, index) => { commits[target] = index ? targets[index - 1] : base; });
   const target = targets.at(-1), state = fixture({ current: target, seed: [record('dev', '0.0.1', base)], commits });
-  assert.equal((await assignVersion(context({ sha: target }), state.request)).version, '0.0.2');
-  assert.equal(state.assigned().length, 2);
+  assert.equal((await assignVersion(context({ sha: target }), state.request)).version, '0.0.103');
+  assert.equal(state.assigned().length, 103);
   assert(state.calls.some(call => call.path.includes('/compare/') && call.path.endsWith('page=2')));
 });
 
-test('dev promotion reuses a higher exact dev version without a second bump; a main hotfix still advances', async () => {
-  for (const [mainVersion, devVersion, expected, bump] of [['0.0.2', '0.1.0', '0.1.0', 'promotion'], ['0.2.0', '0.1.0', '0.2.1', 'patch']]) {
+test('a merged feature increments dev once without counting its imported commits', async () => {
+  const featureA = sha('c'), featureB = sha('d');
+  const state = fixture({ seed: [record('dev', '0.5.0', base)],
+    commits: { [head]: [base, featureB], [featureB]: featureA, [featureA]: base },
+    prs: [pr(12, head, { title: 'feat!: several changes', labels: [{ name: 'semver:major' }] })] });
+  assert.equal((await assignVersion(context(), state.request)).version, '0.5.1');
+  assert.deepEqual(state.assigned().map(value => value.sha), [base, head]);
+});
+
+test('dev resumes patches from a newer production without reducing historical dev versions', async () => {
+  for (const [devVersion, mainVersion, expected] of [['0.0.9', '0.1.0', '0.1.1'], ['0.5.0', '0.1.0', '0.5.1']]) {
+    const production = sha('c');
+    const state = fixture({ seed: [record('dev', devVersion, base), record('main', mainVersion, production)] });
+    const assigned = await assignVersion(context(), state.request);
+    assert.equal(assigned.version, expected);
+    assert.deepEqual(assigned.productionBase, { tag: tagName('main', mainVersion), sha: production, version: mainVersion });
+    const writes = state.calls.filter(call => call.method === 'POST').length;
+    assert.equal((await assignVersion(context({ runId: '43' }), state.request)).version, expected);
+    assert.equal(state.calls.filter(call => call.method === 'POST').length, writes);
+  }
+});
+
+test('channel-policy annotations reject extra bumps and incorrect branch increments', () => {
+  assert.throws(() => validateRecord(record('dev', '0.1.0', head, { versionPolicy: VERSION_POLICY, bump: 'minor' }), tagName('dev', '0.1.0'), repository, head), /patch exactly once/);
+  assert.throws(() => validateRecord(record('dev', '0.0.3', head, { versionPolicy: VERSION_POLICY }), tagName('dev', '0.0.3'), repository, head), /patch exactly once/);
+  const source = { tag: tagName('dev', '0.5.1'), sha: sha('d'), version: '0.5.1' };
+  assert.throws(() => validateRecord(record('main', '0.6.0', head, { versionPolicy: VERSION_POLICY, bump: 'minor', source }), tagName('main', '0.6.0'), repository, head), /production minor exactly once/);
+});
+
+test('each main promotion advances the production minor once and resets the patch', async () => {
+  for (const [mainVersion, devVersion, expected, bump] of [['0.0.2', '0.1.0', '0.1.0', 'minor'], ['0.2.0', '0.1.0', '0.3.0', 'minor'], ['0.0.1', '0.5.7', '0.1.0', 'minor']]) {
     const dev = sha('d');
     const state = fixture({ seed: [record('main', mainVersion, base), record('dev', devVersion, dev)],
       prs: [pr(7, head, { base: { ref: 'main', repo: { full_name: repository } }, head: { ref: 'dev', sha: dev, repo: { full_name: repository } }, title: 'chore: promote dev' })] });
@@ -191,11 +223,11 @@ test('dev promotion reuses a higher exact dev version without a second bump; a m
   }
 });
 
-test('an explicit promotion override or breaking marker takes max(dev, bumped main)', async () => {
+test('main ignores semver overrides and breaking markers when incrementing its minor', async () => {
   for (const [labels, title, devVersion, expected] of [
-    [[{ name: 'semver:major' }], 'chore: promote', '0.2.0', '1.0.0'],
-    [[{ name: 'semver:patch' }], 'feat!: promote', '0.3.0', '0.3.0'],
-    [[], 'feat!: promote', '0.3.0', '1.0.0'],
+    [[{ name: 'semver:major' }], 'chore: promote', '0.2.0', '0.2.0'],
+    [[{ name: 'semver:patch' }], 'feat!: promote', '0.3.0', '0.2.0'],
+    [[], 'feat!: promote', '0.3.0', '0.2.0'],
   ]) {
     const dev = sha('d');
     const state = fixture({ seed: [record('main', '0.1.0', base), record('dev', devVersion, dev)],
@@ -211,7 +243,7 @@ test('untagged dev promotion fails immediately without writes or waiting, and is
   await assert.rejects(() => assignVersion(context({ channel: 'main' }), state.request), /No exact dev version tag/);
   assert.equal(state.calls.filter(call => call.method === 'POST').length, 0);
   const ready = fixture({ seed: [record('main', '0.0.1', base), record('dev', '0.0.2', dev)], prs: [promotion] });
-  assert.equal((await assignVersion(context({ channel: 'main' }), ready.request)).version, '0.0.2');
+  assert.equal((await assignVersion(context({ channel: 'main' }), ready.request)).version, '0.1.0');
 });
 
 test('tag ref collisions fail without force, deletion, branch writes or silently adopting a conflicting tag', async () => {
@@ -274,11 +306,11 @@ test('production assignment requires the exact same-repository dev promotion, ev
   }
   const ready = fixture({ seed: [record('dev', '0.0.1', head)], prs: [pr(21, head, { base: mainBase,
     head: { ref: 'dev', sha: head, repo: { full_name: repository } } })] });
-  assert.equal((await assignVersion(context({ channel: 'main' }), ready.request)).version, '0.0.1');
+  assert.equal((await assignVersion(context({ channel: 'main' }), ready.request)).version, '0.1.0');
   await assert.rejects(() => requireMainPromotion(repository, base, ready.request), /exact source SHA/);
 });
 
-test('first production copies the exact tested dev version, including a fix made before the first promotion', async () => {
+test('first production starts at 0.1.0 with exact tested dev provenance and retries without another bump', async () => {
   const dev = sha('d');
   for (const version of ['0.0.1', '0.0.2']) {
     const seed = version === '0.0.1' ? [record('dev', version, dev)]
@@ -287,10 +319,10 @@ test('first production copies the exact tested dev version, including a fix made
       head: { ref: 'dev', sha: dev, repo: { full_name: repository } } });
     const state = fixture({ seed, prs: [promotion] });
     const first = await assignVersion(context({ channel: 'main' }), state.request);
-    assert.equal(first.version, version); assert.equal(first.priorTag, null); assert.equal(first.bump, 'promotion');
+    assert.equal(first.version, '0.1.0'); assert.equal(first.priorTag, null); assert.equal(first.bump, 'minor');
     assert.deepEqual(first.source, { tag: tagName('dev', version), sha: dev, version });
     const writes = state.calls.filter(call => call.method === 'POST').length;
-    assert.equal((await assignVersion(context({ channel: 'main' }), state.request)).version, version);
+    assert.equal((await assignVersion(context({ channel: 'main' }), state.request)).version, '0.1.0');
     assert.equal(state.calls.filter(call => call.method === 'POST').length, writes);
   }
 });

@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 export const EPOCH = 'siniverse-reset-0.0.1-v1';
 export const PREFIX = 'siniverse-version/';
+export const VERSION_POLICY = 'channel-patch-minor-v1';
 const SHA = /^[a-f0-9]{40}$/;
 const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 const channels = new Set(['main', 'dev']);
@@ -43,19 +44,6 @@ export function parseTag(name) {
   const match = /^siniverse-version\/(main|dev)\/v(.+)$/.exec(name || '');
   invariant(match, 'Invalid Siniverse version tag.');
   return { channel: match[1], version: assertVersion(match[2]) };
-}
-
-export function classifyPullRequest(pr) {
-  if (!pr) return { level: 'patch', explicit: false };
-  const labels = (pr.labels || []).map(label => typeof label === 'string' ? label : label.name)
-    .filter(name => typeof name === 'string' && name.startsWith('semver:'));
-  invariant(labels.length <= 1 && labels.every(name => /^semver:(major|minor|patch)$/.test(name)),
-    'Use exactly one valid semver:major/minor/patch override, or none.');
-  if (labels.length) return { level: labels[0].slice('semver:'.length), explicit: true };
-  const title = pr.title || '', body = pr.body || '';
-  if (/^[a-z][a-z0-9-]*(?:\([^\r\n)]*\))?!:/i.test(title)
-      || /(?:^|\n)BREAKING[ -]CHANGE:\s*\S/i.test(body)) return { level: 'major', explicit: true };
-  return { level: /^feat(?:\([^\r\n)]*\))?:/i.test(title) ? 'minor' : 'patch', explicit: false };
 }
 
 export function assertPublicRepository(repository, value) {
@@ -126,9 +114,12 @@ export function validateRecord(record, name, repository, sha) {
   invariant(SHA.test(record.automationRef || '') && /^[1-9]\d*$/.test(record.runId || ''), 'Version tag provenance is incomplete.');
   invariant(['reset', 'major', 'minor', 'patch', 'promotion'].includes(record.bump), 'Invalid recorded version increment.');
   invariant(record.pullRequest === null || (Number.isSafeInteger(record.pullRequest) && record.pullRequest > 0), 'Invalid recorded pull request.');
+  invariant(record.versionPolicy === undefined || record.versionPolicy === VERSION_POLICY, 'Unknown version assignment policy.');
   if (record.priorTag === null) {
     if (record.channel === 'dev') invariant(record.version === '0.0.1' && record.bump === 'reset', 'Only the reset may start the dev channel.');
-    else invariant(record.bump === 'promotion' && record.source?.version === record.version,
+    else invariant(record.versionPolicy === VERSION_POLICY
+      ? record.bump === 'minor' && record.version === '0.1.0' && record.source !== null
+      : record.bump === 'promotion' && record.source?.version === record.version,
       'The first production version must copy its exact dev provenance.');
   }
   else {
@@ -140,6 +131,21 @@ export function validateRecord(record, name, repository, sha) {
     const source = parseTag(record.source?.tag);
     invariant(record.channel === 'main' && source.channel === 'dev' && source.version === record.source.version
       && SHA.test(record.source.sha || ''), 'Invalid exact dev promotion provenance.');
+  }
+  if (record.versionPolicy === VERSION_POLICY && record.priorTag !== null) {
+    const previous = parseTag(record.priorTag).version;
+    if (record.channel === 'main') invariant(record.bump === 'minor' && record.source !== null
+      && record.version === bumpVersion(previous, 'minor'), 'A production promotion must increment its prior production minor exactly once.');
+    else {
+      const baseline = record.productionBase?.version && compareVersions(record.productionBase.version, previous) > 0
+        ? record.productionBase.version : previous;
+      invariant(record.bump === 'patch' && record.version === bumpVersion(baseline, 'patch'), 'A dev integration must increment the patch exactly once.');
+    }
+  }
+  if (record.productionBase != null) {
+    const production = parseTag(record.productionBase.tag);
+    invariant(record.channel === 'dev' && production.channel === 'main' && production.version === record.productionBase.version
+      && SHA.test(record.productionBase.sha || ''), 'Invalid production baseline for dev.');
   }
   return record;
 }
@@ -158,7 +164,7 @@ export async function readVersionRecord(repository, tag, request) {
     const source = await readVersionRecord(repository, {
       name: validated.source.tag, commit: { sha: validated.source.sha }
     }, request);
-    invariant(source.channel === 'dev' && source.version === validated.version,
+    invariant(source.channel === 'dev' && (validated.versionPolicy === VERSION_POLICY || source.version === validated.version),
       'The first production version requires a valid exact dev source tag.');
   }
   return validated;
@@ -181,7 +187,7 @@ async function assertCurrent(context, request) {
 }
 
 async function ancestorRange(repository, head, previous, request) {
-  const pending = [], visited = new Set();
+  const pending = [], visited = new Set(), parents = new Map();
   let total;
   for (let page = 1; page <= 1000; page++) {
     const comparison = await request('/repos/' + repository + '/compare/' + previous + '...' + head + '?per_page=100&page=' + page);
@@ -195,24 +201,39 @@ async function ancestorRange(repository, head, previous, request) {
       'An exact paginated commit range is required.');
     for (const commit of comparison.commits) {
       invariant(SHA.test(commit.sha || '') && !visited.has(commit.sha) && commit.sha !== previous, 'Invalid or duplicate commit in the version range.');
+      invariant(Array.isArray(commit.parents) && commit.parents.length > 0
+        && commit.parents.every(parent => SHA.test(parent.sha || '')), 'Exact commit parents are required for channel versioning.');
+      parents.set(commit.sha, commit.parents.map(parent => parent.sha));
       visited.add(commit.sha); pending.push(commit.sha);
     }
     if (pending.length === total) {
       invariant(visited.has(head), 'The version range does not contain its source tip.');
-      return pending;
+      // Follow integrations on the channel, excluding commits imported by a merge.
+      // A main-to-dev fast-forward can reach the prior dev anchor as second parent.
+      const integrations = [], walked = new Set();
+      let cursor = head;
+      while (cursor !== previous) {
+        invariant(parents.has(cursor) && !walked.has(cursor), 'The channel integration path must reach its prior version anchor.');
+        integrations.push(cursor); walked.add(cursor);
+        const links = parents.get(cursor);
+        cursor = links.includes(previous) ? previous : links[0];
+      }
+      return integrations.reverse();
     }
     invariant(pending.length < total && comparison.commits.length === 100, 'The version comparison omitted commits.');
   }
   throw new Error('Version comparison pagination exceeded its safety bound.');
 }
 
-export function selectVersion(previous, pr, dev) {
-  const classification = classifyPullRequest(pr);
-  const bumped = bumpVersion(previous, classification.level);
-  if (!dev) return { version: bumped, bump: classification.level, source: null };
-  const useDev = compareVersions(dev.version, previous) > 0 && !classification.explicit;
-  return { version: useDev ? dev.version : compareVersions(dev.version, bumped) > 0 ? dev.version : bumped,
-    bump: useDev ? 'promotion' : classification.level,
+export function selectVersion(previous, channel, dev = null, production = null) {
+  invariant(channels.has(channel), 'An exact version channel is required.');
+  if (channel === 'dev') {
+    const baseline = production && compareVersions(production.version, previous) > 0 ? production.version : previous;
+    return { version: bumpVersion(baseline, 'patch'), bump: 'patch', source: null,
+      productionBase: production ? { tag: production.name, sha: production.sha, version: production.version } : null };
+  }
+  invariant(dev, 'An exact tested dev version is required for production.');
+  return { version: bumpVersion(previous, 'minor'), bump: 'minor',
     source: { tag: dev.name, sha: dev.sha, version: dev.version } };
 }
 
@@ -266,8 +287,12 @@ export async function assignVersion(context, request) {
     invariant(!byCommit.has(pr.merge_commit_sha), 'Ambiguous merged pull requests for a source SHA.');
     byCommit.set(pr.merge_commit_sha, pr);
   }
-  // Replay every merged PR, then one direct-push tip, never each intermediate direct commit.
-  const points = [...pending.filter(sha => byCommit.has(sha) && sha !== context.sha), context.sha];
+  // Each integration on dev's first-parent history counts once. Feature branch
+  // ancestors imported by a merge are not separate dev integrations.
+  const points = pending;
+  const productionTag = context.channel === 'dev' ? catalog.filter(tag => parseTag(tag.name).channel === 'main')
+    .sort((a, b) => compareVersions(parseTag(b.name).version, parseTag(a.name).version))[0] : null;
+  const production = productionTag ? { name: productionTag.name, ...await readVersionRecord(context.repository, productionTag, request) } : null;
   if (context.channel === 'main') for (const sha of points) assertMainPromotion(context.repository, sha, byCommit.get(sha));
   for (const sha of points) {
     const pr = byCommit.get(sha) || null;
@@ -276,15 +301,13 @@ export async function assignVersion(context, request) {
       dev = await resolveVersionForSha(context.repository, 'dev', pr.head.sha, request, catalog);
     }
     let selection = { version: '0.0.1', bump: 'reset', source: null };
-    if (previous) selection = selectVersion(previous.version, pr, dev);
-    else {
-      classifyPullRequest(pr);
-      if (dev) selection = { version: dev.version, bump: 'promotion',
-        source: { tag: dev.name, sha: dev.sha, version: dev.version } };
-    }
+    if (previous) selection = selectVersion(previous.version, context.channel, dev, production);
+    else if (dev) selection = selectVersion('0.0.1', 'main', dev);
     const record = { schemaVersion: 1, epoch: EPOCH, repository: context.repository, channel: context.channel,
       sha, version: selection.version, bump: selection.bump, pullRequest: pr?.number ?? null,
-      priorTag: previous?.name ?? null, source: selection.source, automationRef: context.automationRef, runId: context.runId };
+      priorTag: previous?.name ?? null, source: selection.source, versionPolicy: VERSION_POLICY,
+      ...(context.channel === 'dev' ? { productionBase: selection.productionBase ?? null } : {}),
+      automationRef: context.automationRef, runId: context.runId };
     previous = await createVersionTag(context, record, request);
     catalog.push({ name: previous.name, commit: { sha } });
   }

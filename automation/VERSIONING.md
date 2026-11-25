@@ -14,6 +14,9 @@ add `v` for display and work offline, without a runtime version fetch.
 An annotated Git tag targets the exact tested/deployed application SHA. Its JSON
 records schema/epoch, repository, channel, SHA, version, bump, PR, priorTag,
 optional exact dev promotion source, automationRef and assigning runId.
+New assignments record `versionPolicy: channel-patch-minor-v1`, plus an exact
+`productionBase` for dev when production already exists. Legacy annotations remain
+readable without reinterpreting or rewriting their assigned versions.
 Lightweight tags, malformed metadata, ambiguous SHA mappings and collisions fail.
 The implementation creates new tag objects/refs only; no tags are moved/deleted,
 and no branch commits, PAT or release service are introduced.
@@ -26,29 +29,30 @@ publication is established by CI and its HTTPS probe.
 
 ## Increment policy
 
-The first dev assignment is exactly `0.0.1`, even for a feature reset PR.
-The first main promotion requires the exact dev tag and copies that tested
-version: `0.0.1` initially, or a higher version if fixes were tested in dev
-before the first production approval. Its priorTag is null only with validated
-dev provenance. Earlier history is outside this epoch. Later merges follow this priority:
+The first dev assignment remains exactly `0.0.1`. Every subsequent integration
+on dev increments patch once, regardless of PR titles, breaking markers or
+`semver:*` labels. A merge commit counts once; commits imported from its feature
+branch are not counted again. Multiple direct commits each receive a patch.
 
-1. One `semver:major`, `semver:minor` or `semver:patch` label.
-2. An explicit Conventional Commit `!` title or `BREAKING CHANGE:` body marker:
-   major, including `0.x.y` to `1.0.0`.
-3. A `feat:` or `feat(scope):` title: minor.
-4. All other changes, including fixes, docs and CI: patch.
+Every same-repository dev-to-main promotion increments the previous production
+minor once and resets patch to zero: main `0.1.0` becomes `0.2.0`, including when
+the tested dev build is `0.1.12`. The first promotion is `0.1.0`. The exact tested
+dev SHA and its assigned version remain recorded as provenance; production need
+not display the dev build's version. Neither title nor labels override this rule.
 
-Conflicting or unknown `semver:` overrides fail. Minor resets patch to zero;
-major resets both minor and patch. Ordinary dev-to-main promotion reuses the
-exact source dev version if higher than main, without another increment.
-Otherwise main advances normally. Explicit override/breaking promotion selects
-max(dev version, requested bump of main). An untagged dev source fails immediately
-with a retry instruction after dev assigns its version; it never waits while
-holding the shared queue.
+After a newer production version exists, dev increments patch from the higher
+of its prior assigned version and that production version. Versions already
+assigned by the legacy policy are not reduced or reassigned. Production's minor
+counter follows production, independently of historically inflated dev minors.
+For example, legacy dev `0.5.0` continues at `0.5.1`, while main `0.0.1` promotes
+to `0.1.0`; the old dev tags remain immutable.
 
-Direct pushes add one patch at the final tip, not per intermediate commit.
-A safe main-to-dev fast-forward is supported when the dev anchor is a merge's
-second parent. Actual rewrites losing the prior anchor are refused.
+An untagged dev source fails immediately with a retry instruction after dev assigns
+its version; it never waits while holding the shared queue. A safe main-to-dev
+fast-forward is supported when the dev anchor is a merge's second parent.
+Actual rewrites losing the prior anchor are refused. Existing exact channel/SHA
+mappings, including legacy versions and failed deployment retries, always win
+over a new assignment.
 
 ## Queue, replay and permissions
 
@@ -64,7 +68,11 @@ finite queues. Paginated compare responses prove the previous anchor is an
 ancestor and provide the complete range. Paginated closed PR metadata is filtered
 by exact merge_commit_sha plus target base.ref before ambiguity checks. Historical
 duplicates outside the range are ignored; associated-PR guesses are not used.
-Every pending merged PR counts once; an unassociated final tip adds one patch.
+Commit parents establish the channel's first-parent integration path. Every
+pending dev integration counts once, including intermediate direct commits;
+side-branch ancestors imported by merges do not count. Every main integration
+must be an exact approved dev-to-main promotion. All comparisons are completed
+and validated before any missing assignment is created.
 
 Public identity and current head are re-read before each tag creation. Stale runs
 skip assignment/publication; the next current run replays missing merges.
@@ -91,8 +99,8 @@ pull-requests-read only to recheck that exact production provenance.
 3. Adopt the byte-identical CI caller in four apps and Pages caller in
    Finapp/Garapp, all pinned to that same new immutable SHA.
 4. Publish and test dev first. Promote only through an explicitly approved
-   same-repository dev-to-main PR, preserving distinct work. Dev begins at `0.0.1`;
-   production copies the version actually tested in dev without another bump.
+   same-repository dev-to-main PR, preserving distinct work. Dev begins at `0.0.1`
+   and advances by patches; production starts at `0.1.0` and advances by minors.
 
 Normal PR/merge runs validate the rollout. No extra manual dispatch is required.
 Permanent main/dev and immutable tags remain; feature branches use safe cleanup.

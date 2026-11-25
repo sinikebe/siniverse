@@ -96,8 +96,9 @@ pull-requests read; app check/build/deploy remains contents read.
 Central updates retain the currently pinned functional caller until the new
 central commit is reviewed and merged, avoiding its own unknown future hash.
 The reset build works with the source fallback 0.0.1. The first dev assignment
-is 0.0.1; the first main promotion copies the exact tested dev version, including
-any fix version assigned before production is approved.
+is 0.0.1; later dev integrations increment patch. A production promotion advances
+the prior production minor once and resets patch (0.1.0 for the first promotion),
+while recording the exact tested dev source. Existing immutable versions are retained.
 After central review/merge, generate the callers with that immutable source:
 
     node automation/ci.mjs caller FULL_CENTRAL_SHA > .github/workflows/ci.yml
