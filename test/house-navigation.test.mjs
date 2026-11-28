@@ -135,6 +135,31 @@ test('the sculpted car has outward body panels and genuinely open wheel arches',
   }
 });
 
+test('the garage wall display faces a collision-free reading position beside the car',()=>{
+  const {monitor,surface,cameraForViewport}=house.garage;
+  scene.updateMatrixWorld(true);
+  assert(scene.getObjectById(monitor.id),'The wall display must be in the house.');
+  const housing=monitor.getObjectByName('house-garage-monitor-case');
+  for(const [width,height,fov] of [[1280,720,50],[390,844,78],[360,900,78]]) {
+    const aspect=width/height,pose=cameraForViewport(aspect,fov);
+    const camera=new THREE.PerspectiveCamera(fov,aspect,.1,160);
+    camera.position.set(...pose.position);camera.lookAt(...pose.target);camera.updateMatrixWorld();
+    assert.equal(camera.position.y,EYE_HEIGHT);
+    const direction=new THREE.Vector3(...surface.position).sub(camera.position);
+    const ray=new THREE.Raycaster(camera.position,direction.clone().normalize(),0,direction.length()+.1);
+    const hits=ray.intersectObjects(scene.children,true).filter(hit=>hit.object.visible&&!hit.object.userData.pickThrough);
+    assert.equal(hits[0]?.object.name,'house-garage-display','The physical screen is blocked from its reading position.');
+    const vertices=housing.geometry.attributes.position;
+    for(let i=0;i<vertices.count;i++){
+      const p=new THREE.Vector3().fromBufferAttribute(vertices,i).applyMatrix4(housing.matrixWorld).project(camera);
+      assert(Math.abs(p.x)<.91&&Math.abs(p.y)<.91,'The monitor housing is cropped.');
+    }
+    const destination=[camera.position.x,camera.position.z],path=floorPath([-2.85,2.7],destination,obstacles,bounds);
+    assert.deepEqual(path.at(-1),destination);
+    for(let i=1;i<path.length;i++)assert(segmentClear(path[i-1],path[i],obstacles,bounds));
+  }
+});
+
 test('screen artwork maps once across the entire physical display',()=>{
   for(const screen of Object.values(house.screens)){
     const uv=screen.geometry.attributes.uv,values=Array.from(uv.array);

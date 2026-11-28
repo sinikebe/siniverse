@@ -6,12 +6,16 @@ function illustration(app){
   return '<svg viewBox="0 0 560 410" aria-hidden="true"><rect class="figure-device" x="35" y="125" width="108" height="150" rx="15"/><path class="figure-rule" d="M53 155H120M53 175H120M53 195H120"/><path class="figure-path" d="M143 215C200 215 210 300 280 300S340 215 395 215"/><rect class="figure-device" x="395" y="125" width="135" height="135" rx="12"/><path class="figure-axis" d="M460 260V285M430 285H490"/><text x="40" y="100">Source</text><text x="216" y="350">Câble</text><text x="398" y="100">Écran</text></svg><figcaption>Les rôles d’une liaison vidéo directe, rendus visibles.</figcaption>';
 }
 
-export function createPlanReader(host,api,{onNavigate,onClose,onViewChange=()=>{}}){
+export function createPlanReader(host,api,{onNavigate,onGarage,onClose,onViewChange=()=>{}}){
   const dialog=document.createElement('dialog');dialog.id='plan-reader-dialog';dialog.className='plan-reader';dialog.setAttribute('aria-labelledby','plan-reader-title');
   dialog.innerHTML='<div class="plan-reader-shell"><header class="plan-reader-bar"><span class="plan-reader-brand">siniverse / plan-séquence</span><a id="plan-reader-open-app" class="reader-open-app" href="#"></a><button type="button" id="plan-reader-close"><span class="reader-return-label">Revenir au support</span><span aria-hidden="true">×</span></button></header><div class="plan-reader-scroll" id="plan-reader-scroll" tabindex="0"></div></div>';
   host.append(dialog);
   const scroll=dialog.querySelector('.plan-reader-scroll'),close=dialog.querySelector('#plan-reader-close'),exit=dialog.querySelector('#plan-reader-open-app');
   let current=null,animation=null,phase='closed',sourceRect=null,destroyed=false,generation=0,closingTask=null,saveFrame=0;
+  dialog.addEventListener('click',event=>{
+    if(current?.app!=='garapp'||!event.target.closest('#plan-reader-open-app,.reader-launch')||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
+    event.preventDefault();onGarage();
+  });
   scroll.addEventListener('scroll',()=>{if(phase!=='open'||saveFrame)return;saveFrame=requestAnimationFrame(()=>{saveFrame=0;if(!destroyed&&phase==='open')onViewChange();});},{passive:true});
   close.addEventListener('click',()=>onClose());
   dialog.addEventListener('cancel',event=>{event.preventDefault();onClose();});
@@ -27,10 +31,11 @@ export function createPlanReader(host,api,{onNavigate,onClose,onViewChange=()=>{
   function setContent(app,{scrollTop=0,focus=false}={}){
     current={app};dialog.dataset.app=app;
     const content=api.content(app),name=api.apps[app].name;
+    const inGarage=app==='garapp',launchHref=inGarage?api.href({app:'ensemble',room:'garage'}):api.apps[app].url;
     dialog.querySelector('.reader-return-label').textContent=app==='garapp'?'Revenir au véhicule':'Revenir à l’écran';
-    exit.href=api.apps[app].url;exit.textContent='Ouvrir '+name+' ↗';
+    exit.href=launchHref;exit.textContent=inGarage?'Utiliser Garapp au garage':'Ouvrir '+name+' ↗';
     scroll.setAttribute('aria-label','Lecture de '+name);
-    scroll.innerHTML='<div class="plan-reader-content"><article><header class="plan-reader-heading"><p class="reader-eyebrow">'+api.escape(name)+' / '+api.escape(content.eyebrow)+'</p><h1 id="plan-reader-title" tabindex="-1">'+api.escape(content.title)+'</h1></header><div class="plan-reader-layout"><div class="plan-reader-prose">'+content.body.map(p=>'<p>'+api.escape(p)+'</p>').join('')+(content.facts?.length?'<dl class="plan-reader-facts">'+content.facts.map(f=>'<div><dt>'+api.escape(f.label)+'</dt><dd>'+api.escape(f.value)+'</dd></div>').join('')+'</dl>':'')+(content.related?'<button type="button" id="plan-reader-related">'+api.escape(content.related.label)+' <span aria-hidden="true">→</span></button>':'')+'</div><figure class="plan-reader-figure">'+illustration(app)+'</figure></div><footer class="plan-reader-foot"><a class="reader-launch" href="'+api.apps[app].url+'">Continuer dans '+api.escape(name)+' <span aria-hidden="true">↗</span></a><span>Le portail vous ramène à votre point de départ.</span></footer></article></div>';
+    scroll.innerHTML='<div class="plan-reader-content"><article><header class="plan-reader-heading"><p class="reader-eyebrow">'+api.escape(name)+' / '+api.escape(content.eyebrow)+'</p><h1 id="plan-reader-title" tabindex="-1">'+api.escape(content.title)+'</h1></header><div class="plan-reader-layout"><div class="plan-reader-prose">'+content.body.map(p=>'<p>'+api.escape(p)+'</p>').join('')+(content.facts?.length?'<dl class="plan-reader-facts">'+content.facts.map(f=>'<div><dt>'+api.escape(f.label)+'</dt><dd>'+api.escape(f.value)+'</dd></div>').join('')+'</dl>':'')+(content.related?'<button type="button" id="plan-reader-related">'+api.escape(content.related.label)+' <span aria-hidden="true">→</span></button>':'')+'</div><figure class="plan-reader-figure">'+illustration(app)+'</figure></div><footer class="plan-reader-foot"><a class="reader-launch" href="'+api.escape(launchHref)+'">'+(inGarage?'Ouvrir Garapp sur l’écran mural':'Continuer dans '+api.escape(name)+' <span aria-hidden="true">↗</span>')+'</a><span>Le portail vous ramène à votre point de départ.</span></footer></article></div>';
     scroll.querySelector('#plan-reader-related')?.addEventListener('click',()=>onNavigate({app:content.related.app}));
     scroll.scrollTo({top:scrollTop,left:0,behavior:'instant'});
     if(focus)dialog.querySelector('#plan-reader-title').focus({preventScroll:true});
