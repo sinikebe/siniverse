@@ -88,6 +88,7 @@ export function createGarageScreen(host, api, { onExit, onChange }) {
   return {
     attach(nextWorld, spec) {
       world = nextWorld;
+      panel.style.aspectRatio = spec.width + ' / ' + spec.height;
       surface = world.surface({ ...spec, pixels: 1120, layer: projection }, panel);
       surface.setEnabled(false);
     },

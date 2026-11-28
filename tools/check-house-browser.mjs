@@ -486,7 +486,11 @@ async function run() {
       assert.equal(await socket.evaluate('document.elementFromPoint('+centre.x+','+centre.y+')?.id'),'garage-frame-garapp','The embedded app is missing from the physical screen glass.');
     }
     await screenshot('house-garage-screen-'+format,width);
-    if(!mobile)await click('#garage-expand');
+    if(mobile){
+      await click('#garage-expand');
+      await until('(()=>{const view=window.__embeddedFixture.garapp.viewport,r=document.querySelector("#garage-frame-garapp").getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&Math.abs(view.width-r.width)<12})()','The wall screen should fit in portrait and use the mobile app layout.');
+    }
+    await click('#garage-expand');
     await until('window.__siniverseHouse.inspect().scene.garage.expanded','The wall screen did not enlarge.');
     await typeInFrame('garapp','garage ');
     await until('window.__embeddedFixture.garapp.notes==="garage w"','Typing inside the garage app did not reach the embedded form.');
