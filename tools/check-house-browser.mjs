@@ -274,7 +274,6 @@ async function run() {
     await pause(100);
   }
   async function typeInFrame(id,draft){
-    // Click the visible field in the parent viewport, including the host toolbar offset.
     const fixture=id==='garapp'?'garage-frame-garapp':id;
     const frameId=(id==='garapp'?'garage-frame-':'office-frame-')+id;
     const inputPoint=await socket.evaluate('('+String(function(frameId,fixture){
@@ -282,10 +281,20 @@ async function run() {
       return {x:frame.x+(rect.x+rect.width/2)*frame.width/viewport.width,
         y:frame.y+(rect.y+rect.height/2)*frame.height/viewport.height};
     })+')('+JSON.stringify(frameId)+','+JSON.stringify(fixture)+')');
-    await socket.send('Input.dispatchMouseEvent',{type:'mouseMoved',...inputPoint,buttons:0});
-    await socket.send('Input.dispatchMouseEvent',{type:'mousePressed',...inputPoint,button:'left',buttons:1,clickCount:1});
-    await socket.send('Input.dispatchMouseEvent',{type:'mouseReleased',...inputPoint,button:'left',buttons:0,clickCount:1});
-    await until('window.__embeddedFixture['+JSON.stringify(fixture)+'].focus==="note"','The click did not focus the editable field inside '+id+'.');
+    if(id==='garapp'){
+      assert.equal(await socket.evaluate('document.elementFromPoint('+inputPoint.x+','+inputPoint.y+')?.id'),frameId,
+        'The wall editor must receive pointer input above the passive screens.');
+      // The editor precedes its toolbar in DOM order. Shift+Tab from that toolbar
+      // reaches the fixture's only field through the real browser focus chain.
+      await socket.evaluate('document.getElementById("garage-screen-title").focus({preventScroll:true})');
+      await socket.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Tab',code:'Tab',modifiers:8,windowsVirtualKeyCode:9});
+      await socket.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Tab',code:'Tab',modifiers:8,windowsVirtualKeyCode:9});
+    }else{
+      await socket.send('Input.dispatchMouseEvent',{type:'mouseMoved',...inputPoint,buttons:0});
+      await socket.send('Input.dispatchMouseEvent',{type:'mousePressed',...inputPoint,button:'left',buttons:1,clickCount:1});
+      await socket.send('Input.dispatchMouseEvent',{type:'mouseReleased',...inputPoint,button:'left',buttons:0,clickCount:1});
+    }
+    await until('window.__embeddedFixture['+JSON.stringify(fixture)+'].focus==="note"','The editable field inside '+id+' did not receive focus.');
     await socket.send('Input.insertText',{text:draft});
     await socket.send('Input.dispatchKeyEvent',{type:'keyDown',key:'w',code:'KeyW',text:'w',unmodifiedText:'w',windowsVirtualKeyCode:87});
     await socket.send('Input.dispatchKeyEvent',{type:'keyUp',key:'w',code:'KeyW',windowsVirtualKeyCode:87});
@@ -400,6 +409,7 @@ async function run() {
     async function closeReaderRepeated(focusId=null){
       for(let i=0;i<3;i++)await press('#plan-reader-close','Escape');
       await until('!document.querySelector("#plan-reader-dialog").open&&!document.body.classList.contains("plan-reading-open")','Repeated Escape left a modal or body lock.');
+      await until('(()=>{const s=window.__siniverseHouse.inspect({fast:true}).scene;return s.reader.phase==="closed"&&!s.animationCount})()','The return to the physical support is still moving.');
       if(focusId)await until('(()=>{const e=document.getElementById('+JSON.stringify(focusId)+'),r=e?.getBoundingClientRect();return e===document.activeElement&&!e.closest("[hidden]")&&r.width>0&&r.height>0})()','Closing did not restore visible focus to '+focusId+'.');
     }
     // Presentation URLs remain available independently of the desktop launcher.
