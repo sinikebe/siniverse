@@ -89,6 +89,16 @@ export function buildHouse(world, apps) {
     s.lineTo(x + r, y + height); s.quadraticCurveTo(x, y + height, x, y + height - r);
     s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y); return s;
   }
+  function displayGeometry(width, height, radius) {
+    const geometry = new T.ShapeGeometry(roundedShape(width, height, radius), 5);
+    geometry.computeBoundingBox();
+    const { min, max } = geometry.boundingBox;
+    const { position, uv } = geometry.attributes;
+    for (let i = 0; i < uv.count; i++) {
+      uv.setXY(i, (position.getX(i) - min.x) / (max.x - min.x), (position.getY(i) - min.y) / (max.y - min.y));
+    }
+    return geometry;
+  }
 
   // Continuous wall contours; door notches and window holes are real geometry.
   function wall(axis, fixed, from, to, openings, face) {
@@ -268,9 +278,7 @@ export function buildHouse(world, apps) {
     }
     ctx.fillStyle='#A3BCCB';ctx.font='10px sans-serif';ctx.fillText('OUVRIR LE BUREAU →',25,264);
   },512);
-  const screenGeometry=new T.ShapeGeometry(roundedShape(2.08,1.17,.025),5),screenPosition=screenGeometry.attributes.position,screenUv=screenGeometry.attributes.uv;
-  screenGeometry.computeBoundingBox();const screenBox=screenGeometry.boundingBox;
-  for(let i=0;i<screenUv.count;i++)screenUv.setXY(i,(screenPosition.getX(i)-screenBox.min.x)/(screenBox.max.x-screenBox.min.x),(screenPosition.getY(i)-screenBox.min.y)/(screenBox.max.y-screenBox.min.y));
+  const screenGeometry=displayGeometry(2.08,1.17,.025);
   const officeScreen=mesh(screenGeometry,basic('#FFFFFF',{map:desktopMap}),[officeX,1.62,-2.485],desk,'house-office-screen');officeScreen.castShadow=officeScreen.receiveShadow=false;
   const officeAccent=mesh(new T.PlaneGeometry(1.86,.006),basic('#8CB9C5'),[officeX,1.01,-2.48],desk,'house-office-active-edge');officeAccent.castShadow=false;
   const officeSurface={position:[officeX,1.62,-2.46],width:2.08,height:1.17,rotationY:0};
@@ -299,6 +307,92 @@ export function buildHouse(world, apps) {
   mesh(new T.CylinderGeometry(.055,.045,.095,24),'#CFCDC1',[-4.05,.882,-2.25],desk,'house-ceramic-cup','paint');
   curve([[-3.99,.92,-2.25],[-3.95,.91,-2.25],[-3.95,.87,-2.25],[-3.99,.86,-2.25]],'#CFCDC1',.009,desk,'house-cup-handle');
   obstacle(desk, 'office-workstations');
+
+  // The service display faces the clear floor in front of the parked vehicle.
+  const monitor = new T.Group();
+  monitor.name = 'house-garage-wall-monitor';
+  monitor.position.set(4.99, 1.59, 2.30);
+  monitor.rotation.y = -Math.PI / 2;
+  root.add(monitor);
+  box([.52, .38, .08], '#41494A', [0, 0, -.043], monitor, 'house-garage-monitor-mount', 'metal');
+  const housingWidth = 2.04;
+  box([housingWidth, 1.33, .082], '#606C6B', [0, -.008, .046], monitor, 'house-garage-monitor-case', 'metal', .032);
+  box([2.024, 1.314, .018], '#202A2D', [0, -.008, .089], monitor, 'house-garage-monitor-bezel', 'rubber', .021);
+  const garageArt = canvasTexture((ctx, size) => {
+    ctx.scale(size / 640, size / 400);
+    const gradient = ctx.createLinearGradient(0, 0, 640, 400);
+    gradient.addColorStop(0, '#293B3D');
+    gradient.addColorStop(1, '#152326');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 640, 400);
+    ctx.fillStyle = '#F6E9D8';
+    ctx.font = '600 64px system-ui, sans-serif';
+    ctx.fillText('Garapp', 41, 95);
+    ctx.fillStyle = '#B8CAC3';
+    ctx.font = '22px system-ui, sans-serif';
+    ctx.fillText('Carnet du véhicule', 45, 139);
+    // Side elevation, in the sage paint and warm copper of the garage.
+    ctx.strokeStyle = '#99B9AD';
+    ctx.lineWidth = 3;
+    ctx.lineJoin = ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(217, 274);
+    ctx.lineTo(208, 268);
+    ctx.quadraticCurveTo(206, 243, 220, 233);
+    ctx.lineTo(267, 223);
+    ctx.bezierCurveTo(291, 197, 309, 180, 343, 180);
+    ctx.bezierCurveTo(390, 175, 424, 188, 458, 216);
+    ctx.quadraticCurveTo(527, 223, 557, 246);
+    ctx.lineTo(562, 266);
+    ctx.quadraticCurveTo(555, 273, 534, 274);
+    ctx.moveTo(287, 274);
+    ctx.lineTo(476, 274);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(283, 222);
+    ctx.quadraticCurveTo(310, 192, 340, 191);
+    ctx.quadraticCurveTo(400, 183, 439, 217);
+    ctx.lineTo(283, 222);
+    ctx.moveTo(355, 191);
+    ctx.lineTo(348, 220);
+    ctx.stroke();
+    for (const x of [254, 504]) {
+      ctx.beginPath();
+      ctx.arc(x, 268, 24, 0, 2 * Math.PI);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(x, 268, 11, 0, 2 * Math.PI);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#F2AC87';
+    ctx.font = '600 20px system-ui, sans-serif';
+    ctx.fillText('Ouvrir  →', 45, 351);
+  }, 512);
+  const garageWidth = 1.92, garageHeight = 1.20;
+  const display = mesh(displayGeometry(garageWidth, garageHeight, .014), basic('#FFFFFF', { map: garageArt }),
+    [0, 0, .101], monitor, 'house-garage-display');
+  display.castShadow = display.receiveShadow = false;
+  const indicator = mesh(new T.CircleGeometry(.007, 12), basic('#AECDBC'), [.93, -.638, .099], monitor, 'house-garage-monitor-led');
+  indicator.castShadow = indicator.receiveShadow = false;
+  box([.036, .95, .026], '#ADAEA1', [.37, -1.11, -.059], monitor, 'house-garage-cable-channel', 'paint', .006);
+  obstacle(monitor, 'garage-wall-monitor');
+  const garageSurface = {
+    position: display.getWorldPosition(new T.Vector3()).toArray(),
+    width: garageWidth, height: garageHeight, rotationY: monitor.rotation.y,
+  };
+  const garageCamera = { position: [3.10, 1.65, monitor.position.z], target: [...garageSurface.position] };
+  const garage = {
+    monitor, surface: garageSurface, label: [4.79, 2.24, monitor.position.z],
+    camera: garageCamera,
+    cameraForViewport(aspect, verticalFovDegrees) {
+      const [surfaceX] = garageSurface.position;
+      const horizontalTangent = aspect * Math.tan(verticalFovDegrees * Math.PI / 360);
+      // Frame the metal housing, keeping a margin on both sides and staying inside the garage.
+      const distance = housingWidth / (2 * .90 * horizontalTangent) + .04;
+      const x = clamp(surfaceX - distance, 1.24, garageCamera.position[0]);
+      return { position: [x, garageCamera.position[1], monitor.position.z], target: [...garageSurface.position] };
+    },
+  };
 
   // The vehicle's physical record is the garage support, not a separate pedestal.
   const record = new T.Group(); record.name = 'house-garapp-record'; root.add(record);
@@ -505,7 +599,7 @@ export function buildHouse(world, apps) {
     if (world.scene.environment === environmentTarget?.texture) world.scene.environment = null;
     environmentTarget?.dispose();environmentSource?.dispose();carEnvironment?.dispose();carCapture?.dispose();
   });
-  return { roof, entry, car, record, screens, surfaces, shell, obstacles, anchors, gaming, office, construction, updateAmbient, setPreview, setCutaway, setNotebook,
+  return { roof, entry, car, record, screens, surfaces, shell, obstacles, anchors, gaming, office, garage, construction, updateAmbient, setPreview, setCutaway, setNotebook,
     bounds: { minX: -10.7, maxX: 6.4, minZ: -4.5, maxZ: 7 },
     inspectObjects: () => ({ roofAmount, notebookAmount, materialsReady:surfaceLibrary.ready() }),
     inspectConstruction: () => ({ excavator: world.projectBounds?.(construction.excavator,{includeDecor:true,precise:true}), crane: world.projectBounds?.(construction.crane,{includeDecor:true,precise:true}) }),

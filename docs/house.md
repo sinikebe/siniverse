@@ -1,6 +1,8 @@
 # La maison Siniverse
 
-Le plan-séquence est l’unique accueil, à `/`. Le bureau ouvre Finapp et Branchlab, le garage présente Garapp et la salle gaming donne accès aux jeux. Le carnet du garage est fictif ; les applications du PC sont les vrais sites et gardent leurs domaines et leurs données.
+Le plan-séquence est l’unique accueil, à `/`. Le bureau ouvre Finapp et Branchlab, le garage donne accès à Garapp et la salle gaming accueille les jeux.
+
+À côté de la voiture, l’écran mural ouvre Garapp depuis son domaine habituel, `https://garapp.siniverse.cc`. Cliquez sur l’écran ou la voiture, ou suivez le lien direct `/?room=garage`. Sur ordinateur, l’application s’affiche sur le mur et peut être agrandie. Sur mobile, elle s’ouvre en grand. Pendant la visite, Garapp garde sa page et les saisies en cours quand on agrandit l’écran, revient au garage ou quitte la pièce. La fiche `/?app=garapp` propose aussi d’utiliser l’écran. Le carnet à feuilleter à côté du véhicule reste un exemple fictif.
 
 Le bureau du PC gaming affiche une icône Décalage, également disponible dans sa vue agrandie. Elle ouvre `https://dev.decalage.siniverse.cc` dans un nouvel onglet depuis dev et en local. Lors d’une future promotion vers main, le site de production utilisera `https://decalage.siniverse.cc`, sans préfixe dev. Le jeu ne se charge pas pendant la visite de la maison ; les contrôles de Siniverse vérifient seulement le lien et ne lancent pas le jeu.
 

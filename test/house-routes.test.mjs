@@ -11,7 +11,7 @@ test('the gaming shortcut uses the dev game until the site is promoted to produc
 });
 
 test('home and all public destinations round-trip without a concept selector', () => {
-  for (const state of [{app:'ensemble'}, {app:'finapp'}, {app:'garapp'}, {app:'branchlab'}, {app:'ensemble',room:'gaming'}, {app:'ensemble',room:'office'}, {app:'ensemble',room:'office',program:'finapp'}, {app:'ensemble',room:'office',program:'branchlab'}]) {
+  for (const state of [{app:'ensemble'}, {app:'finapp'}, {app:'garapp'}, {app:'branchlab'}, {app:'ensemble',room:'gaming'}, {app:'ensemble',room:'garage'}, {app:'ensemble',room:'office'}, {app:'ensemble',room:'office',program:'finapp'}, {app:'ensemble',room:'office',program:'branchlab'}]) {
     const href = routeHref(state);
     assert.equal(new URL(href, 'https://siniverse.cc').pathname, '/');
     assert.deepEqual(parseRoute(new URL(href, 'https://siniverse.cc').search), state);
@@ -23,6 +23,7 @@ test('only known applications can be launched inside the office desktop',()=>{
   for(const program of ['https://example.com','__proto__','garapp','<script>'])assert.equal(parseRoute('?room=office&program='+encodeURIComponent(program)).program,undefined);
   assert.deepEqual(parseRoute('?program=finapp'),{app:'ensemble'});
   assert.deepEqual(parseRoute('?room=gaming&program=finapp'),{app:'ensemble',room:'gaming'});
+  assert.deepEqual(parseRoute('?room=garage&program=finapp'),{app:'ensemble',room:'garage'});
   assert.deepEqual(parseRoute('?app=garapp&room=office&program=finapp'),{app:'garapp'});
 });
 

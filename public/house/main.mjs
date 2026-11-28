@@ -36,7 +36,8 @@ async function render(record, { instant = false } = {}) {
     if (!mounted) mounted = mountPlan(host, state, api);
     await mounted.update(state, { snapshot: record?.view ?? null, instant });
     if (token !== revision) return;
-    (document.getElementById(record?.focus || 'view-title') || document.getElementById('view-title'))?.focus({ preventScroll: true });
+    const defaultFocus = state.room === 'garage' ? 'garage-screen-title' : 'view-title';
+    (document.getElementById(record?.focus || defaultFocus) || document.getElementById('view-title'))?.focus({ preventScroll: true });
     if (record?.scroll) window.scrollTo({ left: record.scroll[0], top: record.scroll[1], behavior: 'instant' });
   } catch (error) {
     if (token !== revision) return;
@@ -46,7 +47,7 @@ async function render(record, { instant = false } = {}) {
     host.dataset.sceneError = error.message;
   }
   if (token === revision) {
-    const roomTitles={gaming:'La salle gaming',office:'Le PC du bureau',street:'La rue depuis le seuil'};
+    const roomTitles={gaming:'La salle gaming',office:'Le PC du bureau',garage:'Garapp au garage',street:'La rue depuis le seuil'};
     document.title = (APPS[state.app]?.name || roomTitles[state.room] || 'La maison') + ' — Siniverse';
     document.querySelector('#permalink').href = routeHref(state);
     document.documentElement.dataset.houseState = JSON.stringify(state);
@@ -72,5 +73,14 @@ window.addEventListener('popstate', event => {
   void render(record?.v === 1 ? record : null, { instant: true });
 });
 window.addEventListener('pagehide', () => writeHistory('replaceState'));
+document.querySelector('.settings-links').addEventListener('click', event => {
+  const link = event.target.closest('a');
+  if (!mounted || !link || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  const destination = parseRoute(new URL(link.href).search);
+  event.preventDefault();
+  link.closest('details').open = false;
+  const focusId = { garage: 'garage-screen-title', office: 'office-desktop-title' }[destination.room] || 'view-title';
+  void navigate(destination, { focusId });
+});
 Object.defineProperty(window, '__siniverseHouse', { value: Object.freeze({ inspect: options => ({ route: { ...state }, scene: mounted?.inspect(options) ?? { kind: 'unavailable' } }) }) });
 await render(restored ? previous : null, { instant: true });
