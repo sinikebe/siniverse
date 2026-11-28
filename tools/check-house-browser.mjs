@@ -241,7 +241,11 @@ async function run() {
   const near=(a,b)=>a.length===b.length&&a.every((n,i)=>Math.abs(n-b[i])<1e-5);
   const rootHome=origin+'/';
   await socket.send('Emulation.setEmulatedMedia',{features:[]});
-  for(const [format,width,height]of [['desktop',1365,900],['mobile',390,740]]){
+  const viewports=[['desktop',1365,900],['mobile',390,740]];
+  const selected=process.env.HOUSE_REVIEW_VIEWPORT;
+  if(selected)assert(viewports.some(([format])=>format===selected),'Unknown browser review viewport');
+  for(const [format,width,height]of viewports){
+    if(selected&&selected!==format)continue;
     const mobile=format==='mobile';
     await socket.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile});
     await navigate(rootHome);
