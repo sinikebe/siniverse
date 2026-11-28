@@ -57,12 +57,12 @@ class Protocol {
     this.listeners.set(method, [...list, callback]);
     return () => this.listeners.set(method, (this.listeners.get(method) || []).filter(item => item !== callback));
   }
-  send(method, params = {}, timeout = 10000, sessionId = null) {
+  send(method, params = {}, timeout = 10000) {
     return new Promise((resolve, reject) => {
       const id = ++this.id;
       const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(method + ' timed out.')); }, timeout);
       this.pending.set(id, { resolve, reject, timer, method });
-      this.connection.send(JSON.stringify({ id, method, params, ...(sessionId ? {sessionId} : {}) }));
+      this.connection.send(JSON.stringify({ id, method, params }));
     });
   }
   wait(method) {
@@ -283,24 +283,17 @@ async function run() {
     })+')('+JSON.stringify(frameId)+','+JSON.stringify(fixture)+')');
     assert.equal(await socket.evaluate('document.elementFromPoint('+inputPoint.x+','+inputPoint.y+')?.id'),frameId,
       'The selected application must receive pointer input at its editable field.');
-    // Several isolated frames can show the same app and URL. Resolve the actual
-    // frame owner before sending native form input to its Chrome target.
-    const {root}=await socket.send('DOM.getDocument');
-    const {nodeId}=await socket.send('DOM.querySelector',{nodeId:root.nodeId,selector:'#'+frameId});
-    const {node}=await socket.send('DOM.describeNode',{nodeId});
-    const {sessionId}=await socket.send('Target.attachToTarget',{targetId:node.frameId,flatten:true});
-    const child=(method,params={})=>socket.send(method,params,10000,sessionId);
-    try{
-      const {root:doc}=await child('DOM.getDocument');
-      const {nodeId:field}=await child('DOM.querySelector',{nodeId:doc.nodeId,selector:'#note'});
-      await child('DOM.focus',{nodeId:field});
-      await until('window.__embeddedFixture['+JSON.stringify(fixture)+'].focus==="note"','The editable field inside '+id+' did not receive focus.');
-      await child('Input.insertText',{text:draft});
-      await child('Input.dispatchKeyEvent',{type:'keyDown',key:'w',code:'KeyW',text:'w',unmodifiedText:'w',windowsVirtualKeyCode:87});
-      await child('Input.dispatchKeyEvent',{type:'keyUp',key:'w',code:'KeyW',windowsVirtualKeyCode:87});
-    }finally{
-      await socket.send('Target.detachFromTarget',{sessionId});
-    }
+    // Move backwards from the control immediately after the frame. Chrome then
+    // focuses the field through the real tab order, including across origins.
+    const afterFrame=id==='garapp'?'garage-screen-title':'office-task-finapp';
+    await socket.send('Page.bringToFront');
+    await socket.evaluate('document.getElementById('+JSON.stringify(afterFrame)+').focus({preventScroll:true})');
+    await socket.send('Input.dispatchKeyEvent',{type:'keyDown',key:'Tab',code:'Tab',modifiers:8,windowsVirtualKeyCode:9});
+    await socket.send('Input.dispatchKeyEvent',{type:'keyUp',key:'Tab',code:'Tab',modifiers:8,windowsVirtualKeyCode:9});
+    await until('window.__embeddedFixture['+JSON.stringify(fixture)+'].focus==="note"','The editable field inside '+id+' did not receive focus.');
+    await socket.send('Input.insertText',{text:draft});
+    await socket.send('Input.dispatchKeyEvent',{type:'keyDown',key:'w',code:'KeyW',text:'w',unmodifiedText:'w',windowsVirtualKeyCode:87});
+    await socket.send('Input.dispatchKeyEvent',{type:'keyUp',key:'w',code:'KeyW',windowsVirtualKeyCode:87});
   }
   const near=(a,b)=>a.length===b.length&&a.every((n,i)=>Math.abs(n-b[i])<1e-5);
   const rootHome=origin+'/';
