@@ -22,7 +22,7 @@ function writeHistory(method, record = snapshot()) {
 
 const api = {
   apps: APPS, content: contentFor, escape,
-  reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
+  get reducedMotion(){return matchMedia('(prefers-reduced-motion: reduce)').matches;},
   href: destination => routeHref({ ...state, ...destination }),
   navigate: (destination, options = {}) => navigate({ ...state, ...destination }, options),
   saveView: () => writeHistory('replaceState')
@@ -46,7 +46,8 @@ async function render(record, { instant = false } = {}) {
     host.dataset.sceneError = error.message;
   }
   if (token === revision) {
-    document.title = (APPS[state.app]?.name || (state.room === 'gaming' ? 'La salle gaming' : state.room === 'office' ? 'Le PC du bureau' : 'La maison')) + ' — Siniverse';
+    const roomTitles={gaming:'La salle gaming',office:'Le PC du bureau',street:'La rue depuis le seuil'};
+    document.title = (APPS[state.app]?.name || roomTitles[state.room] || 'La maison') + ' — Siniverse';
     document.querySelector('#permalink').href = routeHref(state);
     document.documentElement.dataset.houseState = JSON.stringify(state);
     document.documentElement.dataset.houseReady = 'true';

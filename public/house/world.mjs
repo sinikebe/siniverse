@@ -75,18 +75,51 @@ export function createWorld(host,{reducedMotion=false,onContextLost=()=>{},carto
     element.style.zIndex=String(150-Math.round(c.w));
   }
   let renderEffect=null,frameMetrics=null;
-  function render(){if(destroyed||lost)return;if(renderEffect)frameMetrics=renderEffect.render(scene,camera);else{renderer.render(scene,camera);frameMetrics={triangles:renderer.info.render.triangles,drawCalls:renderer.info.render.calls};}updateLabels();}
+  function render(projectLabels=true){if(destroyed||lost)return;if(renderEffect)frameMetrics=renderEffect.render(scene,camera);else{renderer.render(scene,camera);frameMetrics={triangles:renderer.info.render.triangles,drawCalls:renderer.info.render.calls};}if(projectLabels)updateLabels();}
+  // Scenery shares the camera's frame. A stationary camera needs no new DOM projections.
+  let ambientUpdate=null, ambientTimer=0, ambientSeconds=0, ambientLast=null, viewDirty=true;
+  const ambientInterval=1000/(software?8:24);
+  const motionPreference=matchMedia('(prefers-reduced-motion: reduce)');
+  function ambientActive(){return !!ambientUpdate&&!reducedMotion&&!document.hidden&&!destroyed&&!lost;}
+  function resetAmbientClock(){
+    clearTimeout(ambientTimer);
+    ambientTimer=0;
+    ambientLast=null;
+  }
+  function setAmbientMotion(update){
+    if(ambientUpdate===update)return;
+    resetAmbientClock();
+    ambientUpdate=update;
+    if(ambientActive())request();
+  }
+  function motionChanged(event){
+    reducedMotion=event.matches;
+    resetAmbientClock();
+    request();
+  }
+  motionPreference.addEventListener('change',motionChanged);
   function tick(now){
     frameId=0;if(destroyed||lost||document.hidden)return;
+    const projectLabels=viewDirty||animations.size>0;
+    viewDirty=false;
+    if(ambientActive()&&(ambientLast===null||now-ambientLast>=ambientInterval-1)){
+      if(ambientLast!==null)ambientSeconds+=Math.min(.4,(now-ambientLast)/1000);
+      ambientLast=now;
+      ambientUpdate(ambientSeconds);
+    }
     for(const animation of [...animations]){
       const t=reducedMotion?1:Math.min(1,(now-animation.start)/animation.duration);
       animation.update(t,Math.min(.05,last?(now-last)/1000:0));
       if(t===1){animations.delete(animation);animation.resolve();}
     }
-    last=now;render();
+    last=now;render(projectLabels);
     if(animations.size)request();
+    else if(ambientActive()&&!ambientTimer){
+      ambientTimer=setTimeout(()=>{ambientTimer=0;if(ambientActive())wake();},ambientInterval);
+    }
   }
-  function request(){if(!destroyed&&!lost&&!document.hidden&&!frameId)frameId=requestAnimationFrame(tick);}
+  function wake(){if(!destroyed&&!lost&&!document.hidden&&!frameId)frameId=requestAnimationFrame(tick);}
+  function request(){viewDirty=true;wake();}
   function animate(duration,update){
     if(destroyed||lost)return Promise.resolve();
     if(reducedMotion||duration===0){update(1,0);render();return Promise.resolve();}
@@ -157,11 +190,11 @@ export function createWorld(host,{reducedMotion=false,onContextLost=()=>{},carto
     }request();
   };
   const observer=new ResizeObserver(resize);observer.observe(host);
-  const visibility=()=>{if(document.hidden){cancelAnimationFrame(frameId);frameId=0;}else request();};
-  const contextLost=event=>{event.preventDefault();lost=true;cancelAnimationFrame(frameId);frameId=0;for(const a of animations)a.resolve();animations.clear();onContextLost();};
+  const visibility=()=>{resetAmbientClock();if(document.hidden){cancelAnimationFrame(frameId);frameId=0;}else request();};
+  const contextLost=event=>{event.preventDefault();lost=true;resetAmbientClock();cancelAnimationFrame(frameId);frameId=0;for(const a of animations)a.resolve();animations.clear();onContextLost();};
   canvas.addEventListener('webglcontextlost',contextLost);
   document.addEventListener('visibilitychange',visibility);resize();
-  return {THREE,scene,camera,canvas,renderer,quality,mesh,box,line,material,label,surface,visiblePoint,requestRender:request,animate,getPose,setPose,flyTo,cancelFlight,pick,hit,projectBounds,
+  return {THREE,scene,camera,canvas,renderer,quality,mesh,box,line,material,label,surface,visiblePoint,requestRender:request,setAmbientMotion,animate,getPose,setPose,flyTo,cancelFlight,pick,hit,projectBounds,
     setRenderEffect(effect){renderEffect?.dispose();renderEffect=effect;request();},
     refresh(){resize();render();},
     probe,
@@ -174,10 +207,10 @@ export function createWorld(host,{reducedMotion=false,onContextLost=()=>{},carto
       const sample=new Uint8Array(4),colors=new Set();
       if(!fast)for(let y=1;y<5;y++)for(let x=1;x<6;x++){gl.readPixels(Math.floor(canvas.width*x/6),Math.floor(canvas.height*y/5),1,1,gl.RGBA,gl.UNSIGNED_BYTE,sample);colors.add([...sample].join(','));}
       return {kind:lost?'contextlost':'webgl2',pose:getPose(),triangles:frameMetrics?.triangles||0,drawCalls:frameMetrics?.drawCalls||0,
-        pixelColors:fast?null:colors.size,objects:scene.children.length,dpr:renderer.getPixelRatio(),animationCount:animations.size,threeRevision:THREE.REVISION};
+        pixelColors:fast?null:colors.size,objects:scene.children.length,dpr:renderer.getPixelRatio(),animationCount:animations.size,ambientActive:ambientActive(),ambientSeconds,threeRevision:THREE.REVISION};
     },
     destroy(){
-      destroyed=true;cancelAnimationFrame(frameId);observer.disconnect();document.removeEventListener('visibilitychange',visibility);
+      destroyed=true;resetAmbientClock();cancelAnimationFrame(frameId);observer.disconnect();document.removeEventListener('visibilitychange',visibility);motionPreference.removeEventListener('change',motionChanged);
       canvas.removeEventListener('webglcontextlost',contextLost);for(const fn of cleanups)fn();
       for(const a of animations)a.resolve();animations.clear();
       scene.traverse(node=>{if(node.geometry)node.geometry.dispose();});

@@ -1,6 +1,6 @@
-// Static scenery, in metres. The site stays outside the house's walking rectangle.
+// Working pads in metres. Neither machine travels through the visitor's route.
 export const WORK_AREAS = [
-  { x: -14.6, z: 1.5, width: 7.2, depth: 13.2 },
+  { x: -15.5, z: 1.8, width: 8.9, depth: 14.1 },
   { x: -5.2, z: -22, width: 5, depth: 5 }
 ];
 
@@ -32,11 +32,34 @@ export function buildConstructionSite(world, kit) {
     const item = rod([p[0] - width / 2, p[1], p[2]], [p[0] + width / 2, p[1], p[2]], radius, steel, parent, 'excavator-pivot');
     return item;
   }
-  function hydraulic(a, b, parent) {
-    const mid = vector(a).lerp(vector(b), .58).toArray();
-    rod(a, mid, .085, steel, parent, 'excavator-hydraulic-barrel');
-    rod(mid, b, .045, '#B3BCB9', parent, 'excavator-hydraulic-piston');
-    pin(a, .105, .32, parent); pin(b, .075, .25, parent);
+  // Parts are drawn in their original assembly coordinates. The offset group lets
+  // each hinge rotate about its physical pin without moving those coordinates.
+  function hinge(parent, point, name) {
+    const pivot = new T.Group(), parts = new T.Group();
+    pivot.name = name; pivot.position.fromArray(point);
+    parts.position.copy(pivot.position).negate();
+    parent.add(pivot); pivot.add(parts);
+    return { pivot, parts };
+  }
+  const cylinders = [];
+  function hydraulic(a, b, parent, joint) {
+    const start = vector(a), restEnd = vector(b), length = start.distanceTo(restEnd);
+    const barrelLength = length * .55;
+    const barrel = rod(a, start.clone().lerp(restEnd, .55).toArray(), .085, steel, parent, 'excavator-hydraulic-barrel');
+    const piston = rod(a, b, .045, '#B3BCB9', parent, 'excavator-hydraulic-piston');
+    pin(a, .105, .32, parent); pin(b, .075, .25, joint.parts);
+    const offset = restEnd.sub(joint.pivot.position), axis = new T.Vector3();
+    cylinders.push(() => {
+      axis.copy(offset).applyQuaternion(joint.pivot.quaternion).add(joint.pivot.position).sub(start);
+      const span = axis.length(); axis.divideScalar(span);
+      barrel.quaternion.setFromUnitVectors(up, axis);
+      barrel.position.copy(start).addScaledVector(axis, barrelLength / 2);
+      piston.quaternion.copy(barrel.quaternion);
+      // The chrome rod nests inside the fixed-length barrel.
+      piston.scale.y = (span - barrelLength + .02) / length;
+      piston.position.copy(start).addScaledVector(axis, (span + barrelLength - .02) / 2);
+      barrel.updateMatrix(); piston.updateMatrix();
+    });
   }
 
   // A level, irregular scraped pad, with the same mineral surface as the garden.
@@ -86,14 +109,15 @@ export function buildConstructionSite(world, kit) {
   treadPoses.forEach((pose, i) => { matrix.compose(vector(pose.p), rotation.setFromUnitVectors(up, vector(pose.n)), new T.Vector3(1, 1, 1)); treads.setMatrixAt(i, matrix); });
   excavator.add(treads);
   mesh(new T.CylinderGeometry(.58, .58, .16, 24), steel, [0, .91, 0], excavator, 'excavator-slew-ring', 'metal');
-  box([2.05, .57, 2.12], yellow, [0, 1.22, .27], excavator, 'excavator-upper-body', 'paint', .13);
-  box([1.95, .75, .63], yellow, [0, 1.50, 1.18], excavator, 'excavator-counterweight', 'paint', .17);
-  box([.93, .54, 1.0], yellow, [.53, 1.57, .55], excavator, 'excavator-engine-cover', 'paint', .07);
-  box([1.72, .13, .12], '#E0D6B2', [0, 1.57, 1.52], excavator, 'excavator-rear-reflector', 'paint', .012);
-  for (let i = 0; i < 7; i++) box([.02, .035, .55], steel, [1.005, 1.43 + i * .055, .55], excavator, 'excavator-engine-vent', 'paint', .004);
-  rod([.65, 1.7, .65], [.65, 2.26, .65], .055, steel, excavator, 'excavator-exhaust');
+  const turret = new T.Group(); turret.name = 'excavator-turret'; excavator.add(turret);
+  box([2.05, .57, 2.12], yellow, [0, 1.22, .27], turret, 'excavator-upper-body', 'paint', .13);
+  box([1.95, .75, .63], yellow, [0, 1.50, 1.18], turret, 'excavator-counterweight', 'paint', .17);
+  box([.93, .54, 1.0], yellow, [.53, 1.57, .55], turret, 'excavator-engine-cover', 'paint', .07);
+  box([1.72, .13, .12], '#E0D6B2', [0, 1.57, 1.52], turret, 'excavator-rear-reflector', 'paint', .012);
+  for (let i = 0; i < 7; i++) box([.02, .035, .55], steel, [1.005, 1.43 + i * .055, .55], turret, 'excavator-engine-vent', 'paint', .004);
+  rod([.65, 1.7, .65], [.65, 2.26, .65], .055, steel, turret, 'excavator-exhaust');
   // A genuinely glazed cab, with a visible seat and control levers inside its frame.
-  const cab = new T.Group(); cab.name = 'excavator-cab'; cab.position.set(-.50, 1.54, -.30); excavator.add(cab);
+  const cab = new T.Group(); cab.name = 'excavator-cab'; cab.position.set(-.50, 1.54, -.30); turret.add(cab);
   box([.93, .12, 1.43], steel, [0, -.02, 0], cab, 'excavator-cab-floor', 'metal', .035);
   box([1.02, .12, 1.51], yellow, [0, 1.39, 0], cab, 'excavator-cab-roof', 'paint', .055);
   for (const x of [-.44, .44]) for (const z of [-.65, .65]) box([.055, 1.34, .055], steel, [x, .69, z], cab, 'excavator-cab-pillar', 'metal', .012);
@@ -107,17 +131,22 @@ export function buildConstructionSite(world, kit) {
   for (const x of [-.31, .31]) box([.16, .08, .05], lamp, [x, 1.28, -.77], cab, 'excavator-work-light', 'paint', .015);
 
   const pivot = [.64, 1.66, -.58], elbow = [.64, 3.68, -2.12], wrist = [.64, .68, -3.91];
+  const boom = hinge(turret, pivot, 'excavator-boom-hinge');
+  const stick = hinge(boom.parts, elbow, 'excavator-dipper-hinge');
+  const curl = hinge(stick.parts, wrist, 'excavator-bucket-hinge');
   for (const offset of [-.17, .17]) {
     const shift = p => [p[0] + offset, p[1], p[2]];
-    beam(shift(pivot), shift(elbow), .105, .34, yellow, excavator, 'excavator-boom-plate');
-    beam(shift(elbow), shift(wrist), .10, .28, yellow, excavator, 'excavator-dipper-plate');
+    beam(shift(pivot), shift(elbow), .105, .34, yellow, boom.parts, 'excavator-boom-plate');
+    beam(shift(elbow), shift(wrist), .10, .28, yellow, stick.parts, 'excavator-dipper-plate');
   }
-  for (const point of [pivot, elbow, wrist]) pin(point, .14, .59, excavator);
-  hydraulic([.64, 1.35, -.23], [.64, 3.02, -1.55], excavator);
-  hydraulic([.64, 3.73, -1.84], [.64, 1.65, -3.38], excavator);
-  hydraulic([.64, 1.95, -3.13], [.64, .72, -4.05], excavator);
-  curve([[.41, 1.52, -.35], [.41, 2.82, -1.49], [.41, 3.77, -2.11], [.41, 2.53, -2.9]], rubber, .026, excavator, 'excavator-hydraulic-hose');
-  const bucket = new T.Group(); bucket.name = 'excavator-bucket'; bucket.position.set(.64, -.02, -3.92); excavator.add(bucket);
+  pin(pivot, .14, .59, turret); pin(elbow, .14, .59, boom.parts); pin(wrist, .14, .59, stick.parts);
+  hydraulic([.64, 1.35, -.23], [.64, 3.02, -1.55], turret, boom);
+  hydraulic([.64, 3.73, -1.84], [.64, 1.65, -3.38], boom.parts, stick);
+  hydraulic([.64, 1.95, -3.13], [.64, .72, -4.05], stick.parts, curl);
+  curve([[.41, 1.66, -.58], [.41, 2.82, -1.49], [.41, 3.77, -2.11], [.41, 3.68, -2.12]], rubber, .026, boom.parts, 'excavator-hydraulic-hose');
+  curve([[.41, 3.68, -2.12], [.41, 3.49, -2.20], [.41, 2.53, -2.9]], rubber, .026, stick.parts, 'excavator-hydraulic-hose');
+  const bucket = new T.Group(); bucket.name = 'excavator-bucket'; bucket.position.set(.64, -.02, -3.92); curl.parts.add(bucket);
+  for (const x of [-.13, .13]) beam([x, .46, .07], [x, .72, .01], .07, .16, steel, bucket, 'excavator-bucket-lug');
   const scoop = new T.Shape(); scoop.moveTo(-.35, .58); scoop.quadraticCurveTo(-.66, .1, -.32, .04); scoop.quadraticCurveTo(.18, -.03, .67, .10);
   scoop.lineTo(.59, .18); scoop.quadraticCurveTo(.15, .08, -.30, .13); scoop.quadraticCurveTo(-.48, .17, -.25, .54); scoop.closePath();
   const scoopGeometry = new T.ExtrudeGeometry(scoop, { depth: .85, bevelEnabled: true, bevelSize: .015, bevelThickness: .015, bevelSegments: 2, curveSegments: 12 });
@@ -128,8 +157,20 @@ export function buildConstructionSite(world, kit) {
   for (const x of [-.43, .40]) mesh(cheekGeometry, '#706A56', [x, 0, 0], bucket, 'excavator-bucket-cheek', 'metal');
   for (let i = 0; i < 5; i++) box([.105, .075, .25], '#8C8774', [-.32 + i * .16, .10, -.70], bucket, 'excavator-bucket-tooth', 'metal', .015);
 
+  const earthMaterial = material('#8C795B', 'gravel');
+  const soilGeometry = new T.IcosahedronGeometry(1, 1);
+  const load = mesh(soilGeometry, earthMaterial, [0, .18, -.03], bucket, 'excavator-scoop-soil', 'gravel');
+  load.scale.set(.35, .19, .41); load.castShadow = false;
+  // A few pieces clear the lip once the scoop tips. Keep their local down
+  // direction vertical as the bucket rotates, so they fall onto the actual pile.
+  const outlet = new T.Group(); outlet.position.set(0, .14, -.64); bucket.add(outlet);
+  const crumbs = new T.InstancedMesh(soilGeometry, earthMaterial, 10);
+  crumbs.name = 'excavator-falling-earth'; outlet.add(crumbs);
+  crumbs.boundingSphere = new T.Sphere(new T.Vector3(0, -.22, 0), .65);
+  crumbs.boundingBox = new T.Box3(new T.Vector3(-.38, -.55, -.23), new T.Vector3(.38, .06, .14));
+  const crumbPose = new T.Object3D();
   // A few stockpiles and safety objects make this a working site, not a vehicle display.
-  const pile = mesh(new T.IcosahedronGeometry(1, 2), '#8C795B', [-16.6, heightAt(-16.6, -2.7) + .27, -2.7], root, 'construction-earth-pile', 'gravel'); pile.scale.set(1.1, .48, 1.5);
+  const pile = mesh(new T.IcosahedronGeometry(1, 2), '#8C795B', [-17.3, heightAt(-17.3, .3) + .27, .3], root, 'construction-earth-pile', 'gravel'); pile.scale.set(1.1, .48, 1.5);
   for (let row = 0; row < 2; row++) for (let i = 0; i < 4; i++) box([1.15, .12, .18], '#958570', [-16.8, heightAt(-16.8, 3.4) + .10 + row * .23, 3.1 + i * .23], root, 'construction-pallet-slats', 'wood', .01);
   for (let i = 0; i < 8; i++) box([.37, .18, .48], '#ACA594', [-17.1 + i % 2 * .42, heightAt(-16.8, 3.4) + .47 + Math.floor(i / 4) * .19, 3.3 + Math.floor(i % 4 / 2) * .53], root, 'construction-stacked-block', 'stone', .012);
   for (const [x, z] of [[-11.65, 4.8], [-12.3, 5.5], [-17.3, 5.0]]) {
@@ -187,13 +228,72 @@ export function buildConstructionSite(world, kit) {
   for (let i = 0; i < 4; i++) box([.46, 1.0, .92], '#8C9187', [-3.9 + i * .48, 12.05, 0], crane, 'crane-counterweight', 'stone', .025);
   box([1.1, 1.25, 1.2], yellow, [.95, 12.0, .83], crane, 'crane-operator-cab', 'paint', .055);
   box([.9, .90, .024], '#A7BDB8', [.95, 12.08, 1.445], crane, 'crane-cab-glazing', 'glass', .012);
-  const trolley = box([.55, .22, 1.08], steel, [10, 12.43, 0], crane, 'crane-trolley', 'metal', .035);
-  for (const z of [-.15, .15]) rod([10, 12.3, z], [10, 5.3, z], .016, '#4E5852', crane, 'crane-hoist-rope');
-  box([.38, .52, .30], yellow, [10, 5.05, 0], crane, 'crane-hook-block', 'paint', .05);
-  curve([[10, 4.85, 0], [10, 4.60, 0], [10.20, 4.51, 0], [10.32, 4.69, 0]], steel, .045, crane, 'crane-hook');
+  const carriage = new T.Group(); carriage.name = 'crane-moving-carriage'; crane.add(carriage);
+  const trolley = box([.55, .22, 1.08], steel, [10, 12.43, 0], carriage, 'crane-trolley', 'metal', .035);
+  const ropeTop = 12.3, restLength = 7;
+  const ropes = [-.15, .15].map(z => rod([10, ropeTop, z], [10, ropeTop - restLength, z], .016, '#4E5852', carriage, 'crane-hoist-rope'));
+  const hook = new T.Group(); hook.name = 'crane-moving-hook'; carriage.add(hook);
+  box([.38, .52, .30], yellow, [10, 5.05, 0], hook, 'crane-hook-block', 'paint', .05);
+  curve([[10, 4.85, 0], [10, 4.60, 0], [10.20, 4.51, 0], [10.32, 4.69, 0]], steel, .045, hook, 'crane-hook');
   crane.traverse(node => { if (node.isMesh) node.castShadow = false; });
   root.traverse(node => { if (node.isMesh) node.userData.pickThrough = true; });
   root.updateMatrixWorld(true);
   root.traverse(node => { node.matrixAutoUpdate = false; });
-  return { root, excavator, crane, trolley };
+  // Each leg eases to a full stop. Separate cycle lengths keep the machines
+  // from starting and reversing together each time the visitor looks outside.
+  function travel(time, from, to) {
+    const u = Math.max(0, Math.min(1, (time - from) / (to - from)));
+    return u * u * (3 - 2 * u);
+  }
+  function updateAmbient(seconds) {
+    const dig = seconds % 41;
+    const lift = travel(dig, .6, 4.3) - travel(dig, 20, 24);
+    const turn = travel(dig, 3, 10.2) - travel(dig, 13.8, 21.8);
+    const scoop = travel(dig, 0, 2.9) - travel(dig, 10.1, 11.8);
+    const empty = travel(dig, 10.2, 11.8) - travel(dig, 14.2, 17.5);
+    const moved = turret.rotation.y !== -2.52 * turn || boom.pivot.rotation.x !== .25 * lift
+      || stick.pivot.rotation.x !== .10 * lift || curl.pivot.rotation.x !== .49 * scoop - 1.06 * empty;
+    if (moved) {
+      turret.rotation.y = -2.52 * turn;
+      boom.pivot.rotation.x = .25 * lift;
+      stick.pivot.rotation.x = .10 * lift;
+      curl.pivot.rotation.x = .49 * scoop - 1.06 * empty;
+      turret.updateMatrix(); boom.pivot.updateMatrix(); stick.pivot.updateMatrix(); curl.pivot.updateMatrix();
+      for (const sync of cylinders) sync();
+      outlet.rotation.x = -(boom.pivot.rotation.x + stick.pivot.rotation.x + curl.pivot.rotation.x);
+      outlet.updateMatrix();
+    }
+    const fill = travel(dig, .10, 1.8) - travel(dig, 11.65, 12.5);
+    load.visible = fill > .01;
+    if (load.visible && load.scale.y !== .19 * fill) { load.scale.y = .19 * fill; load.updateMatrix(); }
+    crumbs.visible = dig >= 11.65 && dig < 12.58;
+    if (crumbs.visible) {
+      for (let i = 0; i < crumbs.count; i++) {
+        const age = dig - 11.65 - i * .065;
+        crumbPose.position.set(.21 * Math.sin(i * 2.4), -.5 * 9.81 * age * age, -.15 * age);
+        crumbPose.rotation.set(i, i * .9, age * 2.2);
+        const size = age >= 0 && age < .32 ? .035 + (i % 3) * .012 : 0;
+        crumbPose.scale.set(size * 1.3, size, size * .8);
+        crumbPose.updateMatrix(); crumbs.setMatrixAt(i, crumbPose.matrix);
+      }
+      crumbs.instanceMatrix.needsUpdate = true;
+    }
+
+    const craneTime = seconds % 53;
+    const raised = travel(craneTime, 6, 10) - travel(craneTime, 20, 24)
+      + travel(craneTime, 34, 38) - travel(craneTime, 46, 51);
+    const distance = 2.15 * (travel(craneTime, 12, 18.5) - travel(craneTime, 39, 45.5));
+    if (carriage.position.x === distance && hook.position.y === 1.35 * raised) return moved;
+    carriage.position.x = distance;
+    hook.position.y = 1.35 * raised;
+    carriage.updateMatrix(); hook.updateMatrix();
+    for (const rope of ropes) {
+      const length = restLength - hook.position.y;
+      rope.position.y = ropeTop - length / 2; rope.scale.y = length / restLength; rope.updateMatrix();
+    }
+    return moved;
+  }
+  for (const sync of cylinders) sync();
+  updateAmbient(0);
+  return { root, excavator, crane, trolley, updateAmbient };
 }

@@ -37,6 +37,10 @@ jobs:
   browser:
     if: github.repository == 'sinikebe/siniverse' && github.event.repository.private == false
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        viewport: [desktop, mobile]
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -52,12 +56,14 @@ jobs:
       - name: Build review assets and local Three modules
         run: node tools/build.mjs
       - name: Exercise the installed system Chrome without downloads
+        env:
+          HOUSE_REVIEW_VIEWPORT: ${{ matrix.viewport }}
         run: node tools/check-house-browser.mjs
       - name: Save small screenshots and the journey report
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: siniverse-house-${{ github.run_id }}-${{ github.run_attempt }}
+          name: siniverse-house-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.viewport }}
           path: browser-review/
           retention-days: 1
           compression-level: 6

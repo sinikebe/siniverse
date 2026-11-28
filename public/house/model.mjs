@@ -5,7 +5,7 @@ export const OFFICE_PROGRAMS = ['finapp', 'branchlab'];
 
 export function normalizeState(value = {}) {
   const app = Object.hasOwn(APPS, value?.app) ? value.app : 'ensemble';
-  const room=app==='ensemble'&&['gaming','office'].includes(value?.room)?value.room:null;
+  const room=app==='ensemble'&&['gaming','office','street'].includes(value?.room)?value.room:null;
   return { app, ...(room?{room}:{}), ...(room==='office'&&OFFICE_PROGRAMS.includes(value?.program)?{program:value.program}:{}) };
 }
 

@@ -177,7 +177,7 @@ test('the working pads are free of grass clumps and garden boulders',()=>{
 });
 
 test('the actual construction meshes fit both opening cameras without empty-box clipping',()=>{
-  for(const [width,height,position,target,fov]of [[1365,900,[13,6.8,19],[-3.1,1.4,.25],50],[390,740,[18,9.2,26],[-5,0,0],78]]){
+  for(const [width,height,position,target,fov]of [[1365,900,[11,7,24],[-3,1.5,1.5],50],[390,740,[18,9.2,26],[-5,0,0],78]]){
     const camera=new THREE.PerspectiveCamera(fov,width/height,.1,160);camera.position.set(...position);camera.lookAt(new THREE.Vector3(...target));camera.updateMatrixWorld(true);
     for(const object of [house.construction.excavator,house.construction.crane]){
       const b=projectedBounds(object,camera,{left:0,top:0,width,height},{precise:true,includeDecor:true});
