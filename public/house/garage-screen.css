@@ -1,4 +1,107 @@
 body.garage-screen-open { overflow: hidden; }
+.garage-wall {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.garage-display {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #f4f7f5;
+  color: #f1f9f6;
+}
+.plan-house .garage-display.world-surface { pointer-events: none; }
+.garage-view-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: none;
+  width: 100%;
+  gap: .5em;
+  padding: 7px 17px 9px;
+  border: none;
+  border-bottom: 3px solid #87b6a4;
+  border-radius: 0;
+  background: #163c35;
+  color: inherit;
+  font: 650 30px/1.12 system-ui, sans-serif;
+  letter-spacing: -.04em;
+  text-align: left;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.garage-view-heading span {
+  color: #b8d6c8;
+  font-size: .8em;
+}
+.garage-view-heading:focus-visible {
+  outline: 4px solid #ffbb64;
+  outline-offset: -4px;
+}
+.garage-preview-content {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  isolation: isolate;
+  pointer-events: none;
+}
+.garage-preview-content iframe {
+  display: block;
+  width: 640px;
+  height: 1040px;
+  border: 0;
+  transform-origin: top left;
+  transform: scale(var(--garage-preview-scale, 1)) translate(-18px, var(--garage-crop));
+  pointer-events: none;
+}
+.garage-display[data-garage-view="graphiques"] iframe {
+  width: 400px;
+  transform: scale(var(--garage-preview-scale, 1)) translateY(var(--garage-crop));
+}
+@media (max-width: 759px) and (orientation: portrait) {
+  .garage-wall:not(.is-fallback) .garage-display:not([data-garage-view="graphiques"], [data-garage-view="garage"]) iframe {
+    transform: scale(1.22) translate(-22px, var(--garage-crop));
+  }
+}
+.garage-preview-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-content: center;
+  background: #e3eee8;
+  color: #36574e;
+  font: 500 19px/1.3 system-ui,sans-serif;
+}
+.garage-wall.is-fallback {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 16px;
+  max-width: 1240px;
+  margin: auto;
+  padding: 22px;
+  pointer-events: auto;
+}
+.garage-wall.is-fallback .garage-display {
+  position: relative;
+  width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 1.7;
+  transform: none !important;
+  border: 3px solid #233833;
+  border-radius: 7px;
+}
+.garage-wall.is-fallback .garage-view-heading { font-size: 21px; }
+.garage-wall.is-fallback .garage-view-heading::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
 .garage-screen-open :is(.house-hud, .plan-instruction, .experience-utilities, .site-footer, .world-label) {
   visibility: hidden;
 }

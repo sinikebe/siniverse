@@ -65,6 +65,14 @@ body:has(.plan-is-fallback) .experience-utilities,body:has(.plan-is-fallback) .s
 @media(prefers-reduced-motion:reduce){.plan-house button{transition:none!important}}
 
 /* The gaming wing keeps the shared controls readable against its dark materials. */
+.plan-house.garage-panorama .plan-instruction{display:none}
+.plan-house.garage-panorama .plan-compass,.plan-house.garage-panorama .plan-movement{bottom:48px}
+.plan-house.garage-panorama .compass-name{display:none}
+body:has(.garage-panorama) .experience-utilities{background:linear-gradient(#e7eee7b8,transparent)}
+@media(min-width:761px){
+ .plan-house.garage-panorama .plan-compass{padding:3px 6px}
+ .plan-house.garage-panorama .plan-movement{display:flex}
+}
 body:has(.plan-house[data-room=gaming]) .experience-utilities,body:has(.plan-house[data-room=gaming]) .site-footer{color:#dce5f6;background:linear-gradient(#10182d55,transparent)}
 body:has(.plan-house[data-room=gaming]) .site-footer>a:first-child{color:#e7efff}
 body:has(.plan-house[data-room=gaming]) .settings-content{color:#263e49}

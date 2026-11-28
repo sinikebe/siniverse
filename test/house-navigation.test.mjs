@@ -2,6 +2,7 @@ import test, {after} from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {buildHouse} from '../public/house/house-scene.mjs';
+import { GARAGE_VIEWS } from '../public/house/garage-views.mjs';
 import {APPS} from '../public/house/catalog.mjs';
 import {WORK_AREAS} from '../public/house/construction-site.mjs';
 import {EYE_HEIGHT,canStand,segmentClear,stepOnFloor,lookOnFloor,blendLook,floorPath,pointAlong} from '../public/house/house-navigation.mjs';
@@ -135,29 +136,42 @@ test('the sculpted car has outward body panels and genuinely open wheel arches',
   }
 });
 
-test('the garage wall display faces a collision-free reading position beside the car',()=>{
-  const {monitor,surface,cameraForViewport}=house.garage;
+test('all seven real screens are larger and face the garage entrance without mutual occlusion',()=>{
+  const {displays,overviewForViewport}=house.garage;
+  assert.deepEqual(displays.map(({id})=>id),GARAGE_VIEWS.map(({id})=>id));
   scene.updateMatrixWorld(true);
-  assert(scene.getObjectById(monitor.id),'The wall display must be in the house.');
-  const housing=monitor.getObjectByName('house-garage-monitor-case');
-  for(const [width,height,fov] of [[1280,720,50],[390,844,78],[360,900,78]]) {
-    const aspect=width/height,pose=cameraForViewport(aspect,fov);
+  const occluders=[];
+  scene.traverse(node=>{if(node.isMesh&&!node.userData.pickThrough)occluders.push(node);});
+  function checkGlass(display,pose,fov,aspect,framed=true){
     const camera=new THREE.PerspectiveCamera(fov,aspect,.1,160);
     camera.position.set(...pose.position);camera.lookAt(...pose.target);camera.updateMatrixWorld();
-    assert.equal(camera.position.y,EYE_HEIGHT);
-    const direction=new THREE.Vector3(...surface.position).sub(camera.position);
-    const ray=new THREE.Raycaster(camera.position,direction.clone().normalize(),0,direction.length()+.1);
-    const hits=ray.intersectObjects(scene.children,true).filter(hit=>hit.object.visible&&!hit.object.userData.pickThrough);
-    assert.equal(hits[0]?.object.name,'house-garage-display','The physical screen is blocked from its reading position.');
-    const vertices=housing.geometry.attributes.position;
-    for(let i=0;i<vertices.count;i++){
-      const p=new THREE.Vector3().fromBufferAttribute(vertices,i).applyMatrix4(housing.matrixWorld).project(camera);
-      assert(Math.abs(p.x)<.91&&Math.abs(p.y)<.91,'The monitor housing is cropped.');
+    const glass=display.monitor.getObjectByName('house-garage-display-'+display.id);
+    const {width,height}=display.surface;
+    assert(width>1.92&&height>1.20,'A gallery screen is no larger than the old single monitor.');
+    for(const u of [-.48,0,.48])for(const v of [-.48,0,.48]){
+      const point=glass.localToWorld(new THREE.Vector3(u*width,v*height,0)),direction=point.clone().sub(camera.position);
+      const hit=new THREE.Raycaster(camera.position,direction.clone().normalize(),0,direction.length()+.15).intersectObjects(occluders,false)[0];
+      assert.equal(hit?.object,glass,display.id+' is masked by '+hit?.object.name);
+      const p=point.project(camera);
+      if(framed)assert(Math.abs(p.x)<.99&&Math.abs(p.y)<.99,display.id+' is cropped.');
     }
-    const destination=[camera.position.x,camera.position.z],path=floorPath([-2.85,2.7],destination,obstacles,bounds);
-    assert.deepEqual(path.at(-1),destination);
-    for(let i=1;i<path.length;i++)assert(segmentClear(path[i-1],path[i],obstacles,bounds));
+    const dest=[camera.position.x,camera.position.z];
+    assert(canStand(dest,obstacles,bounds),'The visitor is inside a wall or vehicle.');
   }
+  for(const [width,height,fov] of [[1365,852,50],[390,692,78],[390,796,78],[360,900,78]]){
+    const aspect=width/height;house.garage.setViewport(aspect);
+    const panorama=overviewForViewport(aspect,fov);
+    for(const display of displays){
+      checkGlass(display,panorama,fov,aspect);
+      const detail=display.cameraForViewport(aspect,fov);
+      checkGlass(display,detail,fov,aspect);
+      const path=floorPath([panorama.position[0],panorama.position[2]],[detail.position[0],detail.position[2]],obstacles,bounds);
+      for(let i=1;i<path.length;i++)assert(segmentClear(path[i-1],path[i],obstacles,bounds));
+    }
+  }
+  const entry={position:[3.1,EYE_HEIGHT,2.65],target:[2.28,4,-11.6]};
+  house.garage.setViewport(16/9);
+  for(const display of displays)checkGlass(display,entry,50,16/9);
 });
 
 test('screen artwork maps once across the entire physical display',()=>{

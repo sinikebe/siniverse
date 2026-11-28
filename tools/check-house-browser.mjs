@@ -57,12 +57,12 @@ class Protocol {
     this.listeners.set(method, [...list, callback]);
     return () => this.listeners.set(method, (this.listeners.get(method) || []).filter(item => item !== callback));
   }
-  send(method, params = {}, timeout = 10000, sessionId = null) {
+  send(method, params = {}, timeout = 10000) {
     return new Promise((resolve, reject) => {
       const id = ++this.id;
       const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(method + ' timed out.')); }, timeout);
       this.pending.set(id, { resolve, reject, timer, method });
-      this.connection.send(JSON.stringify({ id, method, params, ...(sessionId ? {sessionId} : {}) }));
+      this.connection.send(JSON.stringify({ id, method, params }));
     });
   }
   wait(method) {
@@ -191,10 +191,45 @@ async function run() {
   // Isolated cross-origin fixtures exercise the host without touching application data.
   // The real public applications are verified separately in the dev preview.
   await socket.send('Page.addScriptToEvaluateOnNewDocument',{source:
-    'window.__embeddedFixture={};addEventListener("message",event=>{if(["https://finapp.siniverse.cc","https://branchlab.siniverse.cc","https://garapp.siniverse.cc"].includes(event.origin)&&event.data?.testEmbeddedFixture)window.__embeddedFixture[event.data.testEmbeddedFixture]=event.data;});'});
+    `window.__embeddedFixture={};
+     addEventListener('message',event=>{
+       if(!['https://finapp.siniverse.cc','https://branchlab.siniverse.cc','https://garapp.siniverse.cc'].includes(event.origin)||!event.data?.testEmbeddedFixture)return;
+       const frame=Array.from(document.querySelectorAll('iframe')).find(f=>f.contentWindow===event.source);
+       if(!frame)return;
+       const key=frame.id.startsWith('garage-frame-')?frame.id:event.data.testEmbeddedFixture;
+       window.__embeddedFixture[key]=event.data;
+     });`});
   socket.on('Fetch.requestPaused',event=>{
     const id=new URL(event.request.url).hostname.split('.')[0];
-    const html='<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>'+id+' — fixture</title><style>body{margin:0;padding:24px;font:18px system-ui;background:#edf3ef;color:#234}input{display:block;margin:20px 0;padding:12px;width:min(80%,400px);font:inherit}small{display:block}</style><h1>'+id+' / page de test</h1><p>Cadre de validation isolé. Aucune donnée applicative.</p><label>Note temporaire<input id="note" autocomplete="off"></label><small>Le contenu reste dans cette fenêtre.</small><script>const id='+JSON.stringify(id)+',token=Math.random().toString(36);function send(){const r=note.getBoundingClientRect();parent.postMessage({testEmbeddedFixture:id,token,notes:note.value,focus:document.activeElement?.id,rect:{x:r.x,y:r.y,width:r.width,height:r.height},viewport:{width:innerWidth,height:innerHeight}},'+JSON.stringify(origin)+')}note.addEventListener("input",send);document.addEventListener("focusin",send);addEventListener("resize",send);send();</script></html>';
+    const html=`<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+      <title>${id} — fixture</title><style>body{margin:0;padding:24px;font:18px system-ui;background:#edf3ef;color:#234}
+      input{display:block;margin:20px 0;padding:12px;width:min(80%,400px);font:inherit}
+      .reading{margin:12px 0;padding:14px 10px;background:#fff;border-left:4px solid #568975}.reading strong{float:right}</style>
+      <h1></h1><p>Cadre de validation isolé. Aucune donnée applicative.</p>
+      <label>Note temporaire<input id="note" autocomplete="off"></label><div id="readings"></div>
+      <script>
+        const id=${JSON.stringify(id)},token=Math.random().toString(36);
+        if(id==='garapp'){
+          const samples={garage:['Compteur','120 000 km'],interventions:['Dernière révision','14 juin'],
+            composants:['Pièces suivies','6'],assurance:['Échéance','36 €'],depenses:['Entretien','142 €'],
+            statistiques:['Distance annuelle','9 500 km'],graphiques:['Juin','1 240 km']};
+          const [label,value]=samples[location.hash.slice(1)]||samples.garage;
+          const readings=document.getElementById('readings');
+          for(let i=0;i<10;i++){
+            const row=document.createElement('p');row.className='reading';row.textContent=label;
+            const amount=document.createElement('strong');amount.textContent=value;row.append(amount);readings.append(row);
+          }
+        }
+        function send(){
+          const view=location.hash.slice(1);
+          document.querySelector('h1').textContent=view||id;
+          const r=note.getBoundingClientRect();
+          parent.postMessage({testEmbeddedFixture:id,view,token,notes:note.value,focus:document.activeElement?.id,
+            rect:{x:r.x,y:r.y,width:r.width,height:r.height},viewport:{width:innerWidth,height:innerHeight}},${JSON.stringify(origin)});
+        }
+        note.addEventListener('input',send);
+        document.addEventListener('focusin',send);addEventListener('resize',send);addEventListener('hashchange',send);send();
+      </script></html>`;
     void socket.send('Fetch.fulfillRequest',{requestId:event.requestId,responseCode:200,responseHeaders:[{name:'Content-Type',value:'text/html; charset=utf-8'},{name:'Content-Security-Policy',value:"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'"}],body:Buffer.from(html).toString('base64')}).catch(error=>report.exceptions.push(error.message));
   });
   await socket.send('Fetch.enable',{patterns:['finapp','branchlab','garapp'].map(id=>({urlPattern:'https://'+id+'.siniverse.cc/*',resourceType:'Document',requestStage:'Request'}))});
@@ -239,21 +274,26 @@ async function run() {
     await pause(100);
   }
   async function typeInFrame(id,draft){
-    // Chrome gives each cross-origin app its own input target (OOPIF).
-    const child=(await socket.send('Target.getTargets')).targetInfos.find(t=>t.type==='iframe'&&new URL(t.url).origin==='https://'+id+'.siniverse.cc');
-    assert(child,'The cross-origin fixture was not isolated in its own frame target.');
-    const {sessionId}=await socket.send('Target.attachToTarget',{targetId:child.targetId,flatten:true});
-    const inputPoint=await socket.evaluate('(()=>{const r=window.__embeddedFixture['+JSON.stringify(id)+'].rect;return {x:r.x+r.width/2,y:r.y+r.height/2}})()');
-    await socket.send('Input.dispatchMouseEvent',{type:'mouseMoved',...inputPoint,buttons:0},10000,sessionId);
-    await socket.send('Input.dispatchMouseEvent',{type:'mousePressed',...inputPoint,button:'left',buttons:1,clickCount:1},10000,sessionId);
-    await socket.send('Input.dispatchMouseEvent',{type:'mouseReleased',...inputPoint,button:'left',buttons:0,clickCount:1},10000,sessionId);
-    await socket.send('Input.insertText',{text:draft},10000,sessionId);
-    await socket.send('Input.dispatchKeyEvent',{type:'keyDown',key:'w',code:'KeyW',text:'w',unmodifiedText:'w',windowsVirtualKeyCode:87},10000,sessionId);
-    await socket.send('Input.dispatchKeyEvent',{type:'keyUp',key:'w',code:'KeyW',windowsVirtualKeyCode:87},10000,sessionId);
-    await socket.send('Target.detachFromTarget',{sessionId});
+    // Click the visible field in the parent viewport, including the host toolbar offset.
+    const fixture=id==='garapp'?'garage-frame-garapp':id;
+    const frameId=(id==='garapp'?'garage-frame-':'office-frame-')+id;
+    const inputPoint=await socket.evaluate('('+String(function(frameId,fixture){
+      const {rect,viewport}=window.__embeddedFixture[fixture],frame=document.getElementById(frameId).getBoundingClientRect();
+      return {x:frame.x+(rect.x+rect.width/2)*frame.width/viewport.width,
+        y:frame.y+(rect.y+rect.height/2)*frame.height/viewport.height};
+    })+')('+JSON.stringify(frameId)+','+JSON.stringify(fixture)+')');
+    await socket.send('Input.dispatchMouseEvent',{type:'mouseMoved',...inputPoint,buttons:0});
+    await socket.send('Input.dispatchMouseEvent',{type:'mousePressed',...inputPoint,button:'left',buttons:1,clickCount:1});
+    await socket.send('Input.dispatchMouseEvent',{type:'mouseReleased',...inputPoint,button:'left',buttons:0,clickCount:1});
+    await until('window.__embeddedFixture['+JSON.stringify(fixture)+'].focus==="note"','The click did not focus the editable field inside '+id+'.');
+    await socket.send('Input.insertText',{text:draft});
+    await socket.send('Input.dispatchKeyEvent',{type:'keyDown',key:'w',code:'KeyW',text:'w',unmodifiedText:'w',windowsVirtualKeyCode:87});
+    await socket.send('Input.dispatchKeyEvent',{type:'keyUp',key:'w',code:'KeyW',windowsVirtualKeyCode:87});
   }
   const near=(a,b)=>a.length===b.length&&a.every((n,i)=>Math.abs(n-b[i])<1e-5);
   const rootHome=origin+'/';
+  const garageViews=['garage','interventions','composants','assurance','depenses','statistiques','graphiques'];
+  const loadedWall=JSON.stringify(garageViews)+'.every(view=>window.__embeddedFixture["garage-frame-"+view]?.view===view)';
   await socket.send('Emulation.setEmulatedMedia',{features:[]});
   const viewports=[['desktop',1365,900],['mobile',390,740]];
   const selected=process.env.HOUSE_REVIEW_VIEWPORT;
@@ -264,11 +304,32 @@ async function run() {
     const garageState={app:'ensemble',room:'garage'};
     async function garageReady(){
       await houseWait(garageState);
-      await until('window.__siniverseHouse.inspect().scene.garage.open&&Boolean(window.__embeddedFixture.garapp)','The garage wall display did not open the embedded app.');
+      await until('window.__siniverseHouse.inspect().scene.garage.visible&&!window.__siniverseHouse.inspect().scene.garage.open&&'+loadedWall,'The garage did not show its seven live sections on arrival.');
+    }
+    async function garageDetail(view){
+      await houseWait({...garageState,view});
+      await until('window.__siniverseHouse.inspect().scene.garage.view==='+JSON.stringify(view)+'&&window.__embeddedFixture["garage-frame-garapp"]?.view==='+JSON.stringify(view),'The chosen Garapp section did not open.');
+    }
+    async function checkWall(){
+      const cards=await socket.evaluate('('+String(function(views){
+        return views.map(view=>{
+          const frame=document.getElementById('garage-frame-'+view),button=document.getElementById('garage-select-'+view);
+          const r=frame.closest('.garage-preview-content').getBoundingClientRect(),content=frame.getBoundingClientRect(),url=new URL(frame.src);
+          return {view,hash:url.hash,origin:url.origin,title:frame.title,frameWidth:content.width,frameHeight:content.height,
+            width:r.width,height:r.height,x:r.x+r.width/2,y:r.y+r.height/2,label:button.textContent.trim()};
+        });
+      })+')('+JSON.stringify(garageViews)+')');
+      for(const c of cards){
+        assert.equal(c.origin,'https://garapp.siniverse.cc');assert.equal(c.hash,'#'+c.view);assert(c.title.trim()&&c.label);
+        assert(c.frameWidth>0&&c.frameHeight>0&&c.width>40&&c.height>24&&c.x>0&&c.x<width&&c.y>0&&c.y<height,
+          'A garage view is missing from the arrival shot: '+JSON.stringify(c));
+      }
+      assert.equal(new Set(cards.map(c=>Math.round(c.x)+','+Math.round(c.y))).size,7,'Garapp displays overlap at the same point.');
     }
     await socket.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile});
     await navigate(rootHome);
     let inspected=await houseInspect({full:true});assert.equal(inspected.scene.kind,'webgl2');assert(inspected.scene.triangles>500&&inspected.scene.pixelColors>2);
+    assert.equal(await socket.evaluate('Array.from(document.querySelectorAll("iframe")).filter(f=>f.src.startsWith("https://garapp.siniverse.cc")).length'),0,'The seven garage apps loaded before the visitor entered.');
     for(const name of ['excavator','crane']){
       const b=inspected.scene.construction[name];
       assert(b&&b.width>12&&b.height>20&&b.x>=0&&b.x+b.width<=width&&b.y>=12&&b.y+b.height>76&&b.y<height-80,'Construction scenery is outside the '+format+' opening shot: '+name+' '+JSON.stringify(b));
@@ -303,6 +364,12 @@ async function run() {
     assert.equal((await houseInspect()).scene.pose.position[1],1.65);assert.equal((await houseInspect()).scene.journeyClear,true);
     assert.equal((await houseInspect()).scene.ambientActive,false,'The outdoor scene kept rendering inside the office.');
     await screenshot('house-office-'+format,width);
+    if(!mobile){
+      for(let i=0;i<5;i++)await press('#plan-canvas','w');
+      for(let i=0;i<22;i++)await press('#plan-canvas','d');
+      await until('window.__siniverseHouse.inspect().scene.garage.visible&&'+loadedWall,'Walking through the interior door did not turn on the wall.');
+      assert.equal((await houseInspect()).scene.garage.open,false,'A screen took focus during free movement.');
+    }
 
     async function targetPoint(candidate){
       assert(candidate,'A real scene target is missing.');
@@ -360,7 +427,6 @@ async function run() {
     await socket.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:related.x,y:related.y,button:'left',buttons:0,clickCount:1});
     await readerReady('garapp');assert.equal((await houseInspect()).scene.journeyClear,true);
     assert.deepEqual(await socket.evaluate('Array.from(document.querySelectorAll("#plan-reader-open-app,.reader-launch"),a=>[new URL(a.href).search,a.target])'),[['?room=garage',''],['?room=garage','']]);
-    assert.equal(await socket.evaluate('document.querySelectorAll("#garage-frame-garapp").length'),0,'The garage app loaded while reading its presentation.');
     assert((await houseInspect()).scene.journey.some(p=>p[0]>.8&&p[2]>1&&p[2]<2.2),'The visit did not use the interior doorway.');
     await socket.evaluate('history.back()');await readerReady('finapp');
     assert(Math.abs((await houseInspect()).scene.reader.scrollTop-related.scroll)<2,'Reopening after showModal lost the saved scroll.');
@@ -374,7 +440,7 @@ async function run() {
     let candidate=await exposedCarTarget();
     if(mobile)await nativeTap(candidate);else await nativeClick(candidate);
     await garageReady();assert.equal((await houseInspect()).scene.lastPick,'voiture-garapp');
-    await click('#garage-exit');await until('!window.__siniverseHouse.inspect().scene.garage.open','The garage screen did not close.');
+    assert.equal((await houseInspect()).scene.garage.open,false,'Clicking the car must bring the visitor to the entire display wall.');
 
     // A repeated manual gesture must clear every physical preview, including an interrupted fade.
     const gesture=await canvasPoint('#plan-canvas'),end={x:gesture.x+(gesture.x+110<width-5?110:-110),y:gesture.y+25};
@@ -477,36 +543,30 @@ async function run() {
     report.checks.push('PC/'+format+': bureau commun, chargement différé, saisie isolée, agrandissement, fenêtres conservées, clic physique, focus et Retour/Avant');
 
     await click('.plan-compass summary');await click('#plan-direct-garapp');await garageReady();
-    const garageScene=(await houseInspect()).scene;
-    assert.equal(garageScene.journeyClear,true);assert.equal(garageScene.garage.expanded,mobile);
-    assert.equal(await socket.evaluate('new URL(document.querySelector("#garage-frame-garapp").src).origin'),'https://garapp.siniverse.cc');
-    assert.equal(await socket.evaluate('document.querySelector("#garage-frame-garapp").title.trim().length>0'),true);
-    if(!mobile){
-      const centre=(await houseInspect({full:true})).scene.pickTargets.find(p=>p.app==='garage').screen;
-      assert.equal(await socket.evaluate('document.elementFromPoint('+centre.x+','+centre.y+')?.id'),'garage-frame-garapp','The embedded app is missing from the physical screen glass.');
-    }
-    await screenshot('house-garage-screen-'+format,width);
-    if(mobile){
-      await click('#garage-expand');
-      await until('(()=>{const view=window.__embeddedFixture.garapp.viewport,r=document.querySelector("#garage-frame-garapp").getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&Math.abs(view.width-r.width)<12})()','The wall screen should fit in portrait and use the mobile app layout.');
-    }
-    await click('#garage-expand');
-    await until('window.__siniverseHouse.inspect().scene.garage.expanded','The wall screen did not enlarge.');
+    await checkWall();
+    assert.equal((await houseInspect()).scene.journeyClear,true);
+    await screenshot('house-garage-wall-'+format,width);
+    const chosenView='interventions';
+    const chosenButton='#garage-select-'+chosenView;
+    const glass=(await houseInspect({full:true})).scene.pickTargets.find(p=>p.app==='garage'&&p.view===chosenView);
+    assert.equal(glass?.blocker,'house-garage-display-'+chosenView);
+    if(mobile)await nativeTap(glass);else await nativeClick(glass);
+    await garageDetail(chosenView);
+    if(!(await houseInspect()).scene.garage.expanded)await click('#garage-expand');
+    await until('(()=>{const frame=document.getElementById("garage-frame-garapp"),view=window.__embeddedFixture[frame.id].viewport;return window.__siniverseHouse.inspect().scene.garage.expanded&&Math.abs(view.width-frame.getBoundingClientRect().width)<2})()','The editor did not adjust to the enlarged display.');
+    const editingPose=(await houseInspect()).scene.pose;
     await typeInFrame('garapp','garage ');
-    await until('window.__embeddedFixture.garapp.notes==="garage w"','Typing inside the garage app did not reach the embedded form.');
-    assert(near((await houseInspect()).scene.pose.position,garageScene.pose.position),'App keystrokes moved the garage camera.');
-    const garageToken=await socket.evaluate('window.__embeddedFixture.garapp.token');
-    await press('#garage-exit','Escape');
-    await until('!window.__siniverseHouse.inspect().scene.garage.open','Escape did not return to the garage.');
-    assert.equal(await socket.evaluate('document.activeElement.id'),'plan-garage-screen');
-    candidate=(await houseInspect({full:true})).scene.pickTargets.find(p=>p.blocker==='house-garage-display');
-    if(mobile)await nativeTap(candidate);else await nativeClick(candidate);
-    await garageReady();
-    assert.equal(await socket.evaluate('window.__embeddedFixture.garapp.token'),garageToken,'Reopening the wall display lost the original frame.');
-    assert.equal(await socket.evaluate('window.__embeddedFixture.garapp.notes'),'garage w');
-    assert.equal((await socket.send('Target.getTargets')).targetInfos.some(t=>t.type==='page'&&t.url.startsWith('https://garapp.siniverse.cc')),false,'Garapp opened in a separate tab.');
-    await click('#garage-exit');
-    report.checks.push('Garage/'+format+': trajet direct, écran mural physique, application intégrée, saisie, réouverture avec brouillon et retour dans la pièce');
+    await until('window.__embeddedFixture["garage-frame-garapp"].notes==="garage w"','Typing inside the selected app did not reach its form.');
+    assert(near((await houseInspect()).scene.pose.position,editingPose.position),'App keystrokes moved the garage camera.');
+    const garageToken=await socket.evaluate('window.__embeddedFixture["garage-frame-garapp"].token');
+    await press('#garage-exit','Escape');await garageReady();
+    assert.equal(await socket.evaluate('document.activeElement.id'),chosenButton.slice(1));
+    await press(chosenButton);await garageDetail(chosenView);
+    assert.equal(await socket.evaluate('window.__embeddedFixture["garage-frame-garapp"].token'),garageToken,'Reopening the same view reloaded the editor.');
+    assert.equal(await socket.evaluate('window.__embeddedFixture["garage-frame-garapp"].notes'),'garage w');
+    assert.equal((await socket.send('Target.getTargets')).targetInfos.some(t=>t.type==='page'&&t.url.startsWith('https://garapp.siniverse.cc')),false,'Garapp opened a separate tab.');
+    await click('#garage-exit');await garageReady();
+    report.checks.push('Garage/'+format+': sept vues simultanées dans la pièce, sélection par dalle, clavier, saisie et retour au mur');
 
     await click('.plan-compass summary');await click('#plan-direct-gaming');
     const gamingState={...houseState(),room:'gaming'};await houseWait(gamingState);
@@ -538,14 +598,37 @@ async function run() {
     await assertRetained();await click('#office-exit');
     await houseClick('[data-plan-fallback-app="garapp"]',houseState('garapp'));await readerReady('garapp');
     await click('#plan-reader-open-app');await garageReady();
+    for(const view of garageViews){
+      const button=await socket.evaluate('(()=>{const r=document.getElementById('+JSON.stringify('garage-select-'+view)+').getBoundingClientRect();return {width:r.width,height:r.height}})()');
+      assert(button.width>0&&button.height>0,'WebGL fallback lost the '+view+' screen.');
+    }
+    await click(chosenButton);await garageDetail(chosenView);
     assert.equal((await houseInspect()).scene.garage.expanded,true);
     assert(await socket.evaluate('(()=>{const frame=document.getElementById("garage-frame-garapp"),r=frame.getBoundingClientRect();return r.width>=innerWidth*.9&&r.height>=innerHeight*.7&&document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)===frame})()'),'Fallback Garapp has no visible, interactive viewport.');
-    assert.equal(await socket.evaluate('window.__embeddedFixture.garapp.token'),garageToken,'WebGL loss reloaded Garapp.');
-    await click('#garage-exit');
-    assert.equal(await socket.evaluate('document.activeElement.id'),'plan-fallback-garage');
+    assert.equal(await socket.evaluate('window.__embeddedFixture["garage-frame-garapp"].token'),garageToken,'WebGL loss reloaded the Garapp editor.');
+    await click('#garage-exit');await garageReady();
+    assert.equal(await socket.evaluate('document.activeElement.id'),chosenButton.slice(1));
     report.checks.push('Plan/'+format+': perte réelle de contexte, fenêtre et brouillon conservés, lecture et sortie fallback');
 
-    await navigate(rootHome+'?room=garage');await garageReady();
+    await navigate(rootHome);await click('#plan-garage-entry');await garageReady();
+    await navigate(rootHome+'?room=garage');await garageReady();await checkWall();
+    assert.equal(await socket.evaluate('document.querySelectorAll("#garage-frame-garapp").length'),0,'Entering the garage opened the editor before a view was selected.');
+    if(mobile){
+      const tokens=()=>socket.evaluate(JSON.stringify(garageViews)+'.map(id=>window.__embeddedFixture["garage-frame-"+id].token)');
+      const original=await tokens();
+      for(const [w,h] of [[height,width],[width,height]]){
+        await socket.send('Emulation.setDeviceMetricsOverride',{width:w,height:h,deviceScaleFactor:1,mobile:true});
+        await until('('+String(function(portrait){
+          const button=document.getElementById('garage-select-interventions'),r=button.getBoundingClientRect();
+          const other=document.getElementById('garage-select-assurance').getBoundingClientRect();
+          const offset=Math.abs(r.y-other.y),layoutReady=portrait?offset>10:offset<5;
+          return layoutReady&&document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest('button')===button;
+        })+')('+(w<h)+')','The garage titles did not reflow or could not be reached after rotation.');
+        assert.equal((await houseInspect()).scene.garage.open,false);
+        assert.deepEqual(await tokens(),original,'Rotating the phone reloaded a wall display.');
+      }
+    }
+    await navigate(rootHome+'?room=garage&view=graphiques');await garageDetail('graphiques');
   }
   const denied=await socket.send('Page.addScriptToEvaluateOnNewDocument',{source:'for(const key of ["localStorage","sessionStorage"])Object.defineProperty(window,key,{get(){throw new DOMException("blocked","SecurityError")}});'});
   await navigate(rootHome);await houseWait(houseState());await reload();await houseWait(houseState());
@@ -582,7 +665,7 @@ try {
   if (profile) {
     const target = resolve(profile), parent = resolve(tmpdir());
     assert(target.startsWith(parent + sep) && basename(target).startsWith('siniverse-browser-'));
-    rmSync(target, { recursive: true, force: true, maxRetries: 3 });
+    rmSync(target, { recursive: true, force: true, maxRetries: 8, retryDelay: 250 });
   }
   console.log(JSON.stringify({ status: report.status, browser: report.browser, checks: report.checks.length, screenshots: report.screenshots.length }));
 }
