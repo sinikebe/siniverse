@@ -616,7 +616,18 @@ async function run() {
     assert.equal(await socket.evaluate('document.activeElement.id'),chosenButton.slice(1));
     report.checks.push('Plan/'+format+': perte réelle de contexte, fenêtre et brouillon conservés, lecture et sortie fallback');
 
-    await navigate(rootHome);await click('#plan-garage-entry');await garageReady();
+    await navigate(rootHome);
+    if(mobile){
+      await until('('+String(function(){
+        const rect=id=>document.getElementById(id).getBoundingClientRect();
+        const garage=rect('plan-garage-entry');
+        return garage.width>0&&['plan-door','plan-gaming-entry'].every(id=>{
+          const other=rect(id);
+          return garage.bottom<=other.top||garage.top>=other.bottom||garage.right<=other.left||garage.left>=other.right;
+        });
+      })+')()','The entrance labels must have separate touch targets on mobile.');
+    }
+    await click('#plan-garage-entry');await garageReady();
     await navigate(rootHome+'?room=garage');await garageReady();await checkWall();
     assert.equal(await socket.evaluate('document.querySelectorAll("#garage-frame-garapp").length'),0,'Entering the garage opened the editor before a view was selected.');
     if(mobile){
