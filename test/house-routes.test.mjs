@@ -27,6 +27,19 @@ test('only known applications can be launched inside the office desktop',()=>{
   assert.deepEqual(parseRoute('?app=garapp&room=office&program=finapp'),{app:'garapp'});
 });
 
+test('the garage wall and its seven displays have independent, shareable routes',()=>{
+  const garage={app:'ensemble',room:'garage'};
+  for(const view of ['garage','interventions','composants','assurance','depenses','statistiques','graphiques']){
+    const route={...garage,view};
+    assert.equal(routeHref(route),'/?room=garage&view='+view);
+    assert.deepEqual(parseRoute('?room=garage&view='+view),route);
+  }
+  assert.deepEqual(parseRoute('?room=garage&view=unknown'),garage);
+  assert.deepEqual(parseRoute('?room=garage&view=__proto__'),garage);
+  assert.deepEqual(parseRoute('?room=office&view=garage'),{app:'ensemble',room:'office'});
+  assert.deepEqual(parseRoute('?app=garapp&view=interventions'),{app:'garapp'});
+});
+
 test('old app and gaming bookmarks keep their destination and discard prototype parameters', () => {
   for (const concept of ['plan','reacteur','anamorphose','instrument','fil','machine']) {
     assert.equal(routeHref(parseRoute('?concept='+concept+'&app=finapp&angle=action')), '/?app=finapp');

@@ -7,7 +7,7 @@ const extension = [5.5, 13.5, -6.5, 3.5];
 const neighboringLots = [
   [-38, -20, -4, 8.6], [17, 30, -11, 8.6], [-21, -9, 15.4, 32],
 ];
-const forecourt = [-11.2, 6.9, -5.1, 8.2];
+const forecourt = [-11.2, 6.9, -12.6, 8.2];
 const paths = [-3.3, 5.4, 6, 9.3];
 const clearPatches = [street, forecourt, paths, ...neighboringLots];
 // The excavator pad and adjoining road shoulder share a finished grade.

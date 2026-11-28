@@ -36,7 +36,7 @@ async function render(record, { instant = false } = {}) {
     if (!mounted) mounted = mountPlan(host, state, api);
     await mounted.update(state, { snapshot: record?.view ?? null, instant });
     if (token !== revision) return;
-    const defaultFocus = state.room === 'garage' ? 'garage-screen-title' : 'view-title';
+    const defaultFocus = state.room === 'garage' && state.view ? 'garage-screen-title' : 'view-title';
     (document.getElementById(record?.focus || defaultFocus) || document.getElementById('view-title'))?.focus({ preventScroll: true });
     if (record?.scroll) window.scrollTo({ left: record.scroll[0], top: record.scroll[1], behavior: 'instant' });
   } catch (error) {
@@ -79,7 +79,7 @@ document.querySelector('.settings-links').addEventListener('click', event => {
   const destination = parseRoute(new URL(link.href).search);
   event.preventDefault();
   link.closest('details').open = false;
-  const focusId = { garage: 'garage-screen-title', office: 'office-desktop-title' }[destination.room] || 'view-title';
+  const focusId = destination.room === 'office' ? 'office-desktop-title' : 'view-title';
   void navigate(destination, { focusId });
 });
 Object.defineProperty(window, '__siniverseHouse', { value: Object.freeze({ inspect: options => ({ route: { ...state }, scene: mounted?.inspect(options) ?? { kind: 'unavailable' } }) }) });

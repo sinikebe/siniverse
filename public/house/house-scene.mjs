@@ -4,6 +4,7 @@ import { buildNeighborhood } from './neighborhood.mjs';
 import { createHousePhotography } from './house-photography.mjs';
 import { buildGamingRoom } from './gaming-room.mjs';
 import { buildConstructionSite } from './construction-site.mjs';
+import { buildGarageGallery } from './garage-gallery.mjs';
 
 // A small, tangible house. All coordinates are metres; navigation belongs to Plan.
 export function buildHouse(world, apps) {
@@ -154,7 +155,7 @@ export function buildHouse(world, apps) {
   box([4.5, .06, 7.18], P.garage, [3.05, -.01, 0], root, 'house-garage-floor', 'stone', .018);
   box([1.4, .045, .42], '#7C806A', [-2.3, .015, 3.55], root, 'house-entry-threshold', 'paint', .018);
   box([3.9, .025, .22], '#7C806A', [3.05, .015, 3.52], root, 'house-garage-threshold', 'metal', .01);
-  wall('x', -3.49, -5.3, 5.3, [], 'rear'); wall('z', 5.19, -3.6, 3.6, [], 'right');
+  wall('x', -3.49, -5.3, .8, [], 'rear'); wall('z', 5.19, -3.6, 3.6, [], 'right');
   wall('z', -5.19, -3.6, 3.6, [{ from: -.65, to: .95, bottom: .95, top: 2.05 },{from:1.2,to:2.5,top:2.2}], 'left');
   windowPane('z', -5.19, -.65, .95, .95, 2.05);
   wall('x', 3.49, -5.3, .8, [{ from: -4.85, to: -3.55, bottom: .95, top: 2.05 }, { from: -3, to: -1.6, top: 2.2 }], 'front-office');
@@ -170,7 +171,7 @@ export function buildHouse(world, apps) {
   box([.39, .075, 1.76], '#D7C9AF', [-5.19, .91, .15], root, 'house-window-sill', 'plaster', .024);
 
   const wallShade = canvasTexture((ctx,n)=>{const g=ctx.createLinearGradient(0,0,0,n);g.addColorStop(0,'rgba(28,48,58,0)');g.addColorStop(.55,'rgba(28,48,58,.04)');g.addColorStop(1,'rgba(28,48,58,.38)');ctx.fillStyle=g;ctx.fillRect(0,0,n,n);},128);
-  for(const [x,z,width,rotation]of [[-2.25,-3.345,5.8,0],[-5.045,0,6.7,Math.PI/2],[.655,-1.25,4.3,-Math.PI/2],[3,-3.345,4.1,0],[5.045,0,6.7,-Math.PI/2]]){
+  for(const [x,z,width,rotation]of [[-2.25,-3.345,5.8,0],[-5.045,0,6.7,Math.PI/2],[.655,-1.25,4.3,-Math.PI/2],[5.045,0,6.7,-Math.PI/2]]){
     const mat=basic('#FFFFFF',{map:wallShade});
     const shade=mesh(new T.PlaneGeometry(width,.72),mat,[x,.36,z],root,'house-wall-contact');shade.rotation.y=rotation;shade.castShadow=shade.receiveShadow=false;shade.userData.pickThrough=true;
   }
@@ -186,8 +187,8 @@ export function buildHouse(world, apps) {
   for (const [parent, position, size] of [[entry, [1.10, 1.06, .07], [.20, .045, .055]], [inner, [.07, 1.06, .91], [.055, .045, .20]]])
     box(size, '#BEA56E', position, parent, 'house-door-lever', 'metal', .018);
   obstacle(entry, 'open-entry-door'); obstacle(inner, 'open-inner-door');
-  box([3.88, .12, 1.10], '#C1C6AF', [3.05, 2.56, 2.94], root, 'house-open-garage-door', 'paint', .04);
-  for (const x of [1.04, 5.05]) curve([[x, 2.5, 3.48], [x, 2.5, 2.3]], P.metal, .026, root, 'house-garage-door-guide');
+  box([3.88,.32,.36],'#B6C1BC',[3.05,2.65,3.32],root,'house-garage-roller-shutter-cassette','metal',.045);
+  for(const x of [1.12,4.97])box([.045,2.31,.065],P.metal,[x,1.17,3.45],root,'house-garage-door-guide','metal',.012);
 
   const pitch = Math.atan2(1.31, 3.30), length = Math.hypot(1.31, 3.30);
   const leftRoof = box([length, .18, 7.66], P.roof, [-3.90, 3.495, 0], roof, 'house-roof-left-slope', 'paint', .055); leftRoof.rotation.z = pitch;
@@ -204,20 +205,37 @@ export function buildHouse(world, apps) {
   const stripMaterial=new T.MeshStandardMaterial({color:'#FFF0CD',emissive:'#FFE3AD',emissiveIntensity:1.3,roughness:.5});materials.add(stripMaterial);
   const strip=box([2.88,.018,.105],stripMaterial,[-2.8,2.642,-2.4],roof,'house-desk-light-diffuser','paint',.008);strip.castShadow=false;
   const deskLight=new T.PointLight('#FFE4BE',8,5,2);deskLight.position.set(-2.8,2.4,-2.4);roof.add(deskLight);
-  box([4.85, .20, 7.66], P.roof, [3.08, 2.97, 0], roof, 'house-garage-roof', 'paint', .07);
+  // A rising clerestory keeps the low street frontage while admitting daylight to the workshop.
+  const garageRoofHeight=z=>2.87+(3.49-z)*.213;
+  const roofAngle=Math.atan(.213);
+  function clerestory(x,width,colour,kind) {
+    const from=-3.59,to=3.59,profile=new T.Shape();
+    profile.moveTo(from,2.79);profile.lineTo(to,2.79);profile.lineTo(to,garageRoofHeight(to));
+    profile.lineTo(from,garageRoofHeight(from));profile.closePath();
+    const g=new T.ExtrudeGeometry(profile,{depth:width,bevelEnabled:false});g.translate(0,0,-width/2);g.rotateY(-Math.PI/2);
+    return mesh(g,colour,[x,0,0],roof,'house-garage-clerestory',kind);
+  }
+  clerestory(.80,.21,P.plaster,'plaster');
+  clerestory(5.19,.08,P.glass,'glass').castShadow=false;
+  for(const z of [-3.48,-2.32,-1.16,0,1.16,2.32,3.48]) {
+    const h=garageRoofHeight(z)-2.79;
+    box([.17,h,.05],P.frame,[5.19,2.79+h/2,z],roof,'house-garage-clerestory-mullion','metal',.008);
+  }
+  const workshopRoof=box([4.85,.17,7.66/Math.cos(roofAngle)],P.roof,[3.08,garageRoofHeight(0)+.09,0],roof,'house-garage-roof','paint',.045);
+  workshopRoof.rotation.x=roofAngle;
   // A folded metal roof: thin standing seams follow the slope and catch daylight.
   const seamPoses=[];for(let z=-3.4;z<3.6;z+=.62)for(const [x,slope]of [[-3.90,pitch],[-.60,-pitch]])seamPoses.push({x,z,slope});
   const seams=new T.InstancedMesh(roundedGeometry([length-.06,.035,.026],.01,3),material('#52707A','metal'),seamPoses.length);
   seams.name='house-roof-standing-seams';seams.castShadow=true;seams.receiveShadow=true;
   const seamMatrix=new T.Matrix4();seamPoses.forEach((p,i)=>{seamMatrix.compose(new T.Vector3(p.x,3.60,p.z),new T.Quaternion().setFromAxisAngle(new T.Vector3(0,0,1),p.slope),new T.Vector3(1,1,1));seams.setMatrixAt(i,seamMatrix);});roof.add(seams);
   for (const x of [-5.55, 1.05]) box([.075, .15, 7.55], P.frame, [x, 2.83, 0], roof, 'house-roof-fascia', 'paint', .025);
-  box([4.78, .12, .06], P.frame, [3.08, 2.94, 3.82], roof, 'house-garage-fascia', 'paint', .02);
+  box([4.78, .12, .06], P.frame, [3.08, garageRoofHeight(3.82)+.065, 3.82], roof, 'house-garage-fascia', 'paint', .02);
   for (const z of [-3.82, 3.82]) {
     curve([[-5.55, 2.82, z], [-2.25, 4.15, z]], P.frame, .055, roof, 'house-roof-eave');
     curve([[-2.25, 4.15, z], [1.05, 2.82, z]], P.frame, .055, roof, 'house-roof-eave');
   }
 
-  for(const x of [1,5.16])box([.11,.18,7.55],P.frame,[x,2.82,0],roof,'house-garage-roof-edge','metal',.03);
+  for(const x of [.85,5.16])box([.11,.14,7.56/Math.cos(roofAngle)],P.frame,[x,garageRoofHeight(0),0],roof,'house-garage-roof-edge','metal',.025).rotation.x=roofAngle;
 
   // Cedar rainscreen, recessed joinery, drainage and warm fixtures give the shell scale.
   const siding = new T.InstancedMesh(roundedGeometry([.038, 2.64, .105], .006, 3), material('#EEE7D9', 'wood'), 60);
@@ -308,91 +326,7 @@ export function buildHouse(world, apps) {
   curve([[-3.99,.92,-2.25],[-3.95,.91,-2.25],[-3.95,.87,-2.25],[-3.99,.86,-2.25]],'#CFCDC1',.009,desk,'house-cup-handle');
   obstacle(desk, 'office-workstations');
 
-  // The service display faces the clear floor in front of the parked vehicle.
-  const monitor = new T.Group();
-  monitor.name = 'house-garage-wall-monitor';
-  monitor.position.set(4.99, 1.59, 2.30);
-  monitor.rotation.y = -Math.PI / 2;
-  root.add(monitor);
-  box([.52, .38, .08], '#41494A', [0, 0, -.043], monitor, 'house-garage-monitor-mount', 'metal');
-  const housingWidth = 2.04;
-  box([housingWidth, 1.33, .082], '#606C6B', [0, -.008, .046], monitor, 'house-garage-monitor-case', 'metal', .032);
-  box([2.024, 1.314, .018], '#202A2D', [0, -.008, .089], monitor, 'house-garage-monitor-bezel', 'rubber', .021);
-  const garageArt = canvasTexture((ctx, size) => {
-    ctx.scale(size / 640, size / 400);
-    const gradient = ctx.createLinearGradient(0, 0, 640, 400);
-    gradient.addColorStop(0, '#293B3D');
-    gradient.addColorStop(1, '#152326');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, 640, 400);
-    ctx.fillStyle = '#F6E9D8';
-    ctx.font = '600 64px system-ui, sans-serif';
-    ctx.fillText('Garapp', 41, 95);
-    ctx.fillStyle = '#B8CAC3';
-    ctx.font = '22px system-ui, sans-serif';
-    ctx.fillText('Carnet du véhicule', 45, 139);
-    // Side elevation, in the sage paint and warm copper of the garage.
-    ctx.strokeStyle = '#99B9AD';
-    ctx.lineWidth = 3;
-    ctx.lineJoin = ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(217, 274);
-    ctx.lineTo(208, 268);
-    ctx.quadraticCurveTo(206, 243, 220, 233);
-    ctx.lineTo(267, 223);
-    ctx.bezierCurveTo(291, 197, 309, 180, 343, 180);
-    ctx.bezierCurveTo(390, 175, 424, 188, 458, 216);
-    ctx.quadraticCurveTo(527, 223, 557, 246);
-    ctx.lineTo(562, 266);
-    ctx.quadraticCurveTo(555, 273, 534, 274);
-    ctx.moveTo(287, 274);
-    ctx.lineTo(476, 274);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(283, 222);
-    ctx.quadraticCurveTo(310, 192, 340, 191);
-    ctx.quadraticCurveTo(400, 183, 439, 217);
-    ctx.lineTo(283, 222);
-    ctx.moveTo(355, 191);
-    ctx.lineTo(348, 220);
-    ctx.stroke();
-    for (const x of [254, 504]) {
-      ctx.beginPath();
-      ctx.arc(x, 268, 24, 0, 2 * Math.PI);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(x, 268, 11, 0, 2 * Math.PI);
-      ctx.stroke();
-    }
-    ctx.fillStyle = '#F2AC87';
-    ctx.font = '600 20px system-ui, sans-serif';
-    ctx.fillText('Ouvrir  →', 45, 351);
-  }, 512);
-  const garageWidth = 1.92, garageHeight = 1.20;
-  const display = mesh(displayGeometry(garageWidth, garageHeight, .014), basic('#FFFFFF', { map: garageArt }),
-    [0, 0, .101], monitor, 'house-garage-display');
-  display.castShadow = display.receiveShadow = false;
-  const indicator = mesh(new T.CircleGeometry(.007, 12), basic('#AECDBC'), [.93, -.638, .099], monitor, 'house-garage-monitor-led');
-  indicator.castShadow = indicator.receiveShadow = false;
-  box([.036, .95, .026], '#ADAEA1', [.37, -1.11, -.059], monitor, 'house-garage-cable-channel', 'paint', .006);
-  obstacle(monitor, 'garage-wall-monitor');
-  const garageSurface = {
-    position: display.getWorldPosition(new T.Vector3()).toArray(),
-    width: garageWidth, height: garageHeight, rotationY: monitor.rotation.y,
-  };
-  const garageCamera = { position: [3.10, 1.65, monitor.position.z], target: [...garageSurface.position] };
-  const garage = {
-    monitor, surface: garageSurface, label: [4.79, 2.24, monitor.position.z],
-    camera: garageCamera,
-    cameraForViewport(aspect, verticalFovDegrees) {
-      const [surfaceX] = garageSurface.position;
-      const horizontalTangent = aspect * Math.tan(verticalFovDegrees * Math.PI / 360);
-      // Frame the metal housing, keeping a margin on both sides and staying inside the garage.
-      const distance = housingWidth / (2 * .90 * horizontalTangent) + .04;
-      const x = clamp(surfaceX - distance, 1.24, garageCamera.position[0]);
-      return { position: [x, garageCamera.position[1], monitor.position.z], target: [...garageSurface.position] };
-    },
-  };
+  const garage=buildGarageGallery({T,root,roof,mesh,box,basic,material,displayGeometry,canvasTexture,obstacle});
 
   // The vehicle's physical record is the garage support, not a separate pedestal.
   const record = new T.Group(); record.name = 'house-garapp-record'; root.add(record);
@@ -600,7 +534,7 @@ export function buildHouse(world, apps) {
     environmentTarget?.dispose();environmentSource?.dispose();carEnvironment?.dispose();carCapture?.dispose();
   });
   return { roof, entry, car, record, screens, surfaces, shell, obstacles, anchors, gaming, office, garage, construction, updateAmbient, setPreview, setCutaway, setNotebook,
-    bounds: { minX: -10.7, maxX: 6.4, minZ: -4.5, maxZ: 7 },
+    bounds: { minX: -10.7, maxX: 6.4, minZ: -12.1, maxZ: 7 },
     inspectObjects: () => ({ roofAmount, notebookAmount, materialsReady:surfaceLibrary.ready() }),
     inspectConstruction: () => ({ excavator: world.projectBounds?.(construction.excavator,{includeDecor:true,precise:true}), crane: world.projectBounds?.(construction.crane,{includeDecor:true,precise:true}) }),
     inspectPreview: () => ({ ...previewState }) };
