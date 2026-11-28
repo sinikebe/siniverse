@@ -8,8 +8,9 @@ import { createGamingLibrary } from './gaming-library.mjs';
 import { EYE_HEIGHT, canStand, segmentClear, stepOnFloor, lookOnFloor, blendLook, floorPath, pointAlong } from './house-navigation.mjs';
 
 const APPROACH={position:[-2.3,EYE_HEIGHT,5.7],target:[-2.3,EYE_HEIGHT,1.8]};
+const STREET_VIEW={position:APPROACH.position,target:[-15,1.45,25]};
 const BUREAU={position:[-2.85,EYE_HEIGHT,2.7],target:[-2.85,1.5,-2.6]};
-const OVERVIEW={position:[13,6.8,19],target:[-3.1,1.4,.25]};
+const OVERVIEW={position:[11,7,24],target:[-3,1.5,1.5]};
 const MOBILE_OVERVIEW={position:[18,9.2,26],target:[-5,0,0]};
 const GARAGE_PASSAGE={position:[1.65,EYE_HEIGHT,1.65],target:[3.1,1,-.3]};
 const CAR_VIEW={position:[1.75,EYE_HEIGHT,4.9],target:[2.73,1.05,1.07]};
@@ -57,6 +58,9 @@ export function mountPlan(host,initialState,api){
   function updateLocation(){
     const p=world.getPose().position,inside=p[0]>-5.3&&p[0]<5.3&&p[2]>-3.6&&p[2]<3.6;
     const gaming=p[0]>-9.65&&p[0]<-5.19&&p[2]>-3.6&&p[2]<3.6;
+    const outside=mode==='overview'||(!inside&&!gaming);
+    const streetVisible=outside&&!roofOpen&&state.app==='ensemble'&&(!state.room||state.room==='street');
+    world.setAmbientMotion(streetVisible?house.updateAmbient:null);
     host.dataset.room=gaming&&mode==='walk'?'gaming':'house';
     gamingEntryLabel?.setPosition([-7.45,isMobile()?5.2:2.46,3.83]);gamingEntryLabel?.setEnabled(!(mode==='overview'&&roofOpen));
     entranceLabel?.setEnabled(!(mode==='overview'&&roofOpen));
@@ -69,6 +73,16 @@ export function mountPlan(host,initialState,api){
   hud.querySelector('#plan-cutaway').addEventListener('click',()=>{setPreview(null);setRoof(!roofOpen);api.saveView();});
   const gamingButton=button('plan-gaming-room','Salle gaming');gamingButton.hidden=true;gamingButton.addEventListener('click',()=>navigate({app:'ensemble',room:'gaming'}));hud.querySelector('.plan-compass').insertBefore(gamingButton,hud.querySelector('.plan-compass details'));
   const gamingRoute=button('plan-direct-gaming','Salle gaming / jeux');gamingRoute.addEventListener('click',()=>{hud.querySelector('.plan-compass details').open=false;navigate({app:'ensemble',room:'gaming'});});hud.querySelector('.plan-direct-routes').append(gamingRoute);
+  const streetRoute=document.createElement('a');
+  const streetDestination={app:'ensemble',room:'street'};
+  streetRoute.id='plan-direct-street';streetRoute.textContent='La rue depuis le seuil';streetRoute.href=api.href(streetDestination);
+  streetRoute.addEventListener('click',event=>{
+    if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
+    event.preventDefault();
+    hud.querySelector('.plan-compass details').open=false;
+    navigate(streetDestination,'plan-canvas');
+  });
+  hud.querySelector('.plan-direct-routes').append(streetRoute);
   const officeRoute=button('plan-direct-office','Le PC / Finapp et Branchlab');officeRoute.addEventListener('click',()=>{hud.querySelector('.plan-compass details').open=false;openOffice();});hud.querySelector('.plan-direct-routes').append(officeRoute);
   for(const [id,app]of Object.entries(api.apps)){
     const link=document.createElement('a');link.id='plan-direct-'+id;link.href=id==='garapp'?api.href({app:id}):api.href({app:'ensemble',room:'office',program:id});link.textContent=app.name+' / '+(id==='garapp'?'garage':'le PC');link.addEventListener('click',event=>{if(event.button||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();hud.querySelector('.plan-compass details').open=false;if(id==='garapp')openApp(id,hud.querySelector('.plan-compass summary'));else openOffice(id);});hud.querySelector('.plan-direct-routes').append(link);
@@ -163,7 +177,10 @@ export function mountPlan(host,initialState,api){
     })();closingTask=task;void task.then(()=>{if(closingTask===task)closingTask=null;},()=>{if(closingTask===task)closingTask=null;});return task;
   }
   function drawWorld(){
-    const c=api.content(state.app);hud.querySelector('#view-title').textContent=state.app==='ensemble'?(state.room==='gaming'?'La salle gaming / Les jeux du Siniverse':state.room==='office'?'Le PC du bureau / Finapp et Branchlab':'La maison Siniverse'):api.apps[state.app].name+' / '+c.title;
+    const roomHeadings={gaming:'La salle gaming / Les jeux du Siniverse',office:'Le PC du bureau / Finapp et Branchlab',street:'La rue depuis le seuil'};
+    hud.querySelector('#view-title').textContent=state.app==='ensemble'
+      ? roomHeadings[state.room]||'La maison Siniverse'
+      : api.apps[state.app].name+' / '+api.content(state.app).title;
     updateLocation();world.requestRender();
   }
   function targetPose(app){
@@ -271,6 +288,9 @@ export function mountPlan(host,initialState,api){
       if(!keepOffice)await walkTo(officePose(),{instant,token});
       if(token!==revision||failed)return;
       officeDesktop.open({program:state.program,expanded:keepOffice?officeDesktop.isExpanded():undefined,focus:false});pendingOpen=false;
+    }else if(state.room==='street'){
+      if(roofOpen)setRoof(false,{instant});
+      setPreview(null);await walkTo(STREET_VIEW,{instant,token});
     }else if(state.room==='gaming'){
       pendingOpen=true;setPreview(null);await walkTo(isMobile()?{position:[-7.4,EYE_HEIGHT,1.5],target:[-7.4,1.5,-2.5]}:house.gaming.view,{instant,token});
       if(token!==revision||failed)return;pendingOpen=false;setPreview(null);

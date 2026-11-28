@@ -1,5 +1,6 @@
 import { createSurfaceLibrary, setMetreUV, smoothSurfaceNormals } from './house-materials.mjs';
 import { buildLandscape } from './house-landscape.mjs';
+import { buildNeighborhood } from './neighborhood.mjs';
 import { createHousePhotography } from './house-photography.mjs';
 import { buildGamingRoom } from './gaming-room.mjs';
 import { buildConstructionSite } from './construction-site.mjs';
@@ -130,9 +131,10 @@ export function buildHouse(world, apps) {
       axis === 'x' ? [(from + to) / 2, (bottom + top) / 2, fixed] : [fixed, (bottom + top) / 2, (from + to) / 2], root, 'house-window-mullion', 'metal', .01);
   }
 
-  world.scene.background = new T.Color('#B9C5C7');
-  world.scene.fog = new T.FogExp2('#B9C5C7', .013);
+  world.scene.background = new T.Color('#D8D6C6');
+  world.scene.fog = new T.FogExp2('#D8D6C6', .013);
   const landscape = buildLandscape(T, world.scene, surfaceLibrary,world.quality);
+  const neighborhood = buildNeighborhood(T, world.scene, surfaceLibrary, { ...world.quality, heightAt: landscape.heightAt });
   const construction = buildConstructionSite(world, { root: landscape.root, mesh, curve, material, canvasTexture, roundedGeometry, contact, materials, heightAt: landscape.heightAt });
   box([11.1, .19, 7.7], '#D8DDD8', [0, -.16, 0], root, 'house-approach-ground', 'stone', .025);
   box([4.45,.09,2.8], '#D5D9D4', [3.05,-.13,4.92],root,'house-driveway','stone',.025);
@@ -418,6 +420,17 @@ export function buildHouse(world, apps) {
   const garageBounce = new T.PointLight('#FFE7C8', 8, 7, 2); garageBounce.position.set(3, 2.2, 3.9); root.add(garageBounce);
   let environmentTarget = null, environmentSource = null, carEnvironment = null, carCapture = null;
   if (world.renderer && globalThis.document) {
+    const sky = canvasTexture((ctx,n) => {
+      const gradient=ctx.createLinearGradient(0,0,0,n);
+      gradient.addColorStop(0,'#809FAC');
+      gradient.addColorStop(.34,'#9CB8C1');
+      gradient.addColorStop(.46,'#C6CFCA');
+      gradient.addColorStop(.50,'#D8D6C6');
+      gradient.addColorStop(1,'#D8D6C6');
+      ctx.fillStyle=gradient;ctx.fillRect(0,0,n,n);
+    },256);
+    sky.mapping=T.EquirectangularReflectionMapping;
+    world.scene.background=sky;
     world.renderer.shadowMap.enabled = true; world.renderer.shadowMap.type = T.PCFShadowMap;
     world.renderer.toneMapping = T.ACESFilmicToneMapping; world.renderer.toneMappingExposure = 1.06;
     world.renderer.shadowMap.autoUpdate=false;world.renderer.shadowMap.needsUpdate=true;
@@ -447,6 +460,16 @@ export function buildHouse(world, apps) {
     world.renderer.shadowMap.needsUpdate=true;
   }
   function invalidateShadow(){if(world.renderer?.shadowMap)world.renderer.shadowMap.needsUpdate=true;}
+  let nextShadowUpdate=0, excavatorShadowDirty=false;
+  function updateAmbient(seconds){
+    landscape.updateAmbient(seconds);
+    if(construction.updateAmbient(seconds))excavatorShadowDirty=true;
+    if(excavatorShadowDirty&&seconds>=nextShadowUpdate){
+      invalidateShadow();
+      nextShadowUpdate=seconds+(world.quality?.software ? 1 : .25);
+      excavatorShadowDirty=false;
+    }
+  }
   root.updateMatrixWorld(true);
   const roofMaterials = [];
   roof.traverse(node => { if (!node.isMesh) return; node.material = node.material.clone(); node.material.transparent = true; materials.add(node.material);surfaceLibrary.track(node.material); roofMaterials.push(node.material); });
@@ -478,11 +501,11 @@ export function buildHouse(world, apps) {
   }
   world.cleanup?.(() => {
     for (const item of materials) item.dispose(); for (const texture of textures) texture.dispose();
-    surfaceLibrary.dispose();landscape.dispose();
+    neighborhood.dispose();landscape.dispose();surfaceLibrary.dispose();
     if (world.scene.environment === environmentTarget?.texture) world.scene.environment = null;
     environmentTarget?.dispose();environmentSource?.dispose();carEnvironment?.dispose();carCapture?.dispose();
   });
-  return { roof, entry, car, record, screens, surfaces, shell, obstacles, anchors, gaming, office, construction, setPreview, setCutaway, setNotebook,
+  return { roof, entry, car, record, screens, surfaces, shell, obstacles, anchors, gaming, office, construction, updateAmbient, setPreview, setCutaway, setNotebook,
     bounds: { minX: -10.7, maxX: 6.4, minZ: -4.5, maxZ: 7 },
     inspectObjects: () => ({ roofAmount, notebookAmount, materialsReady:surfaceLibrary.ready() }),
     inspectConstruction: () => ({ excavator: world.projectBounds?.(construction.excavator,{includeDecor:true,precise:true}), crane: world.projectBounds?.(construction.crane,{includeDecor:true,precise:true}) }),

@@ -12,7 +12,9 @@ Liens directs : `/?app=finapp`, `/?app=garapp`, `/?app=branchlab` et `/?room=gam
 
 Le code et les styles de la maison se trouvent dans `public/house/`. Les textures photographiques locales gardent leur provenance dans `public/assets/house/provenance.json`. Three.js est généré depuis la dépendance verrouillée dans `dist/house/vendor/`. Les collisions, le rendu adaptatif, la vue en coupe et les passages par les portes restent conservés.
 
-Le chantier statique est construit dans `construction-site.mjs` : pelleteuse sur chenilles, grue à tour en arrière-plan, barrières, cônes, panneau et matériaux. Le terrain est nivelé et la végétation dégagée autour des installations. Elles restent hors des parcours à pied ; le treillis de la grue et les patins des chenilles sont instanciés pour limiter le coût de rendu. Aucune animation de chantier ni boucle de rendu continue n’est ajoutée.
+Une rue résidentielle longe la façade et rejoint le chemin d’entrée et l’allée du garage. Une longère, une maison à patio et une maison à pignon composent le voisinage. Le jardin bas contre le garage réserve environ 8 × 10 m pour une future extension. Dans « Trajets directs », « La rue depuis le seuil » tourne la caméra vers la maison d’en face. Cette vue est aussi accessible à `/?room=street`.
+
+Les graminées suivent la brise, la pelleteuse travaille sur son tas de terre et le chariot de la grue déplace son crochet en fond de scène. Ces mouvements se déroulent à des rythmes différents. Ils se mettent en pause à l’intérieur, en vue en coupe, lorsque l’onglet est masqué ou lorsque la réduction des animations est activée.
 
 Les liens sémantiques et l’historique du navigateur gardent les vues, le focus, les lectures, les manipulations et la bibliothèque gaming. Une page sans JavaScript conserve les accès directs aux applications ; sans WebGL, la lecture reste disponible dans une version textuelle.
 

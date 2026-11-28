@@ -250,9 +250,22 @@ async function run() {
       const b=inspected.scene.construction[name];
       assert(b&&b.width>12&&b.height>20&&b.x>=0&&b.x+b.width<=width&&b.y>=12&&b.y+b.height>76&&b.y<height-80,'Construction scenery is outside the '+format+' opening shot: '+name+' '+JSON.stringify(b));
     }
-    assert.equal(inspected.scene.animationCount,0,'The static construction site introduced an animation loop.');
-    report.checks.push('Chantier/'+format+': pelleteuse et grue visibles dès l’accueil, décor statique');
+    assert.equal(inspected.scene.ambientActive,true,'The street should come to life on arrival.');
+    await until('window.__siniverseHouse.inspect({fast:true}).scene.ambientSeconds>'+inspected.scene.ambientSeconds,'The outdoor scene clock did not advance.');
+    report.checks.push('Quartier/'+format+': chantier visible et animé dès l’accueil');
     await screenshot('house-exterior-'+format,width);
+    if(!mobile){
+      await click('.plan-compass summary');
+      await houseClick('#plan-direct-street',{app:'ensemble',room:'street'});
+      assert((await houseInspect()).scene.pose.target[2]>5.7,'The view from the entrance should face the opposite side of the street.');
+      await screenshot('house-street-from-door',width);
+      await click('#plan-origin');
+      await until('window.__siniverseHouse.inspect({fast:true}).scene.mode==="overview"','The return to the house did not settle.');
+      await socket.send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
+      await until('!window.__siniverseHouse.inspect({fast:true}).scene.ambientActive','Reduced motion did not stop the outdoor animation.');
+      await socket.send('Emulation.setEmulatedMedia',{features:[]});
+      await until('window.__siniverseHouse.inspect({fast:true}).scene.ambientActive','Outdoor animation did not resume.');
+    }
     const overviewPose=(await houseInspect()).scene.pose,overviewUrl=await socket.evaluate('location.href'),overviewHistory=await socket.evaluate('history.length');
     const overviewGesture=await canvasPoint('#plan-canvas');await dragPoint(overviewGesture,{x:overviewGesture.x+40,y:overviewGesture.y+10},{touch:mobile});
     assert(!near((await houseInspect()).scene.pose.position,overviewPose.position),'Free overview drag did not move the camera.');
@@ -265,6 +278,7 @@ async function run() {
     await click(exposedDoor?'#plan-door':'#plan-enter-house');
     await until('(()=>{const s=window.__siniverseHouse.inspect().scene;return s.mode==="walk"&&s.animationCount===0&&Math.abs(s.pose.position[2]-2.7)<.01})()','Entrance did not reach the office.');
     assert.equal((await houseInspect()).scene.pose.position[1],1.65);assert.equal((await houseInspect()).scene.journeyClear,true);
+    assert.equal((await houseInspect()).scene.ambientActive,false,'The outdoor scene kept rendering inside the office.');
     await screenshot('house-office-'+format,width);
 
     async function targetPoint(candidate){
